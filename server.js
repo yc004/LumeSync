@@ -106,6 +106,10 @@ const weightsDir = path.join(__dirname, 'public', 'weights');
 if (!fs.existsSync(libDir)) fs.mkdirSync(libDir, { recursive: true });
 if (!fs.existsSync(weightsDir)) fs.mkdirSync(weightsDir, { recursive: true });
 
+// 依赖映射表：filename -> publicSrc（由前端课件加载时注册）
+// 例如：'chart.umd.min.js' -> 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'
+const dependencyMap = {};
+
 // 下载并缓存的通用引擎
 const downloadAndCache = (url, dest, res) => {
     const client = url.startsWith('https') ? require('https') : require('http');
@@ -135,50 +139,61 @@ const downloadAndCache = (url, dest, res) => {
     });
 };
 
-// 代理 1：通用脚本代理 - 处理所有 /lib/ 下的脚本
+// 代理 1：通用资源代理 - 处理所有 /lib/ 下的资源（脚本、CSS、字体等）
+// 核心框架文件的固定 URL 映射（这些文件不是 npm 包或包名特殊，无法靠猜）
+const KNOWN_FILE_URLS = {
+    'tailwindcss.js':           'https://cdn.tailwindcss.com',
+    'fontawesome.all.min.css':  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+    'fa-solid-900.woff2':       'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2',
+    'fa-solid-900.ttf':         'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.ttf',
+    'fa-regular-400.woff2':     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-regular-400.woff2',
+    'fa-regular-400.ttf':       'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-regular-400.ttf',
+    'fa-brands-400.woff2':      'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-brands-400.woff2',
+    'fa-brands-400.ttf':        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-brands-400.ttf',
+    'react.development.js':     'https://unpkg.com/react@18/umd/react.development.js',
+    'react-dom.development.js': 'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
+    'babel.min.js':             'https://unpkg.com/@babel/standalone/babel.min.js',
+    'face-api.min.js':          'https://fastly.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js',
+};
+
 app.use('/lib/:fileName', (req, res) => {
     const fileName = req.params.fileName;
     const localPath = path.join(libDir, fileName);
     
-    // 特殊处理 face-api.js（使用固定版本）
-    if (fileName === 'face-api.min.js') {
-        // 欺骗前端引擎：当引擎发 HEAD 探测局域网通不通时，直接告诉它"我支持！"
-        if (req.method === 'HEAD') return res.status(200).end();
+    // 优先级：固定映射表 > 课件注册的 publicSrc > npm 包名猜测
+    let possibleUrls = [];
+    
+    if (KNOWN_FILE_URLS[fileName]) {
+        // 已知框架文件，使用固定 URL
+        possibleUrls = [KNOWN_FILE_URLS[fileName]];
+        console.log(`[缓存代理] 下载 ${fileName} (已知地址)...`);
+    } else if (dependencyMap[fileName]) {
+        // 课件注册的精确地址
+        possibleUrls = [dependencyMap[fileName]];
+        console.log(`[缓存代理] 下载 ${fileName} (课件注册地址)...`);
+    } else {
+        // 从文件名猜测 npm 包名
+        let packageName = fileName
+            .replace('.umd.min.js', '')
+            .replace('.min.js', '')
+            .replace('.js', '')
+            .replace('.css', '')
+            .replace('.woff2', '')
+            .replace('.woff', '')
+            .replace('.ttf', '')
+            .replace('.eot', '');
         
-        console.log(`[缓存代理] 自动帮您从公网抓取缺失脚本: face-api.min.js`);
-        const remoteUrl = 'https://fastly.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
-        return downloadAndCache(remoteUrl, localPath, res);
+        const packageMap = { 'chart': 'chart.js' };
+        packageName = packageMap[packageName] || packageName;
+        
+        possibleUrls = [
+            `https://cdn.jsdelivr.net/npm/${packageName}@latest/dist/${fileName}`,
+            `https://cdn.jsdelivr.net/npm/${packageName}@latest/${fileName}`,
+            `https://unpkg.com/${packageName}@latest/dist/${fileName}`,
+            `https://unpkg.com/${packageName}@latest/${fileName}`
+        ];
+        console.log(`[缓存代理] 下载 ${fileName}...`);
     }
-    
-    // 其他脚本使用通用下载逻辑
-    // 尝试从 jsdelivr CDN 下载
-    // 支持的格式：库名@版本号/路径
-    // 例如：chart.min.js -> chart.js@latest/dist/chart.min.js
-    // 例如：chart.umd.min.js -> chart.js@latest/dist/chart.umd.min.js
-    
-    // 从文件名提取包名（去掉 .umd.min.js / .min.js / .js 后缀）
-    let packageName = fileName
-        .replace('.umd.min.js', '')
-        .replace('.min.js', '')
-        .replace('.js', '');
-    
-    // 包名映射（文件名 -> npm 包名）
-    const packageMap = {
-        'chart': 'chart.js'
-    };
-    packageName = packageMap[packageName] || packageName;
-    
-    // 尝试多个可能的 CDN 路径
-    const possibleUrls = [
-        // jsdelivr CDN
-        `https://cdn.jsdelivr.net/npm/${packageName}@latest/dist/${fileName}`,
-        `https://cdn.jsdelivr.net/npm/${packageName}@latest/${fileName}`,
-        // unpkg CDN
-        `https://unpkg.com/${packageName}@latest/dist/${fileName}`,
-        `https://unpkg.com/${packageName}@latest/${fileName}`
-    ];
-    
-    console.log(`[缓存代理] 下载 ${fileName}...`);
     
     // 尝试从指定 URL 下载
     const tryDownloadFromUrl = (url, onSuccess, onError) => {
@@ -258,7 +273,77 @@ app.use('/lib/:fileName', (req, res) => {
     tryNextUrl(0);
 });
 
-// 代理 2：拦截所有的 AI 模型权重文件的请求
+// 代理 1.5：字体文件路由 - FontAwesome CSS 内部引用 /webfonts/xxx，转发到 /lib/ 目录
+// （FontAwesome CSS 中字体路径是相对路径 ../webfonts/，浏览器解析后变成 /webfonts/）
+app.use('/webfonts/:fileName', (req, res) => {
+    const fileName = req.params.fileName;
+    const localPath = path.join(libDir, fileName);
+    if (fs.existsSync(localPath)) {
+        return res.sendFile(localPath);
+    }
+    // 本地不存在，从 KNOWN_FILE_URLS 下载
+    const remoteUrl = KNOWN_FILE_URLS[fileName];
+    if (remoteUrl) {
+        console.log(`[缓存代理] 下载字体 ${fileName} (已知地址)...`);
+        return downloadAndCache(remoteUrl, localPath, res);
+    }
+    res.status(404).send('字体文件未找到');
+});
+
+// 代理 2：图片资源代理 - 处理 /images/ 下的外部图片
+const imagesDir = path.join(__dirname, 'public', 'images');
+if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+
+app.use('/images/proxy', (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) {
+        return res.status(400).send('缺少 url 参数');
+    }
+    
+    // 生成缓存文件名（使用 URL 的 hash）
+    const crypto = require('crypto');
+    const urlHash = crypto.createHash('md5').update(imageUrl).digest('hex');
+    const urlObj = new URL(imageUrl);
+    const ext = path.extname(urlObj.pathname) || '.jpg';
+    const cacheFileName = `${urlHash}${ext}`;
+    const cachePath = path.join(imagesDir, cacheFileName);
+    
+    // 如果已缓存，直接返回
+    if (fs.existsSync(cachePath)) {
+        return res.sendFile(cachePath);
+    }
+    
+    console.log(`[图片代理] 下载: ${imageUrl.substring(0, 60)}...`);
+    
+    // 下载图片
+    const client = imageUrl.startsWith('https') ? require('https') : require('http');
+    client.get(imageUrl, (response) => {
+        if (response.statusCode === 200) {
+            const fileStream = fs.createWriteStream(cachePath);
+            response.pipe(fileStream);
+            
+            fileStream.on('finish', () => {
+                fileStream.close();
+                console.log(`[图片代理] ✅ 已缓存: ${cacheFileName}`);
+                res.sendFile(cachePath);
+            });
+            
+            fileStream.on('error', (err) => {
+                console.error(`[图片代理] 保存失败: ${err.message}`);
+                if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+                res.status(500).send('图片保存失败');
+            });
+        } else {
+            console.error(`[图片代理] 下载失败: ${response.statusCode}`);
+            res.status(response.statusCode).send('图片下载失败');
+        }
+    }).on('error', (err) => {
+        console.error(`[图片代理] 请求失败: ${err.message}`);
+        res.status(500).send('图片请求失败');
+    });
+});
+
+// 代理 3：拦截所有的 AI 模型权重文件的请求
 app.use('/weights/:fileName', (req, res) => {
     if (req.method === 'HEAD') return res.status(200).end();
     
@@ -379,6 +464,18 @@ io.on('connection', (socket) => {
             currentSlideIndex = 0;
             console.log(`🏠 老师结束课程，返回课程选择界面`);
             io.emit('course-ended');
+        }
+    });
+
+    // 注册课件依赖映射（前端加载课程时发来，filename -> publicSrc）
+    // 服务端收到后会记住，下次 /lib/:fileName 找不到时直接从 publicSrc 下载
+    socket.on('register-dependencies', (deps) => {
+        if (Array.isArray(deps)) {
+            deps.forEach(({ filename, publicSrc }) => {
+                if (filename && publicSrc && !dependencyMap[filename]) {
+                    dependencyMap[filename] = publicSrc;
+                }
+            });
         }
     });
 

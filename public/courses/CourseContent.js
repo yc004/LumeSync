@@ -4,9 +4,9 @@
 
 const { useState, useEffect, useRef } = React;
 
-// 共用的人脸占位图
-const FACE_IMG_1 = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80";
-const FACE_IMG_2 = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80";
+// 共用的人脸占位图（使用图片代理服务，支持断网环境）
+const FACE_IMG_1 = "/images/proxy?url=https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80";
+const FACE_IMG_2 = "/images/proxy?url=https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80";
 
 // ================= SLIDE COMPONENTS =================
 

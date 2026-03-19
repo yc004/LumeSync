@@ -159,9 +159,10 @@ dependencies: [
 ```
 
 **工作原理：**
-1. 首次加载时，服务器自动从公网下载脚本到 `public/lib/` 目录
-2. 后续访问直接从局域网加载，速度提升 10-100 倍
-3. **注意**：`localSrc` 中的文件名需要与 CDN 上的实际文件名一致
+1. 课件加载时，系统自动将 `filename → publicSrc` 的映射注册到服务端
+2. 当 `/lib/` 下的文件不存在时，服务端用 `publicSrc` 精确地址自动下载并缓存
+3. 后续所有客户端直接从局域网加载，速度提升 10-100 倍
+4. **注意**：`localSrc` 中的文件名必须与 CDN 上的实际文件名一致（如 `chart.umd.min.js`，而不是 `chart.js`）
 
 **常用外部库：**
 
@@ -171,6 +172,29 @@ dependencies: [
 | KaTeX | 数学公式 | `https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js` | `katex.min.js` |
 | Prism.js | 代码高亮 | `https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js` | `prism.min.js` |
 | face-api.js | 人脸识别 | `https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js` | `face-api.min.js` |
+
+### 断网环境支持
+
+系统支持完全断网的教学环境，**核心框架**（React、Babel、Tailwind CSS、FontAwesome）和**课件依赖**均可自动处理：
+
+| 资源类型 | 处理方式 |
+|---------|---------|
+| 核心框架（React/Babel/Tailwind/FontAwesome） | 服务端有固定地址映射，首次访问自动下载 |
+| 课件声明的 `dependencies` | 服务端接收 `publicSrc` 注册后，首次访问自动下载 |
+| 外部图片 | 通过图片代理服务首次访问自动缓存 |
+
+**可选：课前批量预下载核心资源**（教师机需要联网）：
+```bash
+node download-resources.js
+```
+此命令预先下载 React、Babel、Tailwind、FontAwesome 等核心框架，适合在正式上课前提前准备，避免课中等待。课件自定义依赖无需手动预下载，首次打开课件时会自动拉取。
+
+**外部图片处理**：
+如果课件需要使用外部图片（如 Unsplash），使用图片代理服务：
+```javascript
+const IMAGE_URL = "/images/proxy?url=https://example.com/image.jpg";
+```
+图片会在首次访问时自动下载并缓存到 `public/images/`，断网后也可正常显示。
 
 ### modelsUrls 格式
 

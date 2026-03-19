@@ -580,6 +580,18 @@ function ClassroomApp() {
             if (window.CourseData) {
                 // 加载依赖
                 if (window.CourseData.dependencies && window.CourseData.dependencies.length > 0) {
+                    // 先将 filename -> publicSrc 映射注册给服务端
+                    // 这样服务端在找不到文件时能用精确 URL 下载，而不是猜测
+                    const depMappings = window.CourseData.dependencies
+                        .filter(d => d.localSrc && d.publicSrc)
+                        .map(d => ({
+                            filename: d.localSrc.split('/').pop(),
+                            publicSrc: d.publicSrc
+                        }));
+                    if (depMappings.length > 0) {
+                        socketRef.current.emit('register-dependencies', depMappings);
+                    }
+                    
                     for (const dep of window.CourseData.dependencies) {
                         await loadScriptWithFallback(dep.localSrc, dep.publicSrc);
                     }

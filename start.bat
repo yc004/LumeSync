@@ -101,6 +101,13 @@ if not exist "node_modules" (
     echo.
 )
 
+:: 下载外部资源（用于断网环境）
+if exist "download-resources.js" (
+    echo 📦 检查外部资源...
+    node download-resources.js
+    echo.
+)
+
 :: 检查并创建必要目录
 if not exist "public\courses" mkdir "public\courses"
 if not exist "public\lib" mkdir "public\lib"

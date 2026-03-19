@@ -5,20 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>互动课堂 - AI 教学系统</title>
 
-    <!-- 1. 引入 Tailwind CSS (用于页面样式) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 1. 引入 Tailwind CSS (优先局域网，自动缓存) -->
+    <script src="/lib/tailwindcss.js" onerror="this.src='https://cdn.tailwindcss.com'"></script>
 
-    <!-- 2. 引入 FontAwesome 图标库 (框架中用到了很多图标) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 2. 引入 FontAwesome 图标库 (优先局域网，自动缓存) -->
+    <link rel="stylesheet" href="/lib/fontawesome.all.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
 
-    <!-- 3. 引入 React 和 ReactDOM (核心库) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- 3. 引入 React 和 ReactDOM (优先局域网，自动缓存) -->
+    <script crossorigin src="/lib/react.development.js" onerror="this.src='https://unpkg.com/react@18/umd/react.development.js'"></script>
+    <script crossorigin src="/lib/react-dom.development.js" onerror="this.src='https://unpkg.com/react-dom@18/umd/react-dom.development.js'"></script>
 
-    <!-- 4. 引入 Babel (用于在浏览器中直接把 JSX 语法翻译成普通的 JS) -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 4. 引入 Babel (优先局域网，自动缓存) -->
+    <script src="/lib/babel.min.js" onerror="this.src='https://unpkg.com/@babel/standalone/babel.min.js'"></script>
 
-    <!-- 5. 引入 Socket.io 客户端 (由你的 Node.js 后端自动提供) -->
+    <!-- 5. 引入 Socket.io 客户端 (由 Node.js 后端自动提供) -->
     <script src="/socket.io/socket.io.js"></script>
 
     <style>

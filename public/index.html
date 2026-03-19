@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互动课堂 - 深度学习基础</title>
+
+    <!-- 1. 引入 Tailwind CSS (用于页面样式) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 2. 引入 FontAwesome 图标库 (框架中用到了很多图标) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 3. 引入 React 和 ReactDOM (核心库) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- 4. 引入 Babel (用于在浏览器中直接把 JSX 语法翻译成普通的 JS) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 5. 引入 Socket.io 客户端 (由你的 Node.js 后端自动提供) -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        /* 隐藏滚动条的小插件，用于画布区域 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-900">
+    
+    <!-- React 会把所有的界面渲染到这个 div 里面 -->
+    <div id="root"></div>
+
+    <!-- 6. 按顺序引入你刚才剥离出来的文件 -->
+    <!-- 必须加 type="text/babel"，告诉 Babel 这两个文件里有 React(JSX) 代码需要编译 -->
+    
+    <!-- 先引入引擎：它会把 window.SyncClassroom 准备好 -->
+    <script type="text/babel" src="/SyncEngine.js"></script>
+    
+    <!-- 后引入内容：它会使用 window.SyncClassroom 并把它渲染到页面上 -->
+    <script type="text/babel" src="/CourseContent.js"></script>
+
+</body>
+</html>

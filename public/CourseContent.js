@@ -1,0 +1,1766 @@
+// ========================================================
+// 🎨 课程内容编辑区 - 当前课程：深度学习与人脸识别 (完整互动版)
+// ========================================================
+
+const { useState, useEffect, useRef } = React;
+
+// 共用的人脸占位图
+const FACE_IMG_1 = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80";
+const FACE_IMG_2 = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80";
+
+// ================= SLIDE COMPONENTS =================
+
+function CNNPipeline({ active }) {
+    return (
+        <div className="flex items-center space-x-2 md:space-x-4 mb-6 text-sm md:text-base font-bold bg-slate-50 px-4 md:px-5 py-2.5 rounded-2xl shadow-sm border border-slate-200 w-max mx-auto md:mx-0 shrink-0">
+            <div className={`px-3 md:px-4 py-2 rounded-xl flex items-center transition-all ${active === 1 ? 'bg-blue-500 text-white shadow-md scale-105' : 'text-slate-500 bg-white border border-slate-200'}`}>
+                <div className="w-6 md:w-7 h-6 md:h-7 rounded-full bg-white/20 flex items-center justify-center mr-2 border border-current">1</div>
+                卷积层 (提取特征)
+            </div>
+            <i className="fas fa-arrow-right text-slate-300 md:text-xl"></i>
+            <div className={`px-3 md:px-4 py-2 rounded-xl flex items-center transition-all ${active === 2 ? 'bg-green-500 text-white shadow-md scale-105' : 'text-slate-500 bg-white border border-slate-200'}`}>
+                <div className="w-6 md:w-7 h-6 md:h-7 rounded-full bg-white/20 flex items-center justify-center mr-2 border border-current">2</div>
+                池化层 (浓缩降维)
+            </div>
+            <i className="fas fa-arrow-right text-slate-300 md:text-xl"></i>
+            <div className={`px-3 md:px-4 py-2 rounded-xl flex items-center transition-all ${active === 3 ? 'bg-purple-500 text-white shadow-md scale-105' : 'text-slate-500 bg-white border border-slate-200'}`}>
+                <div className="w-6 md:w-7 h-6 md:h-7 rounded-full bg-white/20 flex items-center justify-center mr-2 border border-current">3</div>
+                全连接层 (综合判断)
+            </div>
+        </div>
+    );
+}
+
+function IntroSlide() {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-full text-center p-8 md:p-12 space-y-8 md:space-y-10 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+            <div className="w-32 md:w-40 h-32 md:h-40 bg-blue-100 rounded-full flex items-center justify-center shadow-inner border-4 border-white shrink-0">
+                <i className="fas fa-user-check text-blue-600 text-6xl md:text-[80px] drop-shadow-md"></i>
+            </div>
+            <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 tracking-tight">
+                计算机如何“看懂”人脸？
+            </h1>
+            <h2 className="text-xl md:text-3xl font-bold text-slate-600 mt-4 md:mt-6 tracking-wide">
+                从机器学习到深度学习的跨越
+            </h2>
+            <p className="max-w-3xl text-lg md:text-xl text-slate-500 mt-6 md:mt-8 leading-relaxed bg-white/80 p-6 md:p-8 rounded-2xl shadow-sm backdrop-blur-md border border-slate-100">
+                大家想一想，手机是怎么瞬间认出你的脸并解锁的？<br/><br/>
+                今天，我们将踏上一段神奇的旅程，<strong className="text-blue-600">探索 AI 是如何拥有“视觉”的！</strong>
+            </p>
+        </div>
+    );
+}
+
+function ReviewSlide() {
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6 md:mb-8 flex items-center shrink-0">
+                <i className="fas fa-history mr-4 text-orange-500"></i> 回顾上节课：机器学习（水果分类）
+            </h2>
+            
+            <div className="bg-orange-50 p-6 md:p-8 rounded-2xl shadow-sm border border-orange-100 mb-6 md:mb-10 shrink-0">
+                <h3 className="text-xl md:text-2xl font-bold text-slate-700 mb-4 md:mb-6 border-b border-orange-200 pb-3">🍎 任务：区分苹果和香蕉</h3>
+                <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-4 md:gap-6 text-lg md:text-xl font-medium text-slate-600 py-4 md:py-6">
+                    <div className="flex flex-col items-center"><i className="fas fa-image text-4xl md:text-5xl mb-3 text-slate-400"></i><span>输入图片</span></div>
+                    <i className="fas fa-arrow-right text-orange-400 text-2xl md:text-3xl hidden md:block"></i>
+                    <div className="bg-orange-100 text-orange-800 px-6 md:px-8 py-4 md:py-5 rounded-xl border-2 border-orange-300 shadow-sm relative text-center">
+                        <strong>计算人工设计的特征</strong><br/>
+                        <span className="text-sm md:text-base font-normal text-orange-600 mt-2 block">（计算机按人类给的公式算：红色的比例、圆形的程度）</span>
+                        <span className="absolute -top-4 -right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs md:text-sm font-bold shadow-md animate-bounce">关键限制!</span>
+                    </div>
+                    <i className="fas fa-arrow-right text-orange-400 text-2xl md:text-3xl hidden md:block"></i>
+                    <div className="flex flex-col items-center"><i className="fas fa-robot text-4xl md:text-5xl mb-3 text-slate-400"></i><span>分类器预测</span></div>
+                </div>
+            </div>
+
+            <div className="bg-blue-50 p-6 md:p-8 rounded-2xl shadow-sm border border-blue-100 flex-1 flex flex-col justify-center min-h-[150px]">
+                <h3 className="text-2xl md:text-3xl font-bold text-blue-800 mb-4 md:mb-6 flex items-center">
+                    <i className="fas fa-question-circle mr-3 text-blue-600"></i> 遇到新挑战：人脸识别
+                </h3>
+                <p className="text-lg md:text-xl text-slate-700 leading-relaxed">
+                    如果今天的任务变成了<strong>“认出这是谁的脸”</strong>，我们还能像分水果那样，人工写出简单的公式让计算机去算吗？<br/><br/>
+                    <span className="text-red-500 font-black text-xl md:text-2xl">太难了！</span> 人脸的特征极其微妙和复杂，依靠人类“写公式”来定义什么是眼睛、什么是鼻子几乎是不可能的。<br/><br/>
+                    为了打破“人工写公式”的瓶颈，我们需要引入今天的主角——<strong className="text-blue-700 text-xl md:text-2xl">深度学习 (Deep Learning)</strong>！
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function MLvsDLSlide() {
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4 md:mb-8 flex items-center shrink-0">
+                <i className="fas fa-layer-group mr-4 text-blue-500"></i> 核心区别：深度学习到底“深”在哪？
+            </h2>
+
+            <div className="flex-1 flex flex-col justify-center gap-10 md:gap-16 max-w-6xl mx-auto w-full py-8">
+                {/* 传统机器学习流程 */}
+                <div className="flex items-center space-x-4 md:space-x-6">
+                    <div className="w-28 md:w-40 text-center font-bold text-orange-600 text-sm md:text-xl shrink-0">传统机器学习<br/><span className="text-xs md:text-base font-normal text-slate-500">(单层/浅层)</span></div>
+                    <div className="flex-1 bg-orange-50 rounded-2xl p-4 md:p-8 border-2 border-orange-200 flex items-center justify-between shadow-sm relative transition-transform hover:scale-[1.01]">
+                        <div className="flex flex-col items-center w-16 md:w-28 shrink-0">
+                            <i className="fas fa-apple-alt text-3xl md:text-5xl text-red-500 mb-2 md:mb-3"></i>
+                            <span className="text-xs md:text-base font-bold text-slate-700">输入图片</span>
+                        </div>
+                        <i className="fas fa-arrow-right text-orange-300 text-2xl md:text-4xl shrink-0 mx-2"></i>
+                        <div className="flex flex-col items-center bg-white p-3 md:p-5 rounded-xl border-2 border-orange-400 shadow-md relative z-10 w-32 md:w-56 shrink-0">
+                            <i className="fas fa-cogs text-3xl md:text-5xl text-orange-500 mb-2 md:mb-3"></i>
+                            <span className="font-bold text-slate-800 text-sm md:text-lg">执行预设规则</span>
+                            <span className="text-[10px] md:text-sm text-slate-500 mt-1 md:mt-2 text-center">按<strong className="text-orange-600">人类公式</strong>提取特征</span>
+                        </div>
+                        <i className="fas fa-arrow-right text-orange-300 text-2xl md:text-4xl shrink-0 mx-2"></i>
+                        <div className="flex flex-col items-center bg-white p-3 md:p-5 rounded-xl border-2 border-slate-200 shadow-sm w-20 md:w-36 shrink-0">
+                            <i className="fas fa-laptop-code text-3xl md:text-5xl text-slate-600 mb-2 md:mb-3"></i>
+                            <span className="font-bold text-slate-800 text-sm md:text-lg">分类器</span>
+                        </div>
+                        <i className="fas fa-arrow-right text-orange-300 text-2xl md:text-4xl shrink-0 mx-2"></i>
+                        <div className="w-16 md:w-28 text-center font-bold text-slate-800 text-sm md:text-xl shrink-0">输出</div>
+                    </div>
+                </div>
+
+                {/* 深度学习流程 */}
+                <div className="flex items-center space-x-4 md:space-x-6">
+                    <div className="w-28 md:w-40 text-center font-bold text-purple-600 text-sm md:text-xl shrink-0">深度学习<br/><span className="text-xs md:text-base font-normal text-slate-500">(深层网络)</span></div>
+                    <div className="flex-1 bg-purple-50 rounded-2xl p-4 md:p-8 border-2 border-purple-200 flex items-center justify-between shadow-sm relative transition-transform hover:scale-[1.01] mt-6 md:mt-0">
+                        <div className="absolute -top-4 md:-top-5 left-1/2 transform -translate-x-1/2 bg-purple-500 text-white px-4 md:px-6 py-1 md:py-1.5 rounded-full text-xs md:text-base font-bold shadow-lg animate-pulse border-2 border-white whitespace-nowrap z-20">
+                            🌟 逐层自动探索，自己发现规律！
+                        </div>
+                        <div className="flex flex-col items-center w-16 md:w-28 shrink-0">
+                            <i className="fas fa-user text-3xl md:text-5xl text-blue-500 mb-2 md:mb-3"></i>
+                            <span className="text-xs md:text-base font-bold text-slate-700">输入图片</span>
+                        </div>
+                        <i className="fas fa-arrow-right text-purple-300 text-2xl md:text-4xl shrink-0 mx-2"></i>
+                        <div className="flex-1 mx-2 md:mx-6 flex flex-col items-center justify-center bg-white p-3 md:p-5 rounded-xl shadow-lg border-4 border-purple-300 relative min-w-[280px] shrink-0">
+                            <span className="font-black text-sm md:text-xl text-purple-800 mb-2 md:mb-4">深度神经网络 (自己摸索特征)</span>
+                            <div className="flex items-center w-full justify-between text-xs md:text-base font-medium">
+                                <div className="flex flex-col items-center bg-purple-50 p-2 md:p-3 rounded-lg flex-1 text-center border border-purple-100 shadow-sm min-w-0">
+                                    <i className="fas fa-slash text-lg md:text-2xl text-purple-400 mb-1 md:mb-2"></i>
+                                    <span className="text-purple-800 font-bold text-[10px] md:text-sm whitespace-nowrap">浅层网络</span>
+                                </div>
+                                <i className="fas fa-chevron-right text-purple-300 text-sm md:text-xl shrink-0 px-1 md:px-3"></i>
+                                <div className="flex flex-col items-center bg-purple-100 p-2 md:p-3 rounded-lg flex-1 text-center border border-purple-200 shadow-sm min-w-0">
+                                    <i className="fas fa-eye text-lg md:text-2xl text-purple-500 mb-1 md:mb-2"></i>
+                                    <span className="text-purple-800 font-bold text-[10px] md:text-sm whitespace-nowrap">中层网络</span>
+                                </div>
+                                <i className="fas fa-chevron-right text-purple-300 text-sm md:text-xl shrink-0 px-1 md:px-3"></i>
+                                <div className="flex flex-col items-center bg-purple-200 p-2 md:p-3 rounded-lg flex-1 text-center border border-purple-300 shadow-sm min-w-0">
+                                    <i className="fas fa-user-circle text-lg md:text-2xl text-purple-600 mb-1 md:mb-2"></i>
+                                    <span className="text-purple-800 font-bold text-[10px] md:text-sm whitespace-nowrap">深层网络</span>
+                                </div>
+                            </div>
+                        </div>
+                        <i className="fas fa-arrow-right text-purple-300 text-2xl md:text-4xl shrink-0 mx-2"></i>
+                        <div className="w-16 md:w-28 text-center font-bold text-slate-800 text-sm md:text-xl shrink-0">输出</div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-6 md:mt-8 bg-blue-50 p-4 md:p-6 rounded-xl border border-blue-100 text-center shadow-inner shrink-0">
+                <p className="text-base md:text-xl text-slate-700 leading-relaxed">
+                    <i className="fas fa-lightbulb text-yellow-500 text-2xl md:text-3xl mr-2 md:mr-3 align-middle"></i>
+                    <strong>深度思考：</strong> 虽然都是计算机在提取特征，但传统机器学习是<strong className="text-orange-600">“计算机老老实实按人类指定的规则去算”</strong>。<br/>而深度学习的“深”在于网络层数多，计算机能<strong className="text-purple-600">“抛弃人类成见，像搭积木一样自己去摸索特征，从简单的线条一步步拼凑出复杂的概念”</strong>！
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function VisionProcessSlide() {
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4 flex items-center shrink-0">
+                <i className="fas fa-project-diagram mr-4 text-blue-500"></i> 机器视觉的通用流程（进化）
+            </h2>
+            <p className="text-slate-600 mb-6 md:mb-10 text-lg md:text-xl shrink-0">
+                不管是上节课的“水果”，还是这节课的“人脸”，机器视觉的<strong>总流程</strong>是相似的。<br/>
+                最大的区别在于核心步骤：提取特征时的<strong>规则是从哪里来的</strong>？
+            </p>
+
+            <div className="flex-1 overflow-x-auto flex items-center justify-center no-scrollbar">
+                <table className="w-full min-w-[700px] max-w-5xl text-left border-collapse rounded-xl overflow-hidden shadow-xl border border-slate-200">
+                    <thead>
+                        <tr className="bg-blue-600 text-white text-lg md:text-xl">
+                            <th className="p-4 md:p-6 w-1/4">通用步骤</th>
+                            <th className="p-4 md:p-6 w-3/8 bg-orange-600 border-l border-white/20">上节课：机器学习（水果）</th>
+                            <th className="p-4 md:p-6 w-3/8 bg-purple-600 border-l border-white/20">本节课：深度学习（人脸）</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white text-base md:text-xl">
+                        <tr className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                            <td className="p-4 md:p-6 font-bold text-slate-700">1. 图像获取</td>
+                            <td className="p-4 md:p-6 text-slate-600 border-l border-slate-100">输入苹果/香蕉图片</td>
+                            <td className="p-4 md:p-6 text-slate-600 border-l border-slate-100">输入你的脸部照片</td>
+                        </tr>
+                        <tr className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                            <td className="p-4 md:p-6 font-bold text-blue-700 bg-blue-50/50">2. 特征提取 (核心)</td>
+                            <td className="p-4 md:p-6 text-slate-700 bg-orange-50/50 border-l border-orange-100">计算机根据<strong>人类总结的公式</strong>提取特征<br/><span className="text-sm md:text-base text-slate-500 mt-2 block">（代码写死：算红的面积、圆的比例）</span></td>
+                            <td className="p-4 md:p-6 text-slate-700 bg-purple-50/50 border-l border-purple-100">计算机利用<strong>深度网络自行摸索</strong>复杂特征<br/><span className="text-sm md:text-base text-slate-500 mt-2 block">（网络自己分层学习：线条 → 五官 → 人脸）</span></td>
+                        </tr>
+                        <tr className="hover:bg-slate-50 transition-colors">
+                            <td className="p-4 md:p-6 font-bold text-slate-700">3. 分类与输出</td>
+                            <td className="p-4 md:p-6 text-slate-600 border-l border-slate-100">简单算法判断分类</td>
+                            <td className="p-4 md:p-6 text-slate-600 border-l border-slate-100">全连接层综合打分输出</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+function PixelSlide() {
+    const [grid, setGrid] = useState(Array(5).fill(Array(5).fill(0)));
+
+    const togglePixel = (r, c) => {
+        const newGrid = grid.map((row, rIdx) =>
+            row.map((val, cIdx) => (rIdx === r && cIdx === c ? (val === 0 ? 1 : 0) : val))
+        );
+        setGrid(newGrid);
+    };
+
+    const drawLetterA = () => {
+        setGrid([
+            [0, 1, 1, 1, 0],
+            [1, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1],
+            [1, 0, 0, 0, 1],
+        ]);
+    };
+
+    const clearGrid = () => {
+        setGrid(Array(5).fill(Array(5).fill(0)));
+    };
+
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4 flex items-center shrink-0">
+                <i className="fas fa-desktop mr-4 text-blue-500"></i> 图像编码与像素 (Pixels)
+            </h2>
+            <p className="text-slate-600 mb-6 md:mb-10 text-lg md:text-xl shrink-0">
+                计算机不认识图片，它只认识数字。图片是由一个个小方块组成的，这就是<strong>像素 (Pixel)</strong>。<br />
+                <strong>【黑白图像编码规则】</strong>：有墨水(黑)记为 <code>1</code>，无墨水(白)记为 <code>0</code>。<br />
+                你可以在左侧网格画图进行<strong>编码</strong>，也可以让同桌看着右侧的数字代码，尝试<strong>解码</strong>猜出你画了什么！
+            </p>
+
+            <div className="flex flex-col md:flex-row flex-1 items-center justify-center space-y-8 md:space-y-0 md:space-x-16 lg:space-x-24">
+                <div className="flex flex-col items-center shrink-0">
+                    <div className="grid grid-cols-5 gap-1 p-2 md:p-3 bg-slate-200 rounded-xl shadow-inner">
+                        {grid.map((row, r) =>
+                            row.map((val, c) => (
+                                <div
+                                    key={`${r}-${c}`}
+                                    onClick={() => togglePixel(r, c)}
+                                    className={`w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 cursor-pointer border-2 rounded transition-colors duration-200 ${
+                                        val === 1 ? 'bg-slate-800 border-slate-900' : 'bg-white border-slate-300 hover:bg-slate-100'
+                                    }`}
+                                />
+                            ))
+                        )}
+                    </div>
+                    <div className="mt-6 space-x-4 md:space-x-6">
+                        <button onClick={drawLetterA} className="px-4 md:px-6 py-2 md:py-3 bg-blue-100 text-blue-700 rounded-lg font-bold hover:bg-blue-200 shadow-sm text-base md:text-lg transition-transform hover:scale-105">
+                            一键画 'A'
+                        </button>
+                        <button onClick={clearGrid} className="px-4 md:px-6 py-2 md:py-3 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-bold shadow-sm text-base md:text-lg transition-transform hover:scale-105">
+                            清空网格
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-slate-800 p-6 md:p-10 rounded-2xl shadow-2xl w-72 md:w-96 shrink-0">
+                    <h3 className="text-green-400 font-mono text-xl md:text-2xl mb-4 md:mb-6 border-b border-green-800 pb-3 font-bold">计算机眼中的数据：</h3>
+                    <div className="font-mono text-xl md:text-2xl text-green-300 tracking-[0.3em] md:tracking-[0.5em] space-y-2 md:space-y-3 leading-loose text-center">
+                        {grid.map((row, r) => (
+                            <div key={r}>
+                                {row.map((val) => (val === 1 ? '1' : '0')).join('')}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-6 md:mt-8 text-slate-400 text-sm md:text-base border-t border-slate-700 pt-4 md:pt-6">
+                        <p><span className="text-white font-bold">1</span> = 黑色 (有数据)</p>
+                        <p><span className="text-slate-500 font-bold">0</span> = 白色 (无数据)</p>
+                        <div className="mt-4 md:mt-6 p-3 md:p-4 bg-slate-700 rounded-xl shadow-inner border border-slate-600">
+                            <p className="text-white font-bold mb-1 md:mb-2 text-base md:text-lg"><i className="fas fa-palette text-pink-400 mr-2"></i> 彩色图像怎么存？</p>
+                            <p className="text-xs md:text-sm text-slate-300 leading-relaxed">请点击<strong>“下一页”</strong>，亲自调个色！</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function RGBSlide() {
+    const [color, setColor] = useState({ r: 255, g: 165, b: 0 }); // 默认橘色
+    const setPreset = (r, g, b) => setColor({ r, g, b });
+
+    // 生成一个 6x6 的彩色图案（笑脸）数据
+    const bg = {r: 226, g: 232, b: 240}; // 浅灰背景
+    const yw = {r: 253, g: 224, b: 71};  // 黄色脸庞
+    const bk = {r: 30, g: 41, b: 59};    // 深色眼睛嘴巴
+    const pk = {r: 244, g: 114, b: 182}; // 粉色腮红
+
+    const tinyImage = [
+        [bg, bg, yw, yw, bg, bg],
+        [bg, yw, bk, yw, bk, bg],
+        [yw, yw, yw, yw, yw, yw],
+        [yw, pk, yw, yw, pk, yw],
+        [bg, yw, bk, bk, yw, bg],
+        [bg, bg, yw, yw, bg, bg],
+    ];
+
+    const [hoveredPixel, setHoveredPixel] = useState(null);
+
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4 flex items-center shrink-0">
+                <i className="fas fa-palette mr-4 text-pink-500"></i> 进阶：彩色图像如何编码？(RGB)
+            </h2>
+            <p className="text-slate-600 mb-6 md:mb-10 text-lg md:text-xl shrink-0">
+                在计算机里，每一个彩色像素由<strong>红(R)、绿(G)、蓝(B)</strong>三个数字（0~255）混合而成。<br/>
+                而一整张彩色图片，就是由成百上千个这样的 RGB 像素点拼接而成的巨大<strong>三维数字矩阵</strong>！
+            </p>
+
+            <div className="flex flex-col lg:flex-row flex-1 gap-6 md:gap-10">
+                {/* 左侧：微观视角（单个像素） */}
+                <div className="lg:w-1/2 bg-slate-50 p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col shrink-0">
+                    <h3 className="font-bold text-slate-700 mb-6 md:mb-8 border-b pb-3 flex items-center text-xl md:text-2xl shrink-0">
+                        <i className="fas fa-search-plus text-blue-500 mr-3"></i> 微观：调配 1 个像素
+                    </h3>
+                    <div className="flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-10 items-center flex-1">
+                        <div className="flex-1 w-full">
+                            <div className="mb-4 md:mb-6">
+                                <label className="flex justify-between text-red-600 font-bold mb-1 md:mb-2 text-base md:text-lg">
+                                    <span>红 (R)</span> <span>{color.r}</span>
+                                </label>
+                                <input type="range" min="0" max="255" value={color.r} onChange={(e) => setColor({...color, r: parseInt(e.target.value)})} className="w-full accent-red-500 h-2" />
+                            </div>
+                            <div className="mb-4 md:mb-6">
+                                <label className="flex justify-between text-green-600 font-bold mb-1 md:mb-2 text-base md:text-lg">
+                                    <span>绿 (G)</span> <span>{color.g}</span>
+                                </label>
+                                <input type="range" min="0" max="255" value={color.g} onChange={(e) => setColor({...color, g: parseInt(e.target.value)})} className="w-full accent-green-500 h-2" />
+                            </div>
+                            <div className="mb-4 md:mb-6">
+                                <label className="flex justify-between text-blue-600 font-bold mb-1 md:mb-2 text-base md:text-lg">
+                                    <span>蓝 (B)</span> <span>{color.b}</span>
+                                </label>
+                                <input type="range" min="0" max="255" value={color.b} onChange={(e) => setColor({...color, b: parseInt(e.target.value)})} className="w-full accent-blue-500 h-2" />
+                            </div>
+                            <div className="flex space-x-2 md:space-x-4 font-bold mt-6 md:mt-8">
+                                <button onClick={() => setPreset(255, 0, 0)} className="flex-1 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 shadow-sm">纯红</button>
+                                <button onClick={() => setPreset(0, 255, 0)} className="flex-1 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 shadow-sm">纯绿</button>
+                                <button onClick={() => setPreset(0, 0, 255)} className="flex-1 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 shadow-sm">纯蓝</button>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-center w-full md:w-40 shrink-0">
+                            <div 
+                                className="w-24 h-24 md:w-32 md:h-32 rounded-2xl shadow-inner border-4 border-slate-300 transition-colors duration-100"
+                                style={{ backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})` }}
+                            ></div>
+                            <div className="mt-4 md:mt-5 font-mono text-base md:text-lg font-bold bg-slate-800 text-white py-2 px-3 rounded-lg w-full text-center tracking-wide">
+                                [{color.r}, {color.g}, {color.b}]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 右侧：宏观视角（整张图像） */}
+                <div className="lg:w-1/2 bg-blue-50 p-6 md:p-8 rounded-2xl border border-blue-100 shadow-sm flex flex-col relative overflow-hidden shrink-0">
+                    <h3 className="font-bold text-slate-700 mb-6 md:mb-8 border-b border-blue-200 pb-3 flex items-center text-xl md:text-2xl shrink-0">
+                        <i className="fas fa-image text-purple-500 mr-3"></i> 宏观：拼成 1 张图片
+                    </h3>
+                    
+                    <div className="flex flex-col md:flex-row flex-1 items-center justify-between px-2 md:px-4 gap-6">
+                        {/* 像素阵列 */}
+                        <div className="flex flex-col items-center">
+                            <div className="grid grid-cols-6 gap-0 border-2 border-slate-400 bg-slate-400 p-px rounded shadow-lg">
+                                {tinyImage.map((row, rIdx) => 
+                                    row.map((px, cIdx) => (
+                                        <div 
+                                            key={`${rIdx}-${cIdx}`}
+                                            onMouseEnter={() => setHoveredPixel({rowIdx: rIdx, colIdx: cIdx, ...px})}
+                                            onMouseLeave={() => setHoveredPixel(null)}
+                                            className="w-8 h-8 md:w-12 md:h-12 hover:scale-110 hover:shadow-xl hover:z-10 transition-transform cursor-crosshair border border-black/5"
+                                            style={{ backgroundColor: `rgb(${px.r}, ${px.g}, ${px.b})` }}
+                                        ></div>
+                                    ))
+                                )}
+                            </div>
+                            <p className="text-xs md:text-sm text-slate-600 mt-4 md:mt-5 font-bold bg-white/60 px-3 md:px-4 py-2 rounded-lg border border-slate-200">👈 鼠标滑过像素查看数据</p>
+                        </div>
+
+                        {/* 读取的数据展示 */}
+                        <div className="w-full md:w-56 md:ml-6 shrink-0">
+                            {hoveredPixel ? (
+                                <div className="bg-slate-800 p-5 md:p-6 rounded-2xl text-white shadow-2xl transform transition-all">
+                                    <p className="text-xs md:text-sm text-slate-400 mb-3 md:mb-4 border-b border-slate-600 pb-2 font-bold">
+                                        第 {hoveredPixel.rowIdx + 1} 行, 第 {hoveredPixel.colIdx + 1} 列
+                                    </p>
+                                    <div className="flex items-center space-x-4">
+                                        <div 
+                                            className="w-10 h-10 md:w-12 md:h-12 rounded border-2 border-slate-500 shadow-inner"
+                                            style={{ backgroundColor: `rgb(${hoveredPixel.r}, ${hoveredPixel.g}, ${hoveredPixel.b})` }}
+                                        ></div>
+                                        <div className="font-mono text-base md:text-lg font-bold leading-relaxed">
+                                            <div className="text-red-400">R: {hoveredPixel.r}</div>
+                                            <div className="text-green-400">G: {hoveredPixel.g}</div>
+                                            <div className="text-blue-400">B: {hoveredPixel.b}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-white/60 p-5 md:p-6 rounded-2xl text-slate-500 border border-slate-200 h-[120px] md:h-[140px] flex flex-col justify-center items-center text-sm md:text-base text-center font-bold">
+                                    <i className="fas fa-mouse-pointer text-2xl md:text-3xl mb-2 md:mb-3 text-slate-300"></i>
+                                    <span>将鼠标停留在<br/>左侧图片上</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 核心总结 */}
+                    <div className="mt-6 md:mt-8 bg-purple-100 p-3 md:p-4 rounded-xl border border-purple-200 shrink-0">
+                        <p className="text-sm md:text-base text-purple-800 leading-relaxed font-bold">
+                            <i className="fas fa-brain mr-2 text-purple-600 text-lg md:text-xl align-middle"></i> 
+                            这张极简小图背后有 6×6×3 = 108 个数字！真实的高清人脸包含几百万个数字矩阵。人工找规律已经瘫痪，必须依靠强大的 CNN 上场！
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function CNNIntroSlide() {
+    return (
+        <div className="flex flex-col min-h-full p-8 md:p-12 justify-center items-center text-center bg-white overflow-y-auto no-scrollbar">
+            <i className="fas fa-layer-group text-indigo-500 text-6xl md:text-[80px] mb-6 md:mb-8 drop-shadow-md"></i>
+            <h2 className="text-3xl md:text-5xl font-extrabold text-slate-800 mb-6 md:mb-8">卷积神经网络 (CNN) 的三把利器</h2>
+            <p className="text-lg md:text-2xl text-slate-600 max-w-4xl leading-relaxed mb-10 md:mb-16">
+                知道了图像是数字后，计算机如何从成千上万的数字中认出这是“眼睛”还是“鼻子”呢？<br/>
+                科学家发明了强大的工具——<strong>卷积神经网络 (CNN)</strong>。它就像工厂流水线，分为三个主要车间：
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10 w-full max-w-6xl">
+                <div className="bg-blue-50 p-6 md:p-8 rounded-2xl border-2 border-blue-100 shadow-md flex flex-col items-center hover:-translate-y-2 transition-transform">
+                    <div className="bg-blue-500 text-white w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center font-black text-xl md:text-2xl mb-4 md:mb-6 shadow-md border-4 border-white shrink-0">1</div>
+                    <h3 className="text-xl md:text-2xl font-bold text-blue-800 mb-3 md:mb-4">卷积层</h3>
+                    <p className="text-slate-700 text-sm md:text-base leading-relaxed">就像特征放大镜，拿着特定模板在图片上滑动，提取<strong>人脸边缘、五官轮廓</strong>等基础特征。</p>
+                </div>
+                <div className="bg-green-50 p-6 md:p-8 rounded-2xl border-2 border-green-100 shadow-md flex flex-col items-center hover:-translate-y-2 transition-transform">
+                    <div className="bg-green-500 text-white w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center font-black text-xl md:text-2xl mb-4 md:mb-6 shadow-md border-4 border-white shrink-0">2</div>
+                    <h3 className="text-xl md:text-2xl font-bold text-green-800 mb-3 md:mb-4">池化层</h3>
+                    <p className="text-slate-700 text-sm md:text-base leading-relaxed">相当于眯着眼睛看，压缩数据大小，比如只保留<strong>眼睛或鼻尖的最强信号</strong>（浓缩精华）。</p>
+                </div>
+                <div className="bg-purple-50 p-6 md:p-8 rounded-2xl border-2 border-purple-100 shadow-md flex flex-col items-center hover:-translate-y-2 transition-transform">
+                    <div className="bg-purple-500 text-white w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center font-black text-xl md:text-2xl mb-4 md:mb-6 shadow-md border-4 border-white shrink-0">3</div>
+                    <h3 className="text-xl md:text-2xl font-bold text-purple-800 mb-3 md:mb-4">全连接层</h3>
+                    <p className="text-slate-700 text-sm md:text-base leading-relaxed">像法官一样收集所有浓缩特征，组合在一起判断这组特征<strong>最终属于哪个人脸</strong>。</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ConvolutionSlide() {
+    const inputImages = {
+        vertical: {
+            name: "📏 竖线图像",
+            data: [
+                [0, 0, 1, 0, 0],
+                [0, 0, 1, 0, 0],
+                [0, 0, 1, 0, 0],
+                [0, 0, 1, 0, 0],
+                [0, 0, 1, 0, 0],
+            ]
+        },
+        horizontal: {
+            name: "➖ 横线图像",
+            data: [
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [1, 1, 1, 1, 1],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        },
+        diagonal: {
+            name: "📐 斜线图像",
+            data: [
+                [1, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0],
+                [0, 0, 1, 0, 0],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1],
+            ]
+        }
+    };
+
+    const kernels = {
+        vertical: {
+            name: "找竖线的模板",
+            data: [
+                [-2, 3, -2],
+                [-2, 3, -2],
+                [-2, 3, -2],
+            ]
+        },
+        horizontal: {
+            name: "找横线的模板",
+            data: [
+                [-2, -2, -2],
+                [ 3,  3,  3],
+                [-2, -2, -2],
+            ]
+        },
+        diagonal: {
+            name: "找斜线的模板",
+            data: [
+                [ 3, -2, -2],
+                [-2,  3, -2],
+                [-2, -2,  3],
+            ]
+        }
+    };
+
+    const [selectedInput, setSelectedInput] = useState('vertical');
+    const [selectedKernel, setSelectedKernel] = useState('vertical');
+    
+    const [step, setStep] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+
+    useEffect(() => {
+        setStep(0);
+        setIsPlaying(false);
+    }, [selectedInput, selectedKernel]);
+
+    useEffect(() => {
+        let interval;
+        if (isPlaying) {
+            interval = setInterval(() => {
+                setStep((s) => (s >= 8 ? 0 : s + 1));
+            }, 1200);
+        }
+        return () => clearInterval(interval);
+    }, [isPlaying]);
+
+    const currentInput = inputImages[selectedInput].data;
+    const currentKernel = kernels[selectedKernel].data;
+
+    const outRow = Math.floor(step / 3);
+    const outCol = step % 3;
+
+    let sum = 0;
+    let calculationSteps = [];
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            const imgVal = currentInput[outRow + i][outCol + j];
+            const kernVal = currentKernel[i][j];
+            sum += imgVal * kernVal;
+            calculationSteps.push(`${imgVal}×${kernVal < 0 ? `(${kernVal})` : kernVal}`);
+        }
+    }
+
+    let centerSum = 0;
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            centerSum += currentInput[1 + i][1 + j] * currentKernel[i][j];
+        }
+    }
+    const isMatch = centerSum > 5;
+
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4 flex items-center shrink-0">
+                <i className="fas fa-bullseye mr-4 text-blue-500"></i> 动画解析：神奇的“卷积” (Convolution)
+            </h2>
+            <CNNPipeline active={1} />
+            
+            <div className="flex flex-wrap justify-between items-center gap-3 md:gap-4 mb-4 md:mb-6 bg-slate-50 p-3 md:p-5 rounded-2xl border border-slate-200 shadow-sm z-20 relative shrink-0">
+                <div className="flex flex-wrap items-center gap-2 md:gap-4">
+                    <span className="font-bold text-slate-700 text-sm md:text-base"><i className="fas fa-image mr-1 md:mr-2 text-blue-500"></i> 1. 改变图像:</span>
+                    {Object.entries(inputImages).map(([key, val]) => (
+                        <button
+                            key={key}
+                            onClick={() => setSelectedInput(key)}
+                            className={`px-3 py-1 md:px-4 md:py-2 text-sm md:text-base font-bold rounded-lg transition-all ${selectedInput === key ? 'bg-blue-600 text-white shadow-md scale-105' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-100'}`}
+                        >{val.name}</button>
+                    ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-0">
+                    <span className="font-bold text-slate-700 text-sm md:text-base"><i className="fas fa-magic mr-1 md:mr-2 text-yellow-500"></i> 2. 换放大镜:</span>
+                    {Object.entries(kernels).map(([key, val]) => (
+                        <button
+                            key={key}
+                            onClick={() => setSelectedKernel(key)}
+                            className={`px-3 py-1 md:px-4 md:py-2 text-sm md:text-base font-bold rounded-lg transition-all ${selectedKernel === key ? 'bg-yellow-500 text-white shadow-md scale-105' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-100'}`}
+                        >{val.name}</button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row flex-1 justify-center items-center lg:items-start space-y-8 lg:space-y-0 lg:space-x-12 xl:space-x-16 mt-2 md:mt-4">
+                {/* 1. 输入图像 */}
+                <div className="flex flex-col items-center relative shrink-0">
+                    {/* 新增：宏观照片对照 */}
+                    <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-5 bg-white px-3 md:px-5 py-2 md:py-3 rounded-2xl shadow-sm border border-slate-200 w-full justify-center">
+                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl shadow-inner overflow-hidden border border-slate-200 bg-black shrink-0">
+                            <img src={FACE_IMG_1} className="w-full h-full object-cover opacity-90" alt="原相片" />
+                        </div>
+                        <div className="flex flex-col text-left">
+                            <span className="text-xs md:text-sm text-blue-500 font-black tracking-wider mb-0.5">宏观特征</span>
+                            <span className="font-bold text-slate-700 text-sm md:text-base">原始相片输入</span>
+                        </div>
+                    </div>
+                    
+                    <div className="relative bg-white p-2 md:p-3 border-2 border-slate-200 rounded-xl shadow-md">
+                        <div className="grid grid-cols-5 gap-1 md:gap-1.5 relative z-10">
+                            {currentInput.map((row, r) =>
+                                row.map((val, c) => {
+                                    const isActive = r >= outRow && r < outRow + 3 && c >= outCol && c < outCol + 3;
+                                    return (
+                                        <div
+                                            key={`${r}-${c}`}
+                                            className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 flex items-center justify-center font-mono font-bold text-xl md:text-2xl rounded-lg transition-colors duration-300 ${
+                                                isActive
+                                                    ? 'bg-yellow-200 text-yellow-900 border-4 border-yellow-400 scale-110 z-20 shadow-lg'
+                                                    : val === 1 ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-300 border border-slate-100'
+                                            }`}
+                                        >
+                                            {val}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-3 md:mt-4 hidden md:block w-48 text-center">系统正通过<strong>相乘再相加</strong>在图中扫瞄特征</p>
+                </div>
+
+                {/* 2. 卷积核计算过程 */}
+                <div className="flex flex-col items-center justify-center w-full max-w-sm lg:w-80 shrink-0">
+                    <div className="bg-yellow-50 p-4 md:p-5 rounded-2xl border-2 border-yellow-400 w-full text-center relative shadow-lg mt-8 md:mt-12">
+                        <h4 className="text-sm md:text-base font-black text-yellow-800 mb-2 md:mb-3 bg-yellow-200 inline-block px-3 md:px-4 py-1 rounded-full">{kernels[selectedKernel].name}</h4>
+                        <div className="grid grid-cols-3 gap-1.5 mb-3 md:mb-4 w-32 md:w-40 mx-auto">
+                            {currentKernel.map((row, r) =>
+                                row.map((val, c) => (
+                                    <div key={`${r}-${c}`} className="text-sm md:text-base font-mono font-bold bg-yellow-300 rounded-lg py-1.5 md:py-2 border border-yellow-400 shadow-sm">
+                                        {val}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div className="text-xs md:text-sm font-mono text-slate-700 mt-2 md:mt-3 bg-white p-2 md:p-3 rounded-xl text-left leading-relaxed shadow-inner border border-yellow-100 min-h-[90px] md:min-h-[105px]">
+                            {calculationSteps.slice(0,3).join(' + ')} +<br/>
+                            {calculationSteps.slice(3,6).join(' + ')} +<br/>
+                            {calculationSteps.slice(6,9).join(' + ')}<br/>
+                            <span className="text-blue-600 font-black text-base md:text-lg border-t-2 border-slate-200 block mt-1 pt-1 md:mt-2 md:pt-2">= {sum}</span>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 md:mt-6 flex space-x-3 w-full">
+                        <button
+                            onClick={() => setIsPlaying(!isPlaying)}
+                            className="flex-1 py-2 md:py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 font-bold shadow-md text-base md:text-lg transition-transform active:scale-95"
+                        >
+                            {isPlaying ? '⏸️ 暂停动画' : '▶️ 自动播放'}
+                        </button>
+                        <button
+                            onClick={() => { setIsPlaying(false); setStep((s) => (s >= 8 ? 0 : s + 1)); }}
+                            className="px-4 md:px-6 py-2 md:py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 font-bold shadow-md text-base md:text-lg transition-transform active:scale-95"
+                        >
+                            单步
+                        </button>
+                    </div>
+                </div>
+
+                {/* 3. 特征图输出 */}
+                <div className="flex flex-col items-center relative shrink-0">
+                    {/* 新增：宏观效果对照 */}
+                    <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-5 bg-white px-3 md:px-5 py-2 md:py-3 rounded-2xl shadow-sm border border-slate-200 w-full justify-center">
+                        <div className="flex flex-col text-right">
+                            <span className="text-xs md:text-sm text-blue-500 font-black tracking-wider mb-0.5">宏观特征</span>
+                            <span className="font-bold text-slate-700 text-sm md:text-base">边缘轮廓提取</span>
+                        </div>
+                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl shadow-sm overflow-hidden shrink-0 border border-slate-200 bg-black">
+                            {/* 滤镜模拟卷积提取边缘的效果 */}
+                            <img src={FACE_IMG_1} className="w-full h-full object-cover" style={{filter: 'invert(1) grayscale(1) contrast(3)'}} alt="提取特征" />
+                        </div>
+                    </div>
+
+                    <div className="bg-blue-50 p-2 md:p-3 border-2 border-blue-200 rounded-xl shadow-md mb-24 md:mb-0">
+                        <div className="grid grid-cols-3 gap-1 md:gap-1.5">
+                            {Array(9).fill(0).map((_, idx) => {
+                                const r = Math.floor(idx / 3);
+                                const c = idx % 3;
+                                const isCurrent = r === outRow && c === outCol;
+                                
+                                let cellSum = 0;
+                                for (let i = 0; i < 3; i++) {
+                                    for (let j = 0; j < 3; j++) {
+                                        cellSum += currentInput[r + i][c + j] * currentKernel[i][j];
+                                    }
+                                }
+
+                                let cellClass = 'bg-white text-transparent border border-blue-100';
+                                if (isCurrent) {
+                                    cellClass = 'bg-blue-500 text-white shadow-xl scale-110 z-10 ring-4 ring-blue-300';
+                                } else if (idx < step) {
+                                    if (cellSum > 5) {
+                                        cellClass = 'bg-green-500 text-white shadow-md font-black ring-2 ring-green-300'; 
+                                    } else if (cellSum < 0) {
+                                        cellClass = 'bg-red-100 text-red-600 font-bold border border-red-200'; 
+                                    } else {
+                                        cellClass = 'bg-slate-100 text-slate-400 font-medium border border-slate-200'; 
+                                    }
+                                }
+
+                                return (
+                                    <div
+                                        key={idx}
+                                        className={`relative w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 flex items-center justify-center font-mono text-xl md:text-3xl rounded-lg transition-all duration-300 ${cellClass}`}
+                                    >
+                                        {idx <= step ? cellSum : ''}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* 动态评价反馈卡片 */}
+                    {step >= 4 && (
+                        <div className={`static md:absolute md:-bottom-24 mt-4 md:mt-0 w-full md:w-72 p-3 md:p-4 rounded-xl border-2 shadow-xl text-sm md:text-base text-center transform transition-all animate-bounce ${isMatch ? 'bg-green-50 border-green-400 text-green-800' : 'bg-red-50 border-red-300 text-red-700'}`}>
+                            {isMatch ? (
+                                <><strong>✅ 匹配成功！</strong><br/><span className="text-xs md:text-sm mt-1 block">算出大数字 <span className="font-black text-green-600 bg-green-200 px-1 rounded">{centerSum}</span>，说明模板成功找到了对应的特征！</span></>
+                            ) : (
+                                <><strong>❌ 匹配失败</strong><br/><span className="text-xs md:text-sm mt-1 block">算出负数或极小值 <span className="font-black text-red-600 bg-red-200 px-1 rounded">{centerSum}</span>，说明图像与该模板完全不匹配。</span></>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PoolingSlide() {
+    const input = [
+        [1, 1, 2, 4],
+        [5, 6, 7, 8],
+        [3, 2, 1, 0],
+        [1, 2, 3, 4]
+    ];
+
+    const [activeQuad, setActiveQuad] = useState(0);
+    const [poolType, setPoolType] = useState('max'); 
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setActiveQuad((prev) => (prev + 1) % 4);
+        }, 2500); 
+        return () => clearInterval(interval);
+    }, []);
+
+    const quads = [
+        { rStart: 0, cStart: 0 },
+        { rStart: 0, cStart: 2 },
+        { rStart: 2, cStart: 0 },
+        { rStart: 2, cStart: 2 }
+    ].map(q => {
+        let maxVal = -Infinity;
+        let maxR = -1, maxC = -1;
+        let sum = 0;
+        for(let i=0; i<2; i++){
+            for(let j=0; j<2; j++){
+                let v = input[q.rStart+i][q.cStart+j];
+                sum += v;
+                if(v > maxVal) { maxVal = v; maxR = q.rStart+i; maxC = q.cStart+j; }
+            }
+        }
+        return { 
+            ...q, 
+            max: maxVal, maxR, maxC, 
+            sum: sum,
+            avg: (sum/4).toFixed(1).replace('.0', '') 
+        };
+    });
+
+    // 根据不同的池化方法动态调整宏观效果图样式和文字
+    const poolMacroStyle = poolType === 'max' 
+        ? { filter: 'invert(1) grayscale(1) contrast(5) brightness(1.4)', transform: 'scale(1.15)' }
+        : { filter: 'invert(1) grayscale(1) contrast(1.2) brightness(0.9) blur(4px)', transform: 'scale(1.05)' };
+    const poolMacroTitle = poolType === 'max' ? '强化极端特征' : '平滑模糊降维';
+    const poolMacroColor = poolType === 'max' ? 'text-blue-600' : 'text-teal-600';
+    const poolMacroDesc = poolType === 'max' ? '锐利高反差' : '柔和去噪点';
+
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4 flex items-center shrink-0">
+                <i className="fas fa-layer-group mr-4 text-green-500"></i> 动画解析：“池化” (Pooling) —— 浓缩精华
+            </h2>
+            <CNNPipeline active={2} />
+            
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 md:mb-8 bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm z-20 relative shrink-0">
+                <div className="flex-1">
+                    {poolType === 'max' ? (
+                        <p className="text-slate-700 text-sm md:text-lg leading-relaxed">
+                            <strong>最大池化 (Max Pooling)</strong>：把图片切成小块，每块里只挑出<strong>最大的那个数字</strong>留下来。<br/>
+                            <span className="text-blue-600 font-bold bg-blue-100 px-2 py-0.5 rounded mt-2 inline-block text-xs md:text-base">作用：保留最强烈的特征（如边缘的极值），忽略微小的噪点。</span>
+                        </p>
+                    ) : (
+                        <p className="text-slate-700 text-sm md:text-lg leading-relaxed">
+                            <strong>平均池化 (Average Pooling)</strong>：把图片切成小块，计算每块里数字的<strong>平均值</strong>留下来。<br/>
+                            <span className="text-teal-600 font-bold bg-teal-100 px-2 py-0.5 rounded mt-2 inline-block text-xs md:text-base">作用：保留整体的平均特征，让特征图变得更加平滑，保留背景信息。</span>
+                        </p>
+                    )}
+                </div>
+                <div className="flex gap-2 md:gap-4 shrink-0 w-full md:w-auto">
+                    <button onClick={() => {setPoolType('max'); setActiveQuad(0);}} className={`flex-1 md:flex-none px-4 md:px-6 py-2 md:py-3 rounded-xl font-bold transition-all text-sm md:text-lg ${poolType === 'max' ? 'bg-blue-600 text-white shadow-lg scale-105' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-100'}`}>最大池化 (Max)</button>
+                    <button onClick={() => {setPoolType('avg'); setActiveQuad(0);}} className={`flex-1 md:flex-none px-4 md:px-6 py-2 md:py-3 rounded-xl font-bold transition-all text-sm md:text-lg ${poolType === 'avg' ? 'bg-teal-500 text-white shadow-lg scale-105' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-100'}`}>平均池化 (Avg)</button>
+                </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row items-center justify-center space-y-6 md:space-y-0 md:space-x-10 lg:space-x-16 mt-2">
+                {/* 1. 卷积后的特征图 */}
+                <div className="flex flex-col items-center shrink-0">
+                    {/* 新增：宏观照片对照 (作为池化层的输入) */}
+                    <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-5 bg-white px-3 md:px-5 py-2 md:py-3 rounded-2xl shadow-sm border border-slate-200 w-full justify-center">
+                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl shadow-sm overflow-hidden border border-slate-200 bg-black shrink-0">
+                            <img src={FACE_IMG_1} className="w-full h-full object-cover opacity-90" style={{filter: 'invert(1) grayscale(1) contrast(3)'}} alt="清晰特征" />
+                        </div>
+                        <div className="flex flex-col text-left">
+                            <span className="text-[10px] md:text-xs text-green-500 font-bold tracking-wider mb-0.5">宏观：清晰特征</span>
+                            <span className="font-bold text-slate-700 text-xs md:text-sm">微观特征图 (4x4)</span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-1.5 md:gap-2 bg-slate-100 p-3 md:p-4 rounded-2xl shadow-inner border-2 border-slate-200 relative">
+                        {/* Adjusted positioning for responsive sizing */}
+                        <div className={`absolute border-4 transition-all duration-500 rounded-lg pointer-events-none ${activeQuad === 0 ? (poolType==='max'?'border-red-500':'border-teal-500') + ' z-30' : 'border-transparent'} inset-3 w-[calc(50%-0.375rem)] md:w-[calc(50%-0.5rem)] h-[calc(50%-0.375rem)] md:h-[calc(50%-0.5rem)]`}></div>
+                        <div className={`absolute border-4 transition-all duration-500 rounded-lg pointer-events-none ${activeQuad === 1 ? (poolType==='max'?'border-blue-500':'border-teal-500') + ' z-30' : 'border-transparent'} top-3 right-3 w-[calc(50%-0.375rem)] md:w-[calc(50%-0.5rem)] h-[calc(50%-0.375rem)] md:h-[calc(50%-0.5rem)]`}></div>
+                        <div className={`absolute border-4 transition-all duration-500 rounded-lg pointer-events-none ${activeQuad === 2 ? (poolType==='max'?'border-green-500':'border-teal-500') + ' z-30' : 'border-transparent'} bottom-3 left-3 w-[calc(50%-0.375rem)] md:w-[calc(50%-0.5rem)] h-[calc(50%-0.375rem)] md:h-[calc(50%-0.5rem)]`}></div>
+                        <div className={`absolute border-4 transition-all duration-500 rounded-lg pointer-events-none ${activeQuad === 3 ? (poolType==='max'?'border-yellow-500':'border-teal-500') + ' z-30' : 'border-transparent'} bottom-3 right-3 w-[calc(50%-0.375rem)] md:w-[calc(50%-0.5rem)] h-[calc(50%-0.375rem)] md:h-[calc(50%-0.5rem)]`}></div>
+
+                        {input.map((row, r) =>
+                            row.map((val, c) => {
+                                let qIdx = -1;
+                                if (r < 2 && c < 2) qIdx = 0;
+                                else if (r < 2 && c >= 2) qIdx = 1;
+                                else if (r >= 2 && c < 2) qIdx = 2;
+                                else qIdx = 3;
+
+                                const q = quads[qIdx];
+                                const isMax = q.maxR === r && q.maxC === c;
+                                const isActiveQuad = activeQuad === qIdx;
+                                
+                                let highlightClass = 'bg-white text-slate-700 border-slate-200';
+                                if (isActiveQuad) {
+                                    if (poolType === 'max') {
+                                        highlightClass = isMax ? 'bg-slate-800 text-white scale-110 shadow-xl z-20 ring-4 ring-slate-300 border-transparent' : 'bg-slate-200 text-slate-400 opacity-60 border-slate-200';
+                                    } else {
+                                        highlightClass = 'bg-teal-50 text-teal-900 scale-105 shadow-md z-20 font-black border-teal-200';
+                                    }
+                                }
+
+                                return (
+                                    <div
+                                        key={`${r}-${c}`}
+                                        className={`relative w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-xl md:text-3xl font-bold rounded-lg transition-all duration-500 border ${highlightClass}`}
+                                    >
+                                        {val}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
+                {/* 2. 运算逻辑指示 */}
+                <div className="flex flex-col items-center justify-center w-32 md:w-40 shrink-0 hidden md:flex">
+                    <div className={`font-black tracking-widest text-sm md:text-lg mb-2 md:mb-3 text-center transition-colors ${poolType==='max'?'text-blue-600':'text-teal-600'}`}>
+                        {poolType === 'max' ? '提取最大值' : '计算平均值'}
+                    </div>
+                    <svg width="60" height="40" viewBox="0 0 60 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="my-1 md:my-2">
+                        <path d="M0 20H55M55 20L40 5M55 20L40 35" stroke="#94a3b8" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <div className="text-xs md:text-sm font-mono text-slate-600 bg-slate-100 p-2 md:p-3 rounded-xl mt-2 md:mt-3 text-center flex items-center justify-center w-full shadow-inner border border-slate-200 transition-all min-h-[60px] md:min-h-[70px]">
+                        {poolType === 'avg' ? (
+                            <span>总和: {quads[activeQuad].sum}<br/>÷ 4 = <span className="font-black text-teal-600 text-base md:text-lg">{quads[activeQuad].avg}</span></span>
+                        ) : (
+                            <span>尺寸减半<br/><span className="text-blue-600 font-bold">压缩数据</span></span>
+                        )}
+                    </div>
+                </div>
+
+                {/* 3. 池化后输出图 */}
+                <div className="flex flex-col items-center shrink-0">
+                    {/* 新增：宏观效果对照 (根据池化方式动态变化) */}
+                    <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-5 bg-white px-3 md:px-5 py-2 md:py-3 rounded-2xl shadow-sm border border-slate-200 w-full justify-center transition-all duration-500">
+                        <div className="flex flex-col text-right">
+                            <span className={`text-xs md:text-sm font-black tracking-wider mb-0.5 transition-colors duration-500 ${poolMacroColor}`}>宏观：{poolMacroTitle}</span>
+                            <span className="font-bold text-slate-700 text-sm md:text-base">{poolMacroDesc}</span>
+                        </div>
+                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl shadow-sm overflow-hidden shrink-0 border border-slate-200 bg-black">
+                            <img src={FACE_IMG_1} className="w-full h-full object-cover transition-all duration-700 opacity-90" style={poolMacroStyle} alt="打码降维" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 md:gap-3 bg-slate-50 p-3 md:p-5 rounded-2xl shadow-md border-2 border-slate-200">
+                        {quads.map((q, idx) => {
+                            const colors = poolType === 'max' 
+                                ? ['bg-red-50 text-red-700', 'bg-blue-50 text-blue-700', 'bg-green-50 text-green-700', 'bg-yellow-50 text-yellow-700']
+                                : ['bg-teal-50 text-teal-700', 'bg-teal-50 text-teal-700', 'bg-teal-50 text-teal-700', 'bg-teal-50 text-teal-700'];
+                            const borderColors = poolType === 'max'
+                                ? ['border-red-300', 'border-blue-300', 'border-green-300', 'border-yellow-300']
+                                : ['border-teal-300', 'border-teal-300', 'border-teal-300', 'border-teal-300'];
+                            
+                            const isActive = activeQuad === idx;
+                            const displayVal = poolType === 'max' ? q.max : q.avg;
+
+                            return (
+                                <div
+                                    key={idx}
+                                    className={`w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 flex items-center justify-center text-3xl md:text-4xl font-bold rounded-xl border-4 transition-all duration-500 ${
+                                        isActive ? `${colors[idx]} ${borderColors[idx]} scale-110 shadow-xl z-10` : 'bg-white text-slate-400 border-slate-200'
+                                    }`}
+                                >
+                                    {isActive || idx < activeQuad ? displayVal : '?'}
+                                </div>
+                            )
+                        })}
+                    </div>
+                    <p className="text-xs md:text-sm text-slate-600 mt-4 md:mt-6 font-bold px-4 md:px-5 py-1.5 md:py-2 bg-slate-100 rounded-full border border-slate-200 shadow-sm max-w-[200px] md:max-w-none text-center">
+                        {poolType === 'max' ? '🎯 保留每个区域最强特征' : '🌫️ 融合区域特征使之平滑'}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function FCSlide() {
+    const [step, setStep] = useState(0);
+
+    // 使用上一步池化层输出的特征图数据
+    const inputVals = [6, 8, 3, 4];
+    
+    // 预设好“权重”(Weight)，代表不同目标对各项特征的偏好
+    const weightsZhang = [0.8, 1.2, -0.5, 0.5]; 
+    const weightsLi = [-0.5, 0.2, 1.5, -0.8];   
+
+    const scoreZhang = (inputVals[0]*weightsZhang[0] + inputVals[1]*weightsZhang[1] + inputVals[2]*weightsZhang[2] + inputVals[3]*weightsZhang[3]).toFixed(1);
+    const scoreLi = (inputVals[0]*weightsLi[0] + inputVals[1]*weightsLi[1] + inputVals[2]*weightsLi[2] + inputVals[3]*weightsLi[3]).toFixed(1);
+
+    const zhangWin = parseFloat(scoreZhang) > parseFloat(scoreLi);
+
+    return (
+        <div className="flex flex-col min-h-full p-4 md:p-8 bg-white">
+            <h2 className="text-2xl md:text-4xl font-bold text-slate-800 mb-4 md:mb-6 flex items-center shrink-0">
+                <i className="fas fa-network-wired mr-4 text-purple-500"></i> 动画解析：“全连接层” (FC Layer) —— 汇总判断
+            </h2>
+            <CNNPipeline active={3} />
+            
+            {/* 核心修复：重构顶部布局，将按钮与文字合并，大幅节省垂直空间 */}
+            <div className="flex flex-col lg:flex-row items-stretch gap-4 lg:gap-6 mb-3 md:mb-4 relative z-20 shrink-0">
+                <div className="flex-[1.2] flex flex-col justify-between">
+                    <p className="text-slate-600 text-sm md:text-lg leading-relaxed mb-3">
+                        为了完美衔接上一层，我们要把池化层输出的“2x2特征图”<strong>展平 (Flatten)</strong> 成一维数组。<br/>
+                        然后像法官一样给每个特征分配不同的<strong>“权重”</strong>相乘并求和。<span className="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded mt-1 inline-block">最终综合得分最高的就是识别结果！</span>
+                    </p>
+                    <div className="flex flex-wrap gap-2 md:gap-4 mt-auto">
+                        <button onClick={() => setStep(0)} className={`px-3 py-1.5 md:px-5 md:py-2.5 rounded-xl font-bold transition-all text-xs md:text-base ${step===0?'bg-slate-800 text-white shadow-md':'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                            重置状态
+                        </button>
+                        <button onClick={() => setStep(1)} className={`px-3 py-1.5 md:px-5 md:py-2.5 rounded-xl font-bold transition-all text-xs md:text-base ${step===1?'bg-blue-600 text-white shadow-md scale-105':'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'}`}>
+                            第一步：展平特征
+                        </button>
+                        <button onClick={() => setStep(2)} disabled={step<1} className={`px-3 py-1.5 md:px-5 md:py-2.5 rounded-xl font-bold transition-all text-xs md:text-base ${step<1?'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400':step===2?'bg-purple-600 text-white shadow-md scale-105':'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'}`}>
+                            第二步：连线打分
+                        </button>
+                    </div>
+                </div>
+                <div className="flex-[0.8] bg-purple-50 border border-purple-200 p-2 md:p-3 rounded-xl shadow-sm w-full lg:w-auto flex flex-col justify-center">
+                    <h4 className="font-bold text-purple-800 mb-1.5 md:mb-2 text-xs md:text-sm flex items-center">
+                        <i className="fas fa-balance-scale mr-2 md:text-lg"></i> 💡 权重 (Weight) 判定规则表：
+                    </h4>
+                    <table className="w-full text-left border-collapse bg-white rounded-lg overflow-hidden shadow-sm border border-purple-100">
+                        <thead>
+                            <tr className="bg-purple-100 text-purple-900 text-[10px] md:text-xs">
+                                <th className="p-1.5 md:p-2 border-b border-purple-200">权重数值</th>
+                                <th className="p-1.5 md:p-2 border-b border-purple-200">裁判含义</th>
+                                <th className="p-1.5 md:p-2 border-b border-purple-200 hidden sm:table-cell">通俗理解</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-[10px] md:text-xs text-slate-700">
+                            <tr className="border-b border-slate-100 hover:bg-red-50 transition-colors">
+                                <td className="p-1.5 md:p-2 font-bold text-red-500">负数 <span className="font-normal text-slate-400">(-0.8)</span></td>
+                                <td className="p-1.5 md:p-2 font-bold text-red-600">扣分项</td>
+                                <td className="p-1.5 md:p-2 hidden sm:table-cell">出现这特征，<strong className="text-red-500">肯定不</strong>是他</td>
+                            </tr>
+                            <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                <td className="p-1.5 md:p-2 font-bold text-slate-400">接近 0 <span className="font-normal text-slate-400">(0.2)</span></td>
+                                <td className="p-1.5 md:p-2 font-bold text-slate-500">无关项</td>
+                                <td className="p-1.5 md:p-2 hidden sm:table-cell">有无这特征，<strong className="text-slate-500">无所谓</strong></td>
+                            </tr>
+                            <tr className="hover:bg-green-50 transition-colors">
+                                <td className="p-1.5 md:p-2 font-bold text-green-600">正数 <span className="font-normal text-slate-400">(1.5)</span></td>
+                                <td className="p-1.5 md:p-2 font-bold text-green-600">加分项</td>
+                                <td className="p-1.5 md:p-2 hidden sm:table-cell">出现这特征，<strong className="text-green-600">很可能</strong>是他</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="flex-1 relative flex items-center justify-between px-4 md:px-10 lg:px-20 bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-x-auto no-scrollbar mt-2 shadow-inner min-h-[350px]">
+                {/* SVG 连接线 */}
+                <svg className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-1000 min-w-[600px] ${step === 2 ? 'opacity-50' : 'opacity-0'}`} style={{zIndex: 0}}>
+                    {/* 连向 张三节点 */}
+                    <line x1="20%" y1="25%" x2="80%" y2="30%" stroke={weightsZhang[0]>0?"#3b82f6":"#ef4444"} strokeWidth={Math.max(1, Math.abs(weightsZhang[0])*5)} strokeDasharray={weightsZhang[0]<0?"8,8":"none"} />
+                    <line x1="20%" y1="45%" x2="80%" y2="30%" stroke={weightsZhang[1]>0?"#3b82f6":"#ef4444"} strokeWidth={Math.max(1, Math.abs(weightsZhang[1])*5)} strokeDasharray={weightsZhang[1]<0?"8,8":"none"} />
+                    <line x1="20%" y1="65%" x2="80%" y2="30%" stroke={weightsZhang[2]>0?"#3b82f6":"#ef4444"} strokeWidth={Math.max(1, Math.abs(weightsZhang[2])*5)} strokeDasharray={weightsZhang[2]<0?"8,8":"none"} />
+                    <line x1="20%" y1="85%" x2="80%" y2="30%" stroke={weightsZhang[3]>0?"#3b82f6":"#ef4444"} strokeWidth={Math.max(1, Math.abs(weightsZhang[3])*5)} strokeDasharray={weightsZhang[3]<0?"8,8":"none"} />
+                    {/* 连向 李四节点 */}
+                    <line x1="20%" y1="25%" x2="80%" y2="70%" stroke={weightsLi[0]>0?"#f97316":"#ef4444"} strokeWidth={Math.max(1, Math.abs(weightsLi[0])*5)} strokeDasharray={weightsLi[0]<0?"8,8":"none"} />
+                    <line x1="20%" y1="45%" x2="80%" y2="70%" stroke={weightsLi[1]>0?"#f97316":"#ef4444"} strokeWidth={Math.max(1, Math.abs(weightsLi[1])*5)} strokeDasharray={weightsLi[1]<0?"8,8":"none"} />
+                    <line x1="20%" y1="65%" x2="80%" y2="70%" stroke={weightsLi[2]>0?"#f97316":"#ef4444"} strokeWidth={Math.max(1, Math.abs(weightsLi[2])*5)} strokeDasharray={weightsLi[2]<0?"8,8":"none"} />
+                    <line x1="20%" y1="85%" x2="80%" y2="70%" stroke={weightsLi[3]>0?"#f97316":"#ef4444"} strokeWidth={Math.max(1, Math.abs(weightsLi[3])*5)} strokeDasharray={weightsLi[3]<0?"8,8":"none"} />
+                </svg>
+
+                {/* 左侧：特征输入 (支持 2x2 到 1D 展平的丝滑动画) */}
+                <div className="flex flex-col justify-start items-center h-full z-10 w-32 md:w-48 relative shrink-0">
+                    {/* 标题区域 */}
+                    <div className="absolute top-2 md:top-4 left-1/2 transform -translate-x-1/2 w-[120%] text-center">
+                        {/* 宏观抽象标识 */}
+                        <div className="bg-purple-100 border border-purple-200 text-purple-700 px-2 md:px-4 py-1 rounded-full text-[10px] md:text-xs font-bold shadow-sm inline-flex items-center gap-1 whitespace-nowrap mb-1 md:mb-2">
+                            <i className="fas fa-eye"></i> 宏观：组合成五官抽象概念
+                        </div>
+                        
+                        <div className="relative h-10 w-full mt-1">
+                            <div className={`absolute left-1/2 -translate-x-1/2 w-full transition-all duration-[800ms] ${step === 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-75 -translate-y-4'}`}>
+                                <span className="text-slate-700 text-xs md:text-sm font-bold flex flex-col items-center text-center">
+                                    <i className="fas fa-th-large mb-1 text-blue-500 text-lg md:text-xl"></i> 池化层的 2x2 特征
+                                </span>
+                            </div>
+                            <div className={`absolute left-1/2 -translate-x-1/2 w-full transition-all duration-[800ms] ${step > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-75 translate-y-4'}`}>
+                                <span className="text-blue-700 font-bold bg-blue-100 px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-sm border border-blue-200 shadow-sm whitespace-nowrap">展平 1D 特征</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 动画节点容器 - 占满全高以对齐百分比 */}
+                    <div className="relative w-full h-full pointer-events-none">
+                        {/* 背景底框：在step 0时显示为2x2的网格框，step>0时消失 */}
+                        <div className={`absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-50 border-2 border-slate-200 transition-all duration-[800ms] ease-in-out
+                            ${step === 0 ? 'top-[60%] w-[96px] md:w-[130px] h-[96px] md:h-[130px] rounded-2xl opacity-100 shadow-inner' : 'top-[60%] w-2 h-[70%] opacity-0 rounded-full'}`}>
+                        </div>
+
+                        {/* 节点 0: 红色 (6) */}
+                        <div className={`absolute flex items-center justify-center font-black transition-all duration-[800ms] ease-in-out shadow-md -translate-x-1/2 -translate-y-1/2 z-10
+                            ${step === 0 ? 'w-10 h-10 md:w-14 md:h-14 text-lg md:text-2xl rounded-lg bg-red-100 text-red-700 border-2 border-red-300 left-[calc(50%-24px)] md:left-[calc(50%-32px)] top-[calc(60%-24px)] md:top-[calc(60%-32px)]'
+                                         : 'w-10 h-10 md:w-14 md:h-14 text-lg md:text-2xl rounded-full bg-red-100 text-red-700 border-2 md:border-4 border-red-300 left-[50%] top-[25%]'}`}
+                        >6</div>
+                        
+                        {/* 节点 1: 蓝色 (8) */}
+                        <div className={`absolute flex items-center justify-center font-black transition-all duration-[800ms] ease-in-out shadow-md -translate-x-1/2 -translate-y-1/2 z-10
+                            ${step === 0 ? 'w-10 h-10 md:w-14 md:h-14 text-lg md:text-2xl rounded-lg bg-blue-100 text-blue-700 border-2 border-blue-300 left-[calc(50%+24px)] md:left-[calc(50%+32px)] top-[calc(60%-24px)] md:top-[calc(60%-32px)]'
+                                         : 'w-10 h-10 md:w-14 md:h-14 text-lg md:text-2xl rounded-full bg-blue-100 text-blue-700 border-2 md:border-4 border-blue-300 left-[50%] top-[45%]'}`}
+                        >8</div>
+                        
+                        {/* 节点 2: 绿色 (3) */}
+                        <div className={`absolute flex items-center justify-center font-black transition-all duration-[800ms] ease-in-out shadow-md -translate-x-1/2 -translate-y-1/2 z-10
+                            ${step === 0 ? 'w-10 h-10 md:w-14 md:h-14 text-lg md:text-2xl rounded-lg bg-green-100 text-green-700 border-2 border-green-300 left-[calc(50%-24px)] md:left-[calc(50%-32px)] top-[calc(60%+24px)] md:top-[calc(60%+32px)]'
+                                         : 'w-10 h-10 md:w-14 md:h-14 text-lg md:text-2xl rounded-full bg-green-100 text-green-700 border-2 md:border-4 border-green-300 left-[50%] top-[65%]'}`}
+                        >3</div>
+                        
+                        {/* 节点 3: 黄色 (4) */}
+                        <div className={`absolute flex items-center justify-center font-black transition-all duration-[800ms] ease-in-out shadow-md -translate-x-1/2 -translate-y-1/2 z-10
+                            ${step === 0 ? 'w-10 h-10 md:w-14 md:h-14 text-lg md:text-2xl rounded-lg bg-yellow-100 text-yellow-700 border-2 border-yellow-300 left-[calc(50%+24px)] md:left-[calc(50%+32px)] top-[calc(60%+24px)] md:top-[calc(60%+32px)]'
+                                         : 'w-10 h-10 md:w-14 md:h-14 text-lg md:text-2xl rounded-full bg-yellow-100 text-yellow-700 border-2 md:border-4 border-yellow-300 left-[50%] top-[85%]'}`}
+                        >4</div>
+                    </div>
+                </div>
+
+                {/* 右侧：分类节点打分输出 */}
+                <div className={`flex flex-col justify-around h-full py-4 md:py-8 z-10 w-[240px] md:w-[380px] shrink-0 relative transition-all duration-700 ${step === 2 ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10 pointer-events-none'}`}>
+                    {/* 张三节点 */}
+                    <div className={`rounded-2xl p-3 md:p-4 transition-all duration-500 border-4 shadow-xl bg-white relative ${zhangWin ? 'border-blue-500 scale-105 z-20 shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'border-slate-200 opacity-60 scale-95'}`}>
+                        <div className="flex justify-between items-center mb-2 border-b border-blue-100 pb-2">
+                            {/* 新增：嵌入真实宏观头像替代Emoji */}
+                            <div className="flex items-center gap-2">
+                                <img src={FACE_IMG_1} className="w-6 h-6 md:w-8 md:h-8 rounded-full shadow-sm object-cover border border-slate-200" alt="张三"/>
+                                <span className="font-bold text-lg md:text-xl text-slate-800">张三</span>
+                            </div>
+                            {zhangWin && <span className="bg-green-500 text-white text-[10px] md:text-xs px-2 md:px-3 py-1 rounded-full font-bold shadow-md animate-pulse"><i className="fas fa-check-circle mr-1"></i>匹配</span>}
+                        </div>
+                        <div className="text-[10px] md:text-xs text-slate-600 font-mono mb-2 md:mb-3 leading-loose bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner">
+                            6 × (<span className={weightsZhang[0]>0?'text-blue-600 font-bold':'text-red-600 font-bold'}>{weightsZhang[0]}</span>) + 
+                            8 × (<span className={weightsZhang[1]>0?'text-blue-600 font-bold':'text-red-600 font-bold'}>{weightsZhang[1]}</span>) + <br className="hidden md:block"/>
+                            <span className="md:hidden"> </span>
+                            3 × (<span className={weightsZhang[2]>0?'text-blue-600 font-bold':'text-red-600 font-bold'}>{weightsZhang[2]}</span>) + 
+                            4 × (<span className={weightsZhang[3]>0?'text-blue-600 font-bold':'text-red-600 font-bold'}>{weightsZhang[3]}</span>)
+                        </div>
+                        <div className="flex justify-between items-end">
+                            <span className="text-sm md:text-base font-bold text-slate-500">综合得分</span>
+                            <span className={`text-3xl md:text-5xl font-black ${zhangWin ? 'text-blue-600' : 'text-slate-400'}`}>{scoreZhang}</span>
+                        </div>
+                    </div>
+
+                    {/* 李四节点 */}
+                    <div className={`rounded-2xl p-3 md:p-4 transition-all duration-500 border-4 shadow-xl bg-white mt-4 md:mt-0 relative ${!zhangWin ? 'border-orange-500 scale-105 z-20 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'border-slate-200 opacity-60 scale-95'}`}>
+                        <div className="flex justify-between items-center mb-2 border-b border-orange-100 pb-2">
+                            {/* 新增：嵌入真实宏观头像替代Emoji */}
+                            <div className="flex items-center gap-2">
+                                <img src={FACE_IMG_2} className="w-6 h-6 md:w-8 md:h-8 rounded-full shadow-sm object-cover border border-slate-200" alt="李四"/>
+                                <span className="font-bold text-lg md:text-xl text-slate-800">李四</span>
+                            </div>
+                            {!zhangWin && <span className="bg-green-500 text-white text-[10px] md:text-xs px-2 md:px-3 py-1 rounded-full font-bold shadow-md animate-pulse"><i className="fas fa-check-circle mr-1"></i>匹配</span>}
+                        </div>
+                        <div className="text-[10px] md:text-xs text-slate-600 font-mono mb-2 md:mb-3 leading-loose bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner">
+                            6 × (<span className={weightsLi[0]>0?'text-orange-600 font-bold':'text-red-600 font-bold'}>{weightsLi[0]}</span>) + 
+                            8 × (<span className={weightsLi[1]>0?'text-orange-600 font-bold':'text-red-600 font-bold'}>{weightsLi[1]}</span>) + <br className="hidden md:block"/>
+                            <span className="md:hidden"> </span>
+                            3 × (<span className={weightsLi[2]>0?'text-orange-600 font-bold':'text-red-600 font-bold'}>{weightsLi[2]}</span>) + 
+                            4 × (<span className={weightsLi[3]>0?'text-orange-600 font-bold':'text-red-600 font-bold'}>{weightsLi[3]}</span>)
+                        </div>
+                        <div className="flex justify-between items-end">
+                            <span className="text-sm md:text-base font-bold text-slate-500">综合得分</span>
+                            <span className={`text-3xl md:text-5xl font-black ${!zhangWin ? 'text-orange-600' : 'text-slate-400'}`}>{scoreLi}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PracticeSlide() {
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const [filterMode, setFilterMode] = useState('normal');
+    const [streamActive, setStreamActive] = useState(false);
+
+    useEffect(() => {
+        let currentStream = null;
+        const startWebcam = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                currentStream = stream;
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    setStreamActive(true);
+                }
+            } catch (err) {
+                console.error("摄像头获取失败:", err);
+                alert("无法访问摄像头，请确保浏览器具有摄像头权限。");
+            }
+        };
+        startWebcam();
+
+        return () => {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!streamActive) return;
+
+        let animationFrameId;
+
+        const renderLoop = () => {
+            if (videoRef.current && canvasRef.current) {
+                const video = videoRef.current;
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    if (video.videoWidth > 0 && canvas.width !== video.videoWidth) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                    }
+
+                    if (canvas.width > 0 && canvas.height > 0) {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                        if (filterMode === 'edge') {
+                            ctx.filter = 'grayscale(100%)';
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            ctx.filter = 'none';
+
+                            ctx.globalCompositeOperation = 'difference';
+                            ctx.translate(2, 2); 
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            ctx.translate(-2, -2);
+                            
+                            ctx.globalCompositeOperation = 'lighter';
+                            ctx.drawImage(canvas, 0, 0);
+                            ctx.drawImage(canvas, 0, 0);
+                            ctx.drawImage(canvas, 0, 0);
+                            ctx.drawImage(canvas, 0, 0);
+
+                            ctx.globalCompositeOperation = 'source-over';
+
+                        } else if (filterMode === 'mosaic') {
+                            const poolSize = 15;
+                            const w = canvas.width;
+                            const h = canvas.height;
+                            ctx.drawImage(video, 0, 0, w / poolSize, h / poolSize);
+                            ctx.imageSmoothingEnabled = false;
+                            ctx.drawImage(canvas, 0, 0, w / poolSize, h / poolSize, 0, 0, w, h);
+                        }
+                    }
+                }
+            }
+            animationFrameId = requestAnimationFrame(renderLoop);
+        };
+
+        renderLoop();
+        return () => cancelAnimationFrame(animationFrameId);
+    }, [filterMode, streamActive]);
+
+    return (
+        <div className="flex flex-col h-full p-6 md:p-8 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4 flex items-center shrink-0">
+                <i className="fas fa-magic mr-4 text-purple-500"></i> 动手实践 1：提取特征的滤镜魔法
+            </h2>
+            <p className="text-slate-600 mb-4 md:mb-6 text-lg md:text-xl shrink-0">
+                首先，我们用简单的算法滤镜来模拟刚刚学过的“卷积”和“池化”操作。仔细观察你的脸发生了什么变化？<br/>
+                <span className="text-sm md:text-base text-yellow-600 font-bold">*注意：数据仅在你的浏览器本地处理，非常安全。</span>
+            </p>
+
+            <div className="flex flex-col md:flex-row flex-1 gap-4 md:gap-8 min-h-0">
+                <div className="flex-[3] h-[40vh] md:h-full bg-black rounded-2xl overflow-hidden relative shadow-2xl flex items-center justify-center border-4 border-slate-800 shrink-0">
+                    {!streamActive && <p className="text-white z-10 absolute text-lg md:text-xl font-bold tracking-widest animate-pulse">正在请求摄像头权限...</p>}
+                    
+                    <video 
+                        ref={videoRef} 
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="absolute w-[1px] h-[1px] opacity-0 pointer-events-none" 
+                    />
+                    
+                    <canvas ref={canvasRef} className="w-full h-full object-contain" />
+
+                    <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg font-mono text-sm md:text-base font-bold border border-slate-500 shadow-lg">
+                        {filterMode === 'normal' && '📸 原始画面 (输入层)'}
+                        {filterMode === 'edge' && '🔍 边缘特征提取 (模拟卷积层)'}
+                        {filterMode === 'mosaic' && '🧩 信息降维压缩 (模拟池化层)'}
+                    </div>
+                </div>
+
+                <div className="flex-[1.2] flex flex-col space-y-4 md:space-y-6 justify-start md:justify-center min-h-0 h-auto md:h-full bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-200 shadow-inner overflow-y-auto no-scrollbar shrink-0">
+                    <h3 className="font-bold text-slate-800 text-xl md:text-2xl border-b-2 border-slate-200 pb-2 md:pb-3 shrink-0">切换网络层：</h3>
+                    <button
+                        onClick={() => setFilterMode('normal')}
+                        className={`py-3 md:py-4 px-4 md:px-6 rounded-xl font-bold text-left transition-all text-lg md:text-xl shrink-0 ${filterMode === 'normal' ? 'bg-slate-800 text-white shadow-xl scale-[1.02]' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm'}`}
+                    >
+                        1. 原始图像层
+                    </button>
+                    <button
+                        onClick={() => setFilterMode('edge')}
+                        className={`py-3 md:py-4 px-4 md:px-6 rounded-xl font-bold text-left transition-all text-lg md:text-xl shrink-0 ${filterMode === 'edge' ? 'bg-blue-600 text-white shadow-xl scale-[1.02]' : 'bg-white text-blue-800 hover:bg-blue-50 border border-blue-100 shadow-sm'}`}
+                    >
+                        2. 模拟卷积层
+                        <div className="text-xs md:text-sm font-normal mt-1 md:mt-2 opacity-90 leading-tight">提取轮廓和边缘特征，<br/>去除了多余的颜色干扰。</div>
+                    </button>
+                    <button
+                        onClick={() => setFilterMode('mosaic')}
+                        className={`py-3 md:py-4 px-4 md:px-6 rounded-xl font-bold text-left transition-all text-lg md:text-xl shrink-0 ${filterMode === 'mosaic' ? 'bg-green-600 text-white shadow-xl scale-[1.02]' : 'bg-white text-green-800 hover:bg-green-50 border border-green-100 shadow-sm'}`}
+                    >
+                        3. 模拟池化层
+                        <div className="text-xs md:text-sm font-normal mt-1 md:mt-2 opacity-90 leading-tight">降低分辨率，浓缩成色块，<br/>但仍保留了主体位置。</div>
+                    </button>
+
+                    <div className="mt-4 md:mt-8 p-4 md:p-5 bg-purple-100 rounded-xl border border-purple-200 shadow-sm shrink-0">
+                        <p className="text-sm md:text-base text-purple-900 font-bold leading-relaxed">
+                            💡 准备好了吗？点击下一页，我们要动用真正的 AI 深度神经网络来进行完整的人脸识别了！
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ================= 新增：完整的人脸识别系统 =================
+function FullRecognitionSlide() {
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const [modelsLoaded, setModelsLoaded] = useState(false);
+    const [streamActive, setStreamActive] = useState(false);
+    
+    const [registeredFaces, setRegisteredFaces] = useState([]); 
+    const [inputName, setInputName] = useState('');
+    
+    const [currentDescriptor, setCurrentDescriptor] = useState(null);
+    const [matchResult, setMatchResult] = useState(null);
+
+    const [matchThreshold, setMatchThreshold] = useState(0.5); 
+    const [showLandmarks, setShowLandmarks] = useState(true); 
+    const [detectorModel, setDetectorModel] = useState('tiny'); 
+    
+    const [viewingFace, setViewingFace] = useState(null);
+
+    // 【修改点】：不再包含任何库的 script 注入逻辑和局域网兜底逻辑
+    // 假设全局的 window.faceapi 已经就绪，并且引擎为其分配了最佳资源路径
+    useEffect(() => {
+        const loadModels = async () => {
+            // 获取由底层同步引擎(SyncEngine)决定的最佳模型加载路径
+            // 如果底层没有提供，默认采用相对路径(即局域网内的教师端 Node.js 服务器)
+            const MODEL_URL = window.CourseGlobalContext?.modelUrl || '/weights';
+            
+            try {
+                await Promise.all([
+                    window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL), 
+                    window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+                setModelsLoaded(true);
+            } catch (error) {
+                console.error("模型加载失败:", error);
+                alert("模型加载失败，请确保教师端包含了权重文件，或检查网络连接！");
+            }
+        };
+
+        // 简单轮询等待全局 faceapi 库被引擎加载完毕
+        const checkReady = setInterval(() => {
+            if (window.faceapi) {
+                clearInterval(checkReady);
+                loadModels();
+            }
+        }, 300);
+
+        return () => clearInterval(checkReady);
+    }, []);
+
+    useEffect(() => {
+        let currentStream = null;
+        const startWebcam = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                currentStream = stream;
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    setStreamActive(true);
+                }
+            } catch (err) {
+                console.error("摄像头获取失败:", err);
+            }
+        };
+        if (modelsLoaded) {
+            startWebcam();
+        }
+        return () => {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [modelsLoaded]);
+
+    useEffect(() => {
+        if (!streamActive || !modelsLoaded) return;
+
+        let detectionInterval;
+        let isDetecting = false; 
+        const videoEl = videoRef.current;
+        const canvasEl = canvasRef.current;
+
+        const runDetection = async () => {
+            if (videoEl.readyState !== videoEl.HAVE_ENOUGH_DATA) return;
+            if (isDetecting) return;
+
+            isDetecting = true;
+            try {
+                const displaySize = { width: videoEl.videoWidth, height: videoEl.videoHeight };
+                if (displaySize.width === 0 || displaySize.height === 0) return;
+                
+                window.faceapi.matchDimensions(canvasEl, displaySize);
+
+                const options = detectorModel === 'tiny' 
+                    ? new window.faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }) 
+                    : new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+
+                const detection = await window.faceapi.detectSingleFace(videoEl, options)
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                const ctx = canvasEl.getContext('2d');
+                ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+                if (detection) {
+                    const resizedDetections = window.faceapi.resizeResults(detection, displaySize);
+                    
+                    window.faceapi.draw.drawDetections(canvasEl, resizedDetections);
+                    if (showLandmarks) {
+                        window.faceapi.draw.drawFaceLandmarks(canvasEl, resizedDetections);
+                    }
+
+                    setCurrentDescriptor(detection.descriptor);
+
+                    if (registeredFaces.length > 0) {
+                        const labeledDescriptors = registeredFaces.map(f => 
+                            new window.faceapi.LabeledFaceDescriptors(f.name, [f.descriptor])
+                        );
+                        const faceMatcher = new window.faceapi.FaceMatcher(labeledDescriptors, matchThreshold);
+                        
+                        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                        setMatchResult(bestMatch);
+
+                        const drawBox = new window.faceapi.draw.DrawBox(resizedDetections.detection.box, { 
+                            label: bestMatch.toString(),
+                            boxColor: bestMatch.label === 'unknown' ? 'red' : 'green' 
+                        });
+                        drawBox.draw(canvasEl);
+                    } else {
+                        setMatchResult(null);
+                    }
+                } else {
+                    setCurrentDescriptor(null);
+                    setMatchResult(null);
+                    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height); 
+                }
+            } catch (err) {
+                console.error("检测循环出错:", err);
+            } finally {
+                isDetecting = false;
+            }
+        };
+
+        detectionInterval = setInterval(runDetection, 150);
+
+        return () => clearInterval(detectionInterval);
+    }, [streamActive, modelsLoaded, registeredFaces, matchThreshold, showLandmarks, detectorModel]);
+
+    const handleRegister = () => {
+        if (!inputName.trim()) {
+            alert("请输入姓名！");
+            return;
+        }
+        if (!currentDescriptor) {
+            alert("未检测到人脸，请正对摄像头！");
+            return;
+        }
+        setRegisteredFaces([...registeredFaces, { name: inputName, descriptor: currentDescriptor }]);
+        setInputName('');
+    };
+
+    return (
+        <div className="flex flex-col h-full p-6 md:p-8 bg-white relative">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2 md:mb-4 flex items-center shrink-0">
+                <i className="fas fa-expand text-blue-600 mr-3 md:mr-4"></i> 终极挑战：构建完整的人脸识别系统
+            </h2>
+            <p className="text-slate-600 mb-4 md:mb-6 text-sm md:text-lg leading-relaxed shrink-0">
+                这是利用真实的深度神经网络 (CNN) 运行的系统。请先面向镜头，然后输入名字并点击“录入”，你的 128维 面部特征就会被保存。之后无论你怎么动，系统都能精准认出你！
+            </p>
+
+            <div className="flex flex-col md:flex-row flex-1 gap-4 md:gap-6 min-h-0">
+                {/* 左侧：摄像头实况与识别绘制区 */}
+                <div className="flex-[2.5] h-[40vh] md:h-full bg-slate-900 rounded-2xl overflow-hidden relative shadow-2xl border-4 border-slate-800 flex items-center justify-center shrink-0">
+                    {!modelsLoaded && (
+                        <div className="text-white z-10 absolute flex flex-col items-center animate-pulse">
+                            <i className="fas fa-spinner fa-spin text-3xl md:text-5xl mb-3 md:mb-4 text-blue-500"></i>
+                            <p className="font-bold tracking-widest mt-1 md:mt-2 text-sm md:text-xl">连接节点下载模型...</p>
+                            <p className="text-xs md:text-base text-slate-400 mt-2 md:mt-3">(首次加载约5~10秒)</p>
+                        </div>
+                    )}
+                    {modelsLoaded && !streamActive && <p className="text-white z-10 absolute text-base md:text-xl font-bold tracking-widest animate-pulse">正在启动摄像头...</p>}
+                    
+                    <video 
+                        ref={videoRef}
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="w-full h-full object-contain" 
+                    />
+                    <canvas 
+                        ref={canvasRef} 
+                        className="absolute top-0 left-0 w-full h-full object-contain pointer-events-none" 
+                    />
+
+                    <div className="absolute top-4 left-4 md:top-6 md:left-6 flex gap-2 md:gap-3">
+                        {currentDescriptor ? (
+                            <span className="bg-green-500/90 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg font-mono text-xs md:text-base font-bold shadow-md animate-pulse">🎯 正在捕获特征</span>
+                        ) : (
+                            <span className="bg-red-500/90 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg font-mono text-xs md:text-base font-bold shadow-md">⚠️ 未检测到人脸</span>
+                        )}
+                    </div>
+
+                    <div className={`absolute bottom-6 left-1/2 transform -translate-x-1/2 w-11/12 md:w-3/4 max-w-md p-3 md:p-4 rounded-2xl border-2 text-center font-bold transition-all duration-300 shadow-2xl backdrop-blur-md ${!matchResult ? 'bg-white/90 border-slate-300 text-slate-700' : matchResult.label === 'unknown' ? 'bg-red-500/90 border-red-400 text-white scale-[1.02]' : 'bg-green-500/90 border-green-400 text-white scale-[1.02]'}`}>
+                        {!currentDescriptor ? (
+                            <span className="text-sm md:text-base">等待扫描中...</span>
+                        ) : registeredFaces.length === 0 ? (
+                            <span className="text-sm md:text-base text-blue-600">特征已提取，等待在右侧建库 👇</span>
+                        ) : !matchResult ? (
+                            <span className="text-sm md:text-base">正在比对特征...</span>
+                        ) : matchResult.label === 'unknown' ? (
+                            <span className="text-base md:text-xl drop-shadow-md">🚨 警报：未知人员！</span>
+                        ) : (
+                            <span><span className="text-base md:text-xl drop-shadow-md">✅ 欢迎，{matchResult.label}！</span><br/><span className="text-xs font-medium text-white/80 mt-1 block">差异距离: {matchResult.distance.toFixed(2)}</span></span>
+                        )}
+                    </div>
+                </div>
+
+                {/* 右侧：控制台与数据库 */}
+                <div className="flex-[1.5] flex flex-col gap-3 min-h-0 h-auto md:h-full bg-slate-50 p-4 md:p-5 rounded-2xl border border-slate-200 shadow-inner overflow-y-auto no-scrollbar shrink-0">
+                    
+                    {/* 1. 实时特征向量可视化 */}
+                    <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                        <h3 className="font-bold text-slate-800 border-b-2 border-slate-100 pb-2 mb-2 flex justify-between items-center text-sm md:text-base">
+                            <span><i className="fas fa-barcode text-purple-500 mr-2"></i> 128维特征向量</span>
+                        </h3>
+                        <div className="h-10 md:h-12 bg-slate-100 rounded-lg flex items-end overflow-hidden p-1 gap-[2px] border border-slate-200 shadow-inner">
+                            {currentDescriptor ? (
+                                Array.from(currentDescriptor).slice(0, 40).map((val, i) => (
+                                    <div key={i} className="flex-1 bg-purple-500 rounded-t-sm transition-all duration-75" style={{ height: `${Math.max(4, Math.abs(val) * 300)}%` }}></div>
+                                ))
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs md:text-sm font-bold tracking-widest">无数据</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 2. 录入操作区 */}
+                    <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                        <h3 className="font-bold text-slate-800 border-b-2 border-slate-100 pb-2 mb-3 text-sm md:text-base">
+                            <i className="fas fa-user-plus text-blue-500 mr-2"></i> 第一步：录入人脸特征
+                        </h3>
+                        <div className="flex gap-2 md:gap-3">
+                            <input 
+                                type="text" 
+                                value={inputName} 
+                                onChange={e => setInputName(e.target.value)} 
+                                placeholder="姓名 (如: 张三)" 
+                                className="flex-1 border-2 border-slate-300 rounded-lg px-3 py-1.5 md:py-2 outline-none focus:border-blue-500 text-sm shadow-sm min-w-0"
+                                maxLength={10}
+                            />
+                            <button 
+                                onClick={handleRegister}
+                                disabled={!currentDescriptor}
+                                className={`px-4 md:px-5 py-1.5 md:py-2 rounded-lg font-bold text-white transition-all text-sm shrink-0 ${currentDescriptor ? 'bg-blue-600 hover:bg-blue-700 shadow-md hover:-translate-y-0.5' : 'bg-slate-300 cursor-not-allowed'}`}
+                            >
+                                录入
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 系统参数调节面板 */}
+                    <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                        <h3 className="font-bold text-slate-800 border-b-2 border-slate-100 pb-2 mb-3 flex items-center justify-between text-sm md:text-base">
+                            <span><i className="fas fa-sliders-h text-teal-500 mr-2"></i> ⚙️ 参数调节</span>
+                        </h3>
+                        
+                        <div className="mb-3 border-b border-slate-100 pb-3">
+                            <label className="flex justify-between text-xs font-bold text-slate-600 mb-1.5">
+                                <span>探测模型</span>
+                            </label>
+                            <div className="flex bg-slate-100 p-1 rounded-lg shadow-inner">
+                                <button 
+                                    onClick={() => setDetectorModel('tiny')}
+                                    className={`flex-1 text-xs py-1.5 rounded-md transition-all ${detectorModel === 'tiny' ? 'bg-white shadow text-blue-600 font-bold' : 'text-slate-500 hover:bg-slate-200 font-bold'}`}
+                                >
+                                    轻量 (Tiny)
+                                </button>
+                                <button 
+                                    onClick={() => setDetectorModel('ssd')}
+                                    className={`flex-1 text-xs py-1.5 rounded-md transition-all ${detectorModel === 'ssd' ? 'bg-white shadow text-purple-600 font-bold' : 'text-slate-500 hover:bg-slate-200 font-bold'}`}
+                                >
+                                    精准 (SSD)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="mb-3">
+                            <label className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                                <span>比对严格度 (Threshold)</span>
+                                <span className="text-teal-600 text-sm">{matchThreshold.toFixed(2)}</span>
+                            </label>
+                            <input 
+                                type="range" min="0.2" max="0.8" step="0.05" 
+                                value={matchThreshold} 
+                                onChange={e => setMatchThreshold(parseFloat(e.target.value))} 
+                                className="w-full accent-teal-500 h-1.5 cursor-pointer"
+                            />
+                            <div className="flex justify-between text-[10px] text-slate-500 mt-1 font-medium">
+                                <span>更严格</span>
+                                <span>更宽松</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-1">
+                            <span className="font-bold text-slate-600 text-xs">显示特征网格</span>
+                            <button 
+                                onClick={() => setShowLandmarks(!showLandmarks)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shadow-inner ${showLandmarks ? 'bg-teal-500' : 'bg-slate-300'}`}
+                            >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${showLandmarks ? 'translate-x-4' : 'translate-x-1'}`}/>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 3. 本地人脸数据库 */}
+                    <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col min-h-[120px] shrink-0">
+                        <h3 className="font-bold text-slate-800 border-b-2 border-slate-100 pb-2 mb-2 flex justify-between items-center text-sm md:text-base shrink-0">
+                            <span><i className="fas fa-database text-orange-500 mr-2"></i> 第二步：本地库 ({registeredFaces.length})</span>
+                            <button onClick={() => setRegisteredFaces([])} className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded transition-colors">🗑️ 清空</button>
+                        </h3>
+                        <div className="flex-1 overflow-y-auto no-scrollbar space-y-2 min-h-[50px]">
+                            {registeredFaces.length === 0 ? (
+                                <div className="text-center text-slate-400 mt-4 text-xs font-medium">数据库空，请先录入</div>
+                            ) : (
+                                registeredFaces.map((face, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        onClick={() => setViewingFace(face)}
+                                        className="flex items-center justify-between bg-slate-50 border border-slate-200 p-2 rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all group"
+                                    >
+                                        <div className="font-bold text-slate-700 text-sm truncate max-w-[50%]">
+                                            <i className="fas fa-user-circle text-blue-500 mr-1.5 text-base align-middle"></i>{face.name}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-[10px] text-slate-400 font-mono bg-white px-1.5 py-0.5 rounded shadow-inner border border-slate-100 shrink-0 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                                [{face.descriptor[0].toFixed(2)}, {face.descriptor[1].toFixed(2)}...]
+                                            </div>
+                                            <i className="fas fa-search text-slate-300 group-hover:text-blue-500 text-xs transition-colors"></i>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            {/* 新增：特征解码详情弹窗 (Modal) */}
+            {viewingFace && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 backdrop-blur-sm bg-slate-900/60">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-full animate-[fadeIn_0.3s_ease-out]">
+                        <div className="flex justify-between items-center p-5 md:p-6 border-b border-slate-100 bg-slate-50 shrink-0">
+                            <h3 className="text-xl md:text-2xl font-extrabold text-slate-800 tracking-wide flex items-center">
+                                <i className="fas fa-fingerprint text-purple-600 mr-3 md:text-3xl"></i>
+                                {viewingFace.name} 的专属特征密码
+                            </h3>
+                            <button 
+                                onClick={() => setViewingFace(null)} 
+                                className="text-slate-400 hover:text-red-500 text-3xl font-bold transition-colors w-10 h-10 flex items-center justify-center rounded-full hover:bg-red-50 focus:outline-none"
+                            >
+                                &times;
+                            </button>
+                        </div>
+                        <div className="p-5 md:p-8 overflow-y-auto no-scrollbar bg-slate-50/50">
+                            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6">
+                                <p className="text-slate-600 text-sm md:text-lg leading-relaxed font-medium">
+                                    这是深度神经网络经过层层 <strong>卷积(提取)</strong> 和 <strong>池化(压缩)</strong> 后，由最后的 <strong>全连接层</strong> 输出的 <span className="font-bold text-purple-600 bg-purple-100 px-2 py-0.5 rounded text-lg">128 个特征数字</span>。<br/>
+                                    即使换了衣服、发型，你的这 128 个数字组合结构依然会高度一致，这就是 AI 能瞬间认出你的秘密！
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-8 md:grid-cols-16 gap-2 md:gap-3 bg-white p-4 md:p-6 rounded-xl border border-slate-200 shadow-inner">
+                                {Array.from(viewingFace.descriptor).map((val, i) => (
+                                    <div 
+                                        key={i} 
+                                        className={`text-[9px] md:text-xs font-mono py-1.5 px-1 rounded-md text-center font-bold tracking-tighter transition-all hover:scale-110 shadow-sm ${
+                                            val > 0 
+                                            ? 'bg-blue-50 text-blue-600 border border-blue-100' 
+                                            : 'bg-red-50 text-red-600 border border-red-100'
+                                        }`}
+                                    >
+                                        {val.toFixed(2)}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-100 border-t border-slate-200 text-center text-sm font-bold text-slate-500 shrink-0">
+                            💡 提示：数字的<span className="text-blue-500">正数（加分项）</span>和<span className="text-red-500">负数（扣分项）</span>，代表了你面庞上不同隐秘特征的强弱程度。
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function SummarySlide() {
+    return (
+        <div className="flex flex-col h-full p-8 md:p-12 bg-gradient-to-br from-slate-50 via-white to-blue-50 overflow-y-auto no-scrollbar">
+            <h2 className="text-4xl md:text-5xl font-extrabold text-slate-800 mb-8 md:mb-12 text-center mt-6 md:mt-10 tracking-wide">知识大丰收</h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10 max-w-5xl mx-auto w-full">
+                <div className="bg-white p-6 md:p-10 rounded-2xl md:rounded-3xl shadow-lg border-l-8 border-blue-500 transition-transform hover:-translate-y-2">
+                    <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mb-4 md:mb-6 flex items-center">
+                        <i className="fas fa-desktop mr-3 md:mr-4 text-blue-500 text-3xl md:text-4xl"></i> 计算机视觉基础
+                    </h3>
+                    <ul className="list-disc list-inside text-slate-600 space-y-3 md:space-y-4 leading-relaxed text-lg md:text-xl">
+                        <li>图像由最小单位<strong>像素</strong>组成。</li>
+                        <li>黑白图像用 <code>0</code> 和 <code>1</code> 表示。</li>
+                        <li>彩色图像用 <code>RGB</code>（红绿蓝）三个数字组合表示。</li>
+                    </ul>
+                </div>
+
+                <div className="bg-white p-6 md:p-10 rounded-2xl md:rounded-3xl shadow-lg border-l-8 border-purple-500 transition-transform hover:-translate-y-2">
+                    <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mb-4 md:mb-6 flex items-center">
+                        <i className="fas fa-microchip mr-3 md:mr-4 text-purple-500 text-3xl md:text-4xl"></i> 卷积神经网络 (CNN)
+                    </h3>
+                    <ul className="list-disc list-inside text-slate-600 space-y-3 md:space-y-4 leading-relaxed text-lg md:text-xl">
+                        <li><strong>卷积层</strong>：特征提取的放大镜（乘加运算）。</li>
+                        <li><strong>池化层</strong>：浓缩信息的降维器（提取最大值）。</li>
+                        <li><strong>全连接层</strong>：汇总信息，输出多维特征。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div className="mt-10 md:mt-16 text-center max-w-4xl mx-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-2xl">
+                <h3 className="text-2xl md:text-3xl font-extrabold mb-3 md:mb-4 flex items-center justify-center">
+                    课后拓展探索 <i className="fas fa-rocket ml-3 text-yellow-300"></i>
+                </h3>
+                <p className="opacity-95 text-lg md:text-xl leading-relaxed font-medium">
+                    人脸识别虽然方便，但也引发了关于隐私保护的讨论。在未来的 AI 世界里，我们该如何平衡“技术的便利”与“个人的隐私安全”？
+                </p>
+            </div>
+        </div>
+    );
+}
+
+// ========================================================
+// 🎯 将课程数据和所需依赖交给底层引擎处理 (纯净配置)
+// ========================================================
+
+const mySlides = [
+    { id: 'intro', component: <IntroSlide /> },
+    { id: 'review', component: <ReviewSlide /> },
+    { id: 'ml-vs-dl', component: <MLvsDLSlide /> },
+    { id: 'process', component: <VisionProcessSlide /> },
+    { id: 'pixel', component: <PixelSlide /> },
+    { id: 'rgb', component: <RGBSlide /> },
+    { id: 'cnn-intro', component: <CNNIntroSlide /> },
+    { id: 'convolution', component: <ConvolutionSlide /> },
+    { id: 'pooling', component: <PoolingSlide /> },
+    { id: 'fc', component: <FCSlide /> },
+    { id: 'practice-1', component: <PracticeSlide /> }, 
+    { id: 'practice-2', component: <FullRecognitionSlide /> }, 
+    { id: 'summary', component: <SummarySlide /> },
+];
+
+window.CourseData = {
+    title: "深度学习与人脸识别 (互动版)",
+    // 告诉同步引擎本课程需要什么外部库，引擎会自动按 局域网->公网 的顺序为你加载
+    dependencies: [
+        {
+            name: "face-api",
+            localSrc: "/lib/face-api.min.js",
+            publicSrc: "https://fastly.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"
+        }
+    ],
+    // 告诉同步引擎模型文件在哪里
+    modelsUrls: {
+        local: "/weights",
+        public: "https://fastly.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights"
+    },
+    slides: mySlides
+};
+// 注意：这节课不再包含 ReactDOM.render。渲染逻辑已全部交由 SyncEngine 统一接管！

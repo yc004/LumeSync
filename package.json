@@ -1,0 +1,13 @@
+{
+  "name": "ai-class-sync",
+  "version": "1.0.0",
+  "description": "深度学习人脸识别局域网同步课件",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}

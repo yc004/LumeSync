@@ -4,6 +4,10 @@ const { Server } = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 
+// 缓存代理连接超时（毫秒）：等待响应头的最长时间，防止 CDN 挂起
+// 设置较长以兼容慢速 CDN 首次响应，真正的挂起通常远超此值
+const DOWNLOAD_TIMEOUT_MS = 60000;
+
 // 初始化 Express 和 HTTP 服务器
 const app = express();
 const server = http.createServer(app);
@@ -30,7 +34,13 @@ function scanCourses() {
         .map(f => {
             const courseId = f.replace('.js', '');
             const filePath = path.join(coursesDir, f);
-            const content = fs.readFileSync(filePath, 'utf-8');
+            let content;
+            try {
+                content = fs.readFileSync(filePath, 'utf-8');
+            } catch (err) {
+                console.warn(`[scanCourses] ⚠️ 跳过无法读取的文件: ${f} (${err.message})`);
+                return null;
+            }
             
             // 尝试从文件中提取课程元数据
             let title = courseId;
@@ -61,7 +71,8 @@ function scanCourses() {
                 desc,
                 color
             };
-        });
+        })
+        .filter(course => course !== null);
     
     return courses;
 }
@@ -172,8 +183,9 @@ app.use('/lib/:fileName', (req, res) => {
         possibleUrls = [KNOWN_FILE_URLS[fileName]];
         console.log(`[缓存代理] 下载 ${fileName} (已知地址)...`);
     } else if (dependencyMap[fileName]) {
-        // 课件注册的精确地址
-        possibleUrls = [dependencyMap[fileName]];
+        // 课件注册的精确地址，将 cdn.jsdelivr.net 替换为 fastly 节点以提升可达性
+        const registeredUrl = dependencyMap[fileName].replace('cdn.jsdelivr.net', 'fastly.jsdelivr.net');
+        possibleUrls = [registeredUrl, dependencyMap[fileName]];
         console.log(`[缓存代理] 下载 ${fileName} (课件注册地址)...`);
     } else {
         // 从文件名猜测 npm 包名
@@ -191,6 +203,8 @@ app.use('/lib/:fileName', (req, res) => {
         packageName = packageMap[packageName] || packageName;
         
         possibleUrls = [
+            `https://fastly.jsdelivr.net/npm/${packageName}@latest/dist/${fileName}`,
+            `https://fastly.jsdelivr.net/npm/${packageName}@latest/${fileName}`,
             `https://cdn.jsdelivr.net/npm/${packageName}@latest/dist/${fileName}`,
             `https://cdn.jsdelivr.net/npm/${packageName}@latest/${fileName}`,
             `https://unpkg.com/${packageName}@latest/dist/${fileName}`,
@@ -203,9 +217,14 @@ app.use('/lib/:fileName', (req, res) => {
     const tryDownloadFromUrl = (url, onSuccess, onError) => {
         const client = url.startsWith('https') ? require('https') : require('http');
         
-        client.get(url, (response) => {
+        const req = client.get(url, (response) => {
+            // 收到响应头后取消超时，避免大文件传输被误杀
+            req.setTimeout(0);
+
             // 处理重定向
             if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                // 必须消费掉重定向响应的 body，否则 socket 会被占用导致连接挂起
+                response.resume();
                 let redirectUrl = response.headers.location;
                 // 如果是相对路径，转换为绝对路径
                 if (redirectUrl.startsWith('/')) {
@@ -219,9 +238,19 @@ app.use('/lib/:fileName', (req, res) => {
             if (response.statusCode === 200) {
                 onSuccess(response, url);
             } else {
+                // 消费掉非 200 响应的 body，释放连接
+                response.resume();
                 onError();
             }
-        }).on('error', (err) => {
+        });
+
+        // 超时后主动销毁请求，destroy() 会触发 error 事件
+        req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
+            req.destroy(new Error(`请求超时: ${url}`));
+        });
+
+        req.on('error', (err) => {
+            console.warn(`[缓存代理] 请求失败 ${url}: ${err.message}`);
             onError();
         });
     };
@@ -401,7 +430,7 @@ app.get('*', (req, res) => {
 // 3. Socket.io 实时通信与状态监控逻辑
 // ========================================================
 
-let studentCount = 0; // 记录当前在线学生总数
+let studentIPs = new Map(); // IP -> socket数量，同一IP只计一个学生
 
 io.on('connection', (socket) => {
     const clientIp = socket.handshake.address;
@@ -420,18 +449,21 @@ io.on('connection', (socket) => {
 
     // 处理监控逻辑
     if (role === 'host') {
-        socket.join('hosts'); // 老师加入专属的接收通知频道
-        socket.emit('student-status', { count: studentCount, action: 'init' }); // 初始化告诉老师当前的人数
+        socket.join('hosts');
+        socket.emit('student-status', { count: studentIPs.size, action: 'init' });
     } else {
-        studentCount++; // 学生加入，人数+1
-        // 仅将通知发给房间内的老师端，保护隐私且避免学生端互相干扰
-        io.to('hosts').emit('student-status', { count: studentCount, action: 'join', ip: clientIp });
+        const prev = studentIPs.get(clientIp) || 0;
+        studentIPs.set(clientIp, prev + 1);
+        // 只有该 IP 的第一个连接才触发 join 通知
+        if (prev === 0) {
+            io.to('hosts').emit('student-status', { count: studentIPs.size, action: 'join', ip: clientIp });
+        }
     }
 
     // 老师可以主动查询当前学生人数
     socket.on('get-student-count', () => {
         if (role === 'host') {
-            socket.emit('student-status', { count: studentCount, action: 'init' });
+            socket.emit('student-status', { count: studentIPs.size, action: 'init' });
         }
     });
 
@@ -495,8 +527,13 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`🔴 用户离开: IP=${clientIp}`);
         if (role === 'viewer') {
-            studentCount--; // 学生离开，人数-1
-            io.to('hosts').emit('student-status', { count: studentCount, action: 'leave', ip: clientIp });
+            const remaining = (studentIPs.get(clientIp) || 1) - 1;
+            if (remaining <= 0) {
+                studentIPs.delete(clientIp);
+                io.to('hosts').emit('student-status', { count: studentIPs.size, action: 'leave', ip: clientIp });
+            } else {
+                studentIPs.set(clientIp, remaining);
+            }
         }
     });
 });

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>无法连接</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .card {
+    text-align: center;
+    padding: 48px 40px;
+    max-width: 420px;
+  }
+  .icon {
+    font-size: 72px;
+    margin-bottom: 24px;
+    opacity: 0.6;
+  }
+  h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #f1f5f9; }
+  p { font-size: 15px; color: #94a3b8; line-height: 1.7; margin-bottom: 8px; }
+  .ip { font-family: monospace; color: #60a5fa; font-size: 16px; }
+  .btn {
+    display: inline-block;
+    margin-top: 32px;
+    padding: 12px 32px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .btn:hover { background: #2563eb; }
+  .hint { font-size: 12px; color: #475569; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">📡</div>
+  <h1>无法连接到教师端</h1>
+  <p>正在尝试连接：</p>
+  <p class="ip" id="teacher-ip">加载中...</p>
+  <p style="margin-top:16px;">请确认教师端已开启，且您与教师在同一局域网内。</p>
+  <button class="btn" onclick="retry()">重新连接</button>
+  <p class="hint">如需修改教师机 IP，请右键托盘图标 → 管理员设置</p>
+</div>
+<script>
+  // 从 URL hash 或 electronAPI 获取教师 IP 显示
+  async function init() {
+    if (window.electronAPI) {
+      const cfg = await window.electronAPI.getConfig();
+      document.getElementById('teacher-ip').textContent =
+        `http://${cfg.teacherIp}:${cfg.port || 3000}`;
+    }
+  }
+  function retry() {
+    if (window.electronAPI) {
+      window.electronAPI.getConfig().then(cfg => {
+        location.href = `http://${cfg.teacherIp}:${cfg.port || 3000}`;
+      });
+    } else {
+      location.reload();
+    }
+  }
+  init();
+</script>
+</body>
+</html>

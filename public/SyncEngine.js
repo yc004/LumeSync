@@ -708,6 +708,8 @@ function ClassroomApp() {
             if (data.currentCourseId) {
                 setInitialSlideIndex(data.currentSlideIndex || 0);
                 loadCourse(data.currentCourseId, catalog);
+                // 通知 Electron 学生端进入全屏课堂模式（加入时课堂已在进行）
+                if (data.role !== 'host') window.electronAPI?.classStarted();
             }
         });
 
@@ -716,6 +718,8 @@ function ClassroomApp() {
             setCurrentCourseId(data.courseId);
             setInitialSlideIndex(data.slideIndex || 0);
             loadCourse(data.courseId, courseCatalogRef.current);
+            // 通知 Electron 学生端进入全屏课堂模式
+            window.electronAPI?.classStarted();
         });
 
         // 监听课程结束
@@ -723,6 +727,8 @@ function ClassroomApp() {
             setCurrentCourseId(null);
             setCurrentCourseData(null);
             window.CourseData = null;
+            // 通知 Electron 学生端退出全屏课堂模式
+            window.electronAPI?.classEnded();
         });
 
         // 监听课程列表更新

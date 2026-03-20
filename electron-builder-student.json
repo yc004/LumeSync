@@ -1,0 +1,30 @@
+{
+  "appId": "com.syncclassroom.student",
+  "productName": "SyncClassroom 学生端",
+  "directories": {
+    "output": "dist/student"
+  },
+  "files": [
+    "electron/main-student.js",
+    "electron/preload.js",
+    "electron/config.js",
+    "electron/admin.html",
+    "electron/offline.html",
+    "assets/**",
+    "package.json",
+    "node_modules/**"
+  ],
+  "extraMetadata": {
+    "main": "electron/main-student.js"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "assets/tray-icon.png"
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": true,
+    "installerLanguages": ["zh_CN"],
+    "language": "2052"
+  }
+}

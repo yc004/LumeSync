@@ -1,0 +1,30 @@
+{
+  "appId": "com.syncclassroom.teacher",
+  "productName": "SyncClassroom 教师端",
+  "directories": {
+    "output": "dist/teacher"
+  },
+  "files": [
+    "electron/main-teacher.js",
+    "electron/preload.js",
+    "electron/config.js",
+    "assets/**",
+    "public/**",
+    "server.js",
+    "node_modules/**",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "electron/main-teacher.js"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "assets/tray-icon.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "installerLanguages": ["zh_CN"],
+    "language": "2052"
+  }
+}

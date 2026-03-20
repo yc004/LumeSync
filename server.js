@@ -422,6 +422,27 @@ app.get('/api/student-log', (req, res) => {
     res.json({ log: studentLog });
 });
 
+// 下载 Skill 文件（create-course.md）
+app.get('/api/download-skill', (req, res) => {
+    const skillPath = path.join(__dirname, 'create-course.md');
+    if (!fs.existsSync(skillPath)) {
+        return res.status(404).send('skill file not found');
+    }
+    res.setHeader('Content-Disposition', 'attachment; filename="create-course.md"');
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.sendFile(skillPath);
+});
+
+// 获取课件教程内容（course-template.md）
+app.get('/api/course-guide', (req, res) => {
+    const guidePath = path.join(__dirname, 'course-template.md');
+    if (!fs.existsSync(guidePath)) {
+        return res.status(404).send('guide file not found');
+    }
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.sendFile(guidePath);
+});
+
 // ========================================================
 // 🛠️ 诊断路由
 // ========================================================

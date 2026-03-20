@@ -10,15 +10,33 @@ const { useState, useEffect, useRef } = React;
 // ========================================================
 function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, socket }) {
     const [selectedId, setSelectedId] = useState(currentCourseId);
-    
+    const [showGuide, setShowGuide] = useState(false);
+    const [guideContent, setGuideContent] = useState('');
+
     const handleSelect = (courseId) => {
         setSelectedId(courseId);
     };
-    
+
     const handleStartCourse = () => {
         if (selectedId && socket) {
             socket.emit('select-course', { courseId: selectedId });
         }
+    };
+
+    const handleDownloadSkill = () => {
+        const a = document.createElement('a');
+        a.href = '/api/download-skill';
+        a.download = 'create-course.md';
+        a.click();
+    };
+
+    const handleOpenGuide = async () => {
+        if (!guideContent) {
+            const res = await fetch('/api/course-guide');
+            const text = await res.text();
+            setGuideContent(text);
+        }
+        setShowGuide(true);
     };
     
     return (
@@ -104,15 +122,31 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
             {/* 底部操作栏 */}
             <div className="px-8 py-5 bg-slate-800 border-t border-slate-700">
                 <div className="max-w-6xl mx-auto flex justify-between items-center">
-                    <div className="text-slate-400 text-sm">
-                        共 {courses.length} 个课程
+                    <div className="flex items-center space-x-3">
+                        <span className="text-slate-400 text-sm">共 {courses.length} 个课程</span>
+                        <button
+                            onClick={handleDownloadSkill}
+                            className="flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors text-sm font-medium border border-slate-600"
+                            title="下载 AI 课件生成 Skill 文件"
+                        >
+                            <i className="fas fa-download mr-2 text-blue-400"></i>
+                            下载 Skill
+                        </button>
+                        <button
+                            onClick={handleOpenGuide}
+                            className="flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors text-sm font-medium border border-slate-600"
+                            title="查看课件开发教程"
+                        >
+                            <i className="fas fa-book-open mr-2 text-green-400"></i>
+                            课件教程
+                        </button>
                     </div>
                     <button
                         onClick={handleStartCourse}
                         disabled={!selectedId}
                         className={`flex items-center px-8 py-3 rounded-xl font-bold text-lg transition-all ${
-                            selectedId 
-                                ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-blue-500/30' 
+                            selectedId
+                                ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-blue-500/30'
                                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
                         }`}
                     >
@@ -121,6 +155,39 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                     </button>
                 </div>
             </div>
+
+            {/* 课件教程面板 */}
+            {showGuide && (
+                <div className="fixed inset-0 z-50 flex" onClick={() => setShowGuide(false)}>
+                    <div className="ml-auto w-full max-w-2xl h-full bg-white shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                        {/* 面板顶栏 */}
+                        <div className="flex items-center justify-between px-6 py-4 bg-slate-800 border-b border-slate-700 shrink-0">
+                            <h3 className="text-white font-bold text-lg flex items-center">
+                                <i className="fas fa-book-open mr-2 text-green-400"></i>
+                                课件开发教程
+                            </h3>
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={handleDownloadSkill}
+                                    className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    <i className="fas fa-download mr-1.5"></i>
+                                    下载 Skill
+                                </button>
+                                <button onClick={() => setShowGuide(false)} className="text-slate-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors">
+                                    <i className="fas fa-xmark text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {/* 面板内容 */}
+                        <div className="flex-1 overflow-y-auto p-6 text-slate-800">
+                            <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-200 overflow-x-auto">
+                                {guideContent}
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

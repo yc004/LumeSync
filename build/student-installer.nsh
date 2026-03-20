@@ -1,6 +1,6 @@
 ; ============================================================
 ; SyncClassroom Student - Custom NSIS Script
-; Password verification via MUI_CUSTOMFUNCTION_UNGUIINIT hook.
+; Password check via customUnInit (runs before file deletion).
 ; ============================================================
 
 !include LogicLib.nsh
@@ -11,22 +11,18 @@
     nsExec::ExecToLog '"$INSTDIR\SyncClassroom Student.exe" --register-service'
 !macroend
 
-; ── customUnInstall: stop/delete service after files are removed ─
-!macro customUnInstall
-    DetailPrint "Stopping daemon service..."
-    nsExec::ExecToLog 'sc stop "SyncClassroomStudent"'
-    nsExec::ExecToLog 'sc delete "SyncClassroomStudent"'
-!macroend
-
-; ── Define custom function for MUI uninstaller GUI init ─
-!ifdef BUILD_UNINSTALLER
-
-!define MUI_CUSTOMFUNCTION_UNGUIINIT un.PasswordCheck
-
-Function un.PasswordCheck
-    ; Write VBScript to show password InputBox
+; ── customUnInit: password check BEFORE any files are removed ─
+!macro customUnInit
+    ; Write VBScript to temp file to show InputBox
     FileOpen $R8 "$TEMP\sc_getpwd.vbs" w
-    FileWrite $R8 'Dim pwd$\r$\npwd = InputBox("Enter admin password to uninstall SyncClassroom Student:", "SyncClassroom Student")$\r$\nIf pwd = "" Then WScript.Quit 1$\r$\nSet fso = CreateObject("Scripting.FileSystemObject")$\r$\nSet f = fso.OpenTextFile("$TEMP\sc_pwd.tmp", 2, True)$\r$\nf.Write pwd$\r$\nf.Close$\r$\nWScript.Quit 0'
+    FileWrite $R8 'Dim pwd$\r$\n'
+    FileWrite $R8 'pwd = InputBox("Enter admin password to uninstall SyncClassroom Student:", "SyncClassroom Student")$\r$\n'
+    FileWrite $R8 'If pwd = "" Then WScript.Quit 1$\r$\n'
+    FileWrite $R8 'Set fso = CreateObject("Scripting.FileSystemObject")$\r$\n'
+    FileWrite $R8 'Set f = fso.OpenTextFile("$TEMP\sc_pwd.tmp", 2, True)$\r$\n'
+    FileWrite $R8 'f.Write pwd$\r$\n'
+    FileWrite $R8 'f.Close$\r$\n'
+    FileWrite $R8 'WScript.Quit 0'
     FileClose $R8
 
     ExecWait 'wscript.exe //NoLogo "$TEMP\sc_getpwd.vbs"' $R7
@@ -56,6 +52,11 @@ Function un.PasswordCheck
         MessageBox MB_OK|MB_ICONEXCLAMATION "Incorrect password. Uninstall cancelled."
         Quit
     ${EndIf}
-FunctionEnd
+!macroend
 
-!endif
+; ── customUnInstall: stop/delete service after files are removed ─
+!macro customUnInstall
+    DetailPrint "Stopping daemon service..."
+    nsExec::ExecToLog 'sc stop "SyncClassroomStudent"'
+    nsExec::ExecToLog 'sc delete "SyncClassroomStudent"'
+!macroend

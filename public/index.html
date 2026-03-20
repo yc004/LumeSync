@@ -71,8 +71,16 @@
     <!-- React 会把所有的界面渲染到这个 div 里面 -->
     <div id="root"></div>
 
-    <!-- 6. 引入同步引擎：它负责课程选择、课堂同步和状态管理 -->
-    <script type="text/babel" src="/SyncEngine.js"></script>
+    <!-- 同步引擎模块（按依赖顺序加载） -->
+    <script type="text/babel" src="/engine/00-globals.js"></script>
+    <script type="text/babel" src="/engine/01-settings-panel.js"></script>
+    <script type="text/babel" src="/engine/02-classroom-view.js"></script>
+    <script type="text/babel" src="/engine/03-course-selector.js"></script>
+    <script type="text/babel" src="/engine/04-student-waiting.js"></script>
+    <script type="text/babel" src="/engine/05-sync-classroom.js"></script>
+    <script type="text/babel" src="/engine/06-resource-loader.js"></script>
+    <script type="text/babel" src="/engine/07-camera-manager.js"></script>
+    <script type="text/babel" src="/engine/08-app.js"></script>
 
 </body>
 </html>

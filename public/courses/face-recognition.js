@@ -1143,26 +1143,18 @@ function PracticeSlide() {
     const [streamActive, setStreamActive] = useState(false);
 
     useEffect(() => {
-        let currentStream = null;
-        const startWebcam = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                currentStream = stream;
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    setStreamActive(true);
-                }
-            } catch (err) {
-                console.error("摄像头获取失败:", err);
-                alert("无法访问摄像头，请确保浏览器具有摄像头权限。");
+        const onStream = (stream) => {
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                setStreamActive(true);
             }
         };
-        startWebcam();
-
+        window.CourseGlobalContext.getCamera(onStream).catch(err => {
+            console.error('[PracticeSlide] camera error:', err);
+        });
         return () => {
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-            }
+            window.CourseGlobalContext.unregisterCamera(onStream);
+            if (videoRef.current) videoRef.current.srcObject = null;
         };
     }, []);
 
@@ -1340,26 +1332,19 @@ function FullRecognitionSlide() {
     }, []);
 
     useEffect(() => {
-        let currentStream = null;
-        const startWebcam = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                currentStream = stream;
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    setStreamActive(true);
-                }
-            } catch (err) {
-                console.error("摄像头获取失败:", err);
+        if (!modelsLoaded) return;
+        const onStream = (stream) => {
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                setStreamActive(true);
             }
         };
-        if (modelsLoaded) {
-            startWebcam();
-        }
+        window.CourseGlobalContext.getCamera(onStream).catch(err => {
+            console.error('[FullRecognitionSlide] camera error:', err);
+        });
         return () => {
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-            }
+            window.CourseGlobalContext.unregisterCamera(onStream);
+            if (videoRef.current) videoRef.current.srcObject = null;
         };
     }, [modelsLoaded]);
 

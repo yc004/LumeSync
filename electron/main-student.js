@@ -4,7 +4,7 @@
 // ========================================================
 const {
     app, BrowserWindow, Tray, Menu, nativeImage,
-    ipcMain, shell, dialog
+    ipcMain, shell, dialog, session
 } = require('electron');
 const path = require('path');
 const crypto = require('crypto');
@@ -35,6 +35,9 @@ if (process.argv.includes('--register-service')) {
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('disable-http-cache');
 
+// 跳过 Windows 系统摄像头权限弹窗，避免首次 getUserMedia 等待 5 秒超时
+app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
+
 let mainWindow = null;
 let adminWindow = null;
 let tray = null;
@@ -43,6 +46,16 @@ let forceFullscreen = true; // 跟踪教师端的强制全屏设置
 let config = loadConfig();
 let retryTimer = null; // 后台重连定时器
 const RETRY_INTERVAL_MS = 5000; // 每 5 秒重试一次
+
+// getUserMedia requires a secure origin. http:// is not considered secure by Chromium,
+// so mark the teacher server origin as trusted. Must be set before app.ready.
+{
+    const _port = config.port || 3000;
+    app.commandLine.appendSwitch(
+        'unsafely-treat-insecure-origin-as-secure',
+        `http://${config.teacherIp}:${_port},http://localhost:${_port},http://127.0.0.1:${_port}`
+    );
+}
 
 // ── 开机自启 ─────────────────────────────────────────────
 app.setLoginItemSettings({
@@ -307,6 +320,15 @@ ipcMain.on('manual-retry', () => {
 
 // ── 应用生命周期 ─────────────────────────────────────────
 app.whenReady().then(() => {
+    // Allow camera/microphone access for course interactions
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        const allowed = ['media', 'camera', 'microphone', 'display-capture', 'videoCapture', 'audioCapture'];
+        callback(allowed.includes(permission));
+    });
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+        const allowed = ['media', 'camera', 'microphone', 'display-capture', 'videoCapture', 'audioCapture'];
+        return allowed.includes(permission);
+    });
     createMainWindow();
     createTray();
 });

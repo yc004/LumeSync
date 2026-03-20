@@ -2,7 +2,7 @@
 // 教师端主进程
 // 职责：启动 server.js，打开教师端浏览器窗口
 // ========================================================
-const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain, session } = require('electron');
 const path = require('path');
 const { fork, spawnSync } = require('child_process');
 const { loadSettings, saveSettings } = require('./config.js');
@@ -14,6 +14,15 @@ if (process.platform === 'win32') {
 
 // 禁用 GPU 磁盘缓存，避免 Windows 上因缓存目录锁定导致的启动报错
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+
+// getUserMedia requires a secure origin; localhost over http is treated as insecure by Chromium.
+app.commandLine.appendSwitch(
+    'unsafely-treat-insecure-origin-as-secure',
+    'http://localhost:3000,http://127.0.0.1:3000'
+);
+
+// 跳过 Windows 系统摄像头权限弹窗，避免首次 getUserMedia 等待 5 秒超时
+app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 
 let mainWindow = null;
 let tray = null;
@@ -83,6 +92,15 @@ function createTray() {
 
 // ── 应用生命周期 ─────────────────────────────────────────
 app.whenReady().then(() => {
+    // Allow camera/microphone access for course interactions
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        const allowed = ['media', 'camera', 'microphone', 'display-capture', 'videoCapture', 'audioCapture'];
+        callback(allowed.includes(permission));
+    });
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+        const allowed = ['media', 'camera', 'microphone', 'display-capture', 'videoCapture', 'audioCapture'];
+        return allowed.includes(permission);
+    });
     startServer();
     createWindow();
     createTray();
@@ -91,6 +109,12 @@ app.whenReady().then(() => {
 // IPC: 读取/保存教师端设置
 ipcMain.handle('get-settings', () => loadSettings());
 ipcMain.handle('save-settings', (_, settings) => saveSettings(settings));
+
+// IPC: 切换全屏
+ipcMain.on('toggle-fullscreen', () => {
+    if (!mainWindow) return;
+    mainWindow.setFullScreen(!mainWindow.isFullScreen());
+});
 
 // IPC: 导入课程文件（弹出文件选择对话框，复制到 public/courses/）
 ipcMain.handle('import-course', async () => {

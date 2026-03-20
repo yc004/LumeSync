@@ -391,6 +391,61 @@ window.CourseData = {
 };
 ```
 
+## 摄像头 API
+
+课件通过 `window.CourseGlobalContext` 调用引擎提供的摄像头能力。引擎负责设备枚举、流管理、VCam fallback 和 localStorage 记忆，课件只需调用简单 API。
+
+### API 说明
+
+| 方法 | 说明 |
+|------|------|
+| `getCamera(onStream?)` | 获取摄像头流。`onStream(stream)` 回调在首次获取成功及每次切换设备后自动触发。返回 `Promise<MediaStream>`。 |
+| `unregisterCamera(onStream)` | 注销回调（组件卸载时调用）。不停止摄像头流，其他课件仍可使用。 |
+| `releaseCamera()` | 完全释放摄像头（课程结束时由引擎自动调用，课件一般不需要手动调用）。 |
+
+**引擎自动行为：**
+- 调用 `getCamera()` 后，引擎自动在画面右下角显示摄像头切换按钮
+- 翻页时引擎自动释放摄像头并隐藏按钮，新页面组件 mount 后重新申请
+- `localStorage` 记忆上次选择的设备，下次自动沿用
+
+### 使用模式
+
+```tsx
+function CameraSlide() {
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        const onStream = (stream: MediaStream) => {
+            if (videoRef.current) videoRef.current.srcObject = stream;
+        };
+
+        // 启动摄像头，引擎自动显示切换按钮
+        window.CourseGlobalContext.getCamera(onStream).catch((err: Error) => {
+            console.error('Camera error:', err.message);
+        });
+
+        return () => {
+            // 组件卸载时注销回调（不停止流）
+            window.CourseGlobalContext.unregisterCamera(onStream);
+            if (videoRef.current) videoRef.current.srcObject = null;
+        };
+    }, []);
+
+    return (
+        <div className="flex flex-col h-full p-6 bg-white">
+            <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-xl" />
+        </div>
+    );
+}
+```
+
+### 注意事项
+
+- 每个需要摄像头的幻灯片组件都应在 `useEffect` 里调用 `getCamera` 并在 cleanup 里调用 `unregisterCamera`
+- 多个组件可以同时注册不同的 `onStream` 回调，共享同一个流
+- 不需要在课件里渲染摄像头选择器，引擎已内置
+- 不要在课件里直接调用 `window.CameraManager`，始终通过 `CourseGlobalContext`
+
 ## 调试技巧
 
 1. 打开浏览器开发者工具（F12）

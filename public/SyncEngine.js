@@ -1342,6 +1342,72 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
 }
 
 // ========================================================
+// 📷 CameraManager — 全局单例，管理摄像头流
+// 课件只需调用 window.CourseGlobalContext.getCamera()
+// 流在整个课程生命周期内保持活跃，避免反复开关导致 NotReadableError
+// ========================================================
+const CameraManager = (() => {
+    let _stream = null;
+    let _acquiring = null; // Promise<MediaStream> in-flight
+
+    // 带 VCam 兜底的流获取逻辑
+    const _acquire = async () => {
+        // 第一次尝试：浏览器默认设备
+        try {
+            return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch (e) {
+            // 权限拒绝 / 没有设备 → 直接抛出，不再重试
+            if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'NotFoundError') {
+                throw e;
+            }
+            // NotReadableError (VCam 占用) → 枚举所有设备逐一尝试
+            console.warn('[CameraManager] default device failed (' + e.name + '), trying all devices...');
+        }
+        await new Promise(r => setTimeout(r, 600));
+        const all = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+        const videoDevices = all.filter(d => d.kind === 'videoinput');
+        for (const device of videoDevices) {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: device.deviceId } }, audio: false });
+                console.log('[CameraManager] fallback OK: ' + (device.label || device.deviceId.slice(0, 20)));
+                return s;
+            } catch (e2) {
+                console.warn('[CameraManager] skip ' + (device.label || device.deviceId.slice(0, 20)) + ': ' + e2.name);
+                await new Promise(r => setTimeout(r, 400));
+            }
+        }
+        throw new Error('[CameraManager] No working camera found');
+    };
+
+    return {
+        // 获取流（已有则复用，否则新建）
+        getStream: async () => {
+            if (_stream && _stream.active) return _stream;
+            if (_acquiring) return _acquiring; // 防止并发重复请求
+            _acquiring = _acquire().then(s => {
+                _stream = s;
+                _acquiring = null;
+                return s;
+            }).catch(e => {
+                _acquiring = null;
+                throw e;
+            });
+            return _acquiring;
+        },
+        // 释放流（课程结束时调用）
+        release: () => {
+            if (_stream) {
+                _stream.getTracks().forEach(t => t.stop());
+                _stream = null;
+            }
+            _acquiring = null;
+        },
+        // 当前流是否活跃
+        isActive: () => !!(_stream && _stream.active),
+    };
+})();
+
+// ========================================================
 // 🚀 资源调度与渲染接管程序 (Bootstrapper)
 // 作用：加载配置表中的脚本和模型，优先测试局域网，失败再切公网
 // ========================================================
@@ -1532,6 +1598,7 @@ function ClassroomApp() {
             setCurrentCourseId(null);
             setCurrentCourseData(null);
             window.CourseData = null;
+            CameraManager.release();
             window.electronAPI?.classEnded();
         });
 
@@ -1637,8 +1704,11 @@ function ClassroomApp() {
                     }
                 }
 
-                // 检查模型 URL
-                window.CourseGlobalContext = {};
+                // 检查模型 URL，并挂载 CameraManager
+                window.CourseGlobalContext = {
+                    getCamera: () => CameraManager.getStream(),
+                    releaseCamera: () => CameraManager.release(),
+                };
                 if (window.CourseData.modelsUrls) {
                     const bestModelUrl = await checkModelUrlValidity(window.CourseData.modelsUrls);
                     window.CourseGlobalContext.modelUrl = bestModelUrl;

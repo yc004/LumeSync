@@ -23,6 +23,7 @@
 | `React` | 全局 | React 18 |
 | `useState`, `useEffect`, `useRef`, `useCallback`, `useMemo` 等 | 需从 React 解构 | 见下方写法 |
 | `window.CourseData` | 全局赋值 | 课程数据出口，必须赋值 |
+| `window.CourseGlobalContext` | 引擎提供 | 摄像头 API（见摄像头章节） |
 | `window.Chart` | 加载后可用 | Chart.js（需在 dependencies 中声明） |
 | `window.katex` | 加载后可用 | KaTeX（需在 dependencies 中声明） |
 | `window._` | 加载后可用 | Lodash（需在 dependencies 中声明） |
@@ -131,6 +132,7 @@ const chart = new Chart(ctx, {...});   // ReferenceError
 - 目标受众（初学者/进阶）
 - 内容要点/大纲
 - 是否需要外部库（图表、公式、动画等）
+- 是否需要摄像头
 
 ### 步骤 2：设计课程结构
 
@@ -271,6 +273,74 @@ function InteractiveSlide() {
 }
 ```
 
+**摄像头页：**
+```tsx
+function CameraSlide() {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [streamActive, setStreamActive] = useState<boolean>(false);
+
+    useEffect(() => {
+        const onStream = (stream: MediaStream) => {
+            if (videoRef.current) videoRef.current.srcObject = stream;
+            setStreamActive(true);
+        };
+
+        // 启动摄像头，引擎自动在右下角显示切换按钮
+        window.CourseGlobalContext.getCamera(onStream).catch((err: Error) => {
+            console.error('Camera error:', err.message);
+        });
+
+        return () => {
+            // 组件卸载时注销回调（不停止流，引擎管理生命周期）
+            window.CourseGlobalContext.unregisterCamera(onStream);
+            if (videoRef.current) videoRef.current.srcObject = null;
+        };
+    }, []);
+
+    return (
+        <div className="flex flex-col h-full p-6 md:p-8 bg-white">
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mb-4 shrink-0">
+                <i className="fas fa-camera mr-3 text-blue-500"></i> 摄像头演示
+            </h2>
+            <div className="flex-1 flex items-center justify-center">
+                <div className="relative bg-black rounded-2xl overflow-hidden border-2 border-slate-800 w-full max-w-2xl aspect-video flex items-center justify-center">
+                    {!streamActive && (
+                        <span className="text-slate-500 text-sm animate-pulse">等待摄像头...</span>
+                    )}
+                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-contain" />
+                </div>
+            </div>
+        </div>
+    );
+}
+```
+
+---
+
+## 摄像头 API
+
+课件通过 `window.CourseGlobalContext` 调用引擎提供的摄像头能力。引擎负责设备枚举、流管理、VCam fallback 和 localStorage 记忆，课件只需调用简单 API。
+
+### API 说明
+
+| 方法 | 说明 |
+|------|------|
+| `getCamera(onStream?)` | 获取摄像头流。`onStream(stream)` 回调在首次获取成功及每次切换设备后自动触发。返回 `Promise<MediaStream>`。 |
+| `unregisterCamera(onStream)` | 注销回调（组件卸载时调用）。不停止摄像头流，其他课件仍可使用。 |
+| `releaseCamera()` | 完全释放摄像头（课程结束时由引擎自动调用，课件一般不需要手动调用）。 |
+
+**引擎自动行为：**
+- 调用 `getCamera()` 后，引擎自动在画面右下角显示摄像头切换按钮
+- 翻页时引擎自动释放摄像头并隐藏按钮，新页面组件 mount 后重新申请
+- `localStorage` 记忆上次选择的设备，下次自动沿用
+
+### 注意事项
+
+- 每个需要摄像头的幻灯片组件都应在 `useEffect` 里调用 `getCamera` 并在 cleanup 里调用 `unregisterCamera`
+- 多个组件可以同时注册不同的 `onStream` 回调，共享同一个流
+- 不需要在课件里渲染摄像头选择器，引擎已内置
+- 不要在课件里直接调用 `window.CameraManager`，始终通过 `CourseGlobalContext`
+
 ---
 
 ## window.CourseData 配置
@@ -360,6 +430,7 @@ modelsUrls: {
 数据：fa-chart-line  fa-database  fa-table
 交互：fa-hand-pointer  fa-sliders-h  fa-toggle-on
 状态：fa-check-circle  fa-times-circle  fa-exclamation-triangle
+摄像头：fa-camera  fa-video  fa-eye
 ```
 
 ### 布局模式
@@ -491,3 +562,4 @@ window.CourseData = {
 6. 列表渲染必须加 `key` 属性
 7. 文件名将作为课程 ID，使用小写字母和连字符：`python-intro.tsx`
 8. TypeScript 类型注解是可选的，但推荐为 props 和 state 添加类型
+9. 需要摄像头时，通过 `window.CourseGlobalContext.getCamera(onStream)` 调用，不要直接操作 `window.CameraManager`

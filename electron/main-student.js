@@ -106,6 +106,8 @@ function openAdminWindow() {
     adminWindow.loadFile(path.join(__dirname, 'admin.html'));
     adminWindow.on('closed', () => { adminWindow = null; });
     adminWindow.setMenu(null);
+    // 始终置顶，确保全屏课堂模式下也能看到管理员窗口
+    adminWindow.setAlwaysOnTop(true, 'screen-saver');
 }
 
 // ── 系统托盘 ─────────────────────────────────────────────

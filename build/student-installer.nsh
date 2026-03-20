@@ -1,7 +1,6 @@
 ; ============================================================
 ; SyncClassroom Student - Custom NSIS Script
 ; Requires admin password to uninstall.
-; Uses only electron-builder supported macro hooks.
 ; ============================================================
 
 !include LogicLib.nsh
@@ -14,66 +13,64 @@
 !macroend
 
 ; ── Uninstall: password verification then stop/delete service ─
-Var dlg
-Var pwdField
-Var enteredPwd
-Var verifyResult
+Var un.dlg
+Var un.pwdField
+Var un.enteredPwd
+Var un.verifyResult
 
 !macro customUnInstall
-    ; --- Build password dialog ---
     nsDialogs::Create 1018
-    Pop $dlg
-    ${If} $dlg == error
+    Pop $un.dlg
+    ${If} $un.dlg == error
         MessageBox MB_OK|MB_ICONSTOP "Cannot create uninstall dialog."
         Abort
     ${EndIf}
 
-    ${NSD_CreateLabel} 0 0 100% 24u "Admin password required to uninstall SyncClassroom Student:"
+    ${NSD_CreateLabel} 0 0 100% 24u "Enter admin password to uninstall SyncClassroom Student:"
     Pop $0
 
     ${NSD_CreatePassword} 0 28u 100% 14u ""
-    Pop $pwdField
+    Pop $un.pwdField
 
     ${NSD_CreateButton} 0 48u 45% 14u "Uninstall"
     Pop $0
 
     ${NSD_CreateButton} 55% 48u 45% 14u "Cancel"
     Pop $0
-    GetFunctionAddress $1 un._sc_CancelUninstall
+    GetFunctionAddress $1 un.CancelUninstallSC
     nsDialogs::OnClick $0 $1
 
     nsDialogs::Show
 
-    ; --- Read entered password ---
-    ${NSD_GetText} $pwdField $enteredPwd
+    ${NSD_GetText} $un.pwdField $un.enteredPwd
 
-    ; --- Verify via verify-password.exe if present ---
-    StrCpy $verifyResult "1"
+    StrCpy $un.verifyResult "1"
     ${If} ${FileExists} "$INSTDIR\resources\verify-password.exe"
         FileOpen $R3 "$TEMP\sc_pwd.tmp" w
-        FileWrite $R3 $enteredPwd
+        FileWrite $R3 $un.enteredPwd
         FileClose $R3
-        ExecWait '"$INSTDIR\resources\verify-password.exe" --file "$TEMP\sc_pwd.tmp" --config "$APPDATA\SyncClassroom Student\config.json"' $verifyResult
+        ExecWait '"$INSTDIR\resources\verify-password.exe" --file "$TEMP\sc_pwd.tmp" --config "$APPDATA\SyncClassroom Student\config.json"' $un.verifyResult
         Delete "$TEMP\sc_pwd.tmp"
     ${Else}
-        ; Fallback: compare against hardcoded default
-        ${If} $enteredPwd == "admin123"
-            StrCpy $verifyResult "0"
+        ${If} $un.enteredPwd == "admin123"
+            StrCpy $un.verifyResult "0"
         ${EndIf}
     ${EndIf}
 
-    ${If} $verifyResult != "0"
+    ${If} $un.verifyResult != "0"
         MessageBox MB_OK|MB_ICONEXCLAMATION "Incorrect password. Uninstall cancelled."
         Abort
     ${EndIf}
 
-    ; --- Stop and remove service ---
     DetailPrint "Stopping daemon service..."
     nsExec::ExecToLog 'sc stop "SyncClassroomStudent"'
     nsExec::ExecToLog 'sc delete "SyncClassroomStudent"'
 !macroend
 
-; Must be prefixed "un." because it is called from the uninstaller context
-Function un._sc_CancelUninstall
-    SendMessage $dlg ${WM_CLOSE} 0 0
+; Guard with BUILD_UNINSTALLER so this function only exists in the
+; uninstaller pass — prevents warning 6020 in the installer pass.
+!ifdef BUILD_UNINSTALLER
+Function un.CancelUninstallSC
+    SendMessage $un.dlg ${WM_CLOSE} 0 0
 FunctionEnd
+!endif

@@ -12,18 +12,18 @@ out_teacher = os.path.join(os.path.dirname(__file__), 'icon-teacher.ico')
 out_student  = os.path.join(os.path.dirname(__file__), 'icon-student.ico')
 
 if not os.path.exists(src):
-    print(f'[icons] 找不到源图标: {src}')
+    print('[icons] ERROR: source icon not found: ' + src)
     sys.exit(1)
 
 img = Image.open(src).convert('RGBA')
-print(f'[icons] 源图像尺寸: {img.size}')
+print('[icons] source size: ' + str(img.size))
 
-# 生成标准多尺寸 ICO（16/32/48/64/128/256）
+# Generate standard multi-size ICO (16/32/48/64/128/256)
 sizes = [(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)]
 imgs = [img.resize(s, Image.LANCZOS) for s in sizes]
 
 imgs[0].save(out_teacher, format='ICO', sizes=sizes)
 imgs[0].save(out_student,  format='ICO', sizes=sizes)
 
-print(f'[icons] 生成成功: {out_teacher}')
-print(f'[icons] 生成成功: {out_student}')
+print('[icons] OK: ' + out_teacher)
+print('[icons] OK: ' + out_student)

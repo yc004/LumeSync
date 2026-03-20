@@ -36,11 +36,10 @@ Var verifyResult
 
     ${NSD_CreateButton} 0 48u 45% 14u "Uninstall"
     Pop $0
-    ; default button — dialog will close on click via Show return
 
     ${NSD_CreateButton} 55% 48u 45% 14u "Cancel"
     Pop $0
-    GetFunctionAddress $1 _sc_CancelUninstall
+    GetFunctionAddress $1 un._sc_CancelUninstall
     nsDialogs::OnClick $0 $1
 
     nsDialogs::Show
@@ -51,14 +50,13 @@ Var verifyResult
     ; --- Verify via verify-password.exe if present ---
     StrCpy $verifyResult "1"
     ${If} ${FileExists} "$INSTDIR\resources\verify-password.exe"
-        ; Write password to temp file to avoid command-line exposure
         FileOpen $R3 "$TEMP\sc_pwd.tmp" w
         FileWrite $R3 $enteredPwd
         FileClose $R3
         ExecWait '"$INSTDIR\resources\verify-password.exe" --file "$TEMP\sc_pwd.tmp" --config "$APPDATA\SyncClassroom Student\config.json"' $verifyResult
         Delete "$TEMP\sc_pwd.tmp"
     ${Else}
-        ; Fallback: compare against default password
+        ; Fallback: compare against hardcoded default
         ${If} $enteredPwd == "admin123"
             StrCpy $verifyResult "0"
         ${EndIf}
@@ -75,6 +73,7 @@ Var verifyResult
     nsExec::ExecToLog 'sc delete "SyncClassroomStudent"'
 !macroend
 
-Function _sc_CancelUninstall
+; Must be prefixed "un." because it is called from the uninstaller context
+Function un._sc_CancelUninstall
     SendMessage $dlg ${WM_CLOSE} 0 0
 FunctionEnd

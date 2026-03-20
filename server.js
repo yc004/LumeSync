@@ -1,3 +1,6 @@
+// Windows 控制台编码修复：移除 emoji，避免 GBK/UTF-8 乱码
+// （emoji 在 Windows GBK 控制台下无法正确显示）
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -30,7 +33,7 @@ function scanCourses() {
     
     const files = fs.readdirSync(coursesDir);
     const courses = files
-        .filter(f => f.endsWith('.js'))
+        .filter(f => f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.tsx'))
         .map(f => {
             const courseId = f.replace('.js', '');
             const filePath = path.join(coursesDir, f);
@@ -38,7 +41,7 @@ function scanCourses() {
             try {
                 content = fs.readFileSync(filePath, 'utf-8');
             } catch (err) {
-                console.warn(`[scanCourses] ⚠️ 跳过无法读取的文件: ${f} (${err.message})`);
+                console.warn(`[scanCourses] [SKIP] 跳过无法读取的文件: ${f} (${err.message})`);
                 return null;
             }
             
@@ -181,12 +184,12 @@ app.use('/lib/:fileName', (req, res) => {
     if (KNOWN_FILE_URLS[fileName]) {
         // 已知框架文件，使用固定 URL
         possibleUrls = [KNOWN_FILE_URLS[fileName]];
-        console.log(`[缓存代理] 下载 ${fileName} (已知地址)...`);
+        console.log(`[proxy] downloading ${fileName} (known url)...`);
     } else if (dependencyMap[fileName]) {
         // 课件注册的精确地址，将 cdn.jsdelivr.net 替换为 fastly 节点以提升可达性
         const registeredUrl = dependencyMap[fileName].replace('cdn.jsdelivr.net', 'fastly.jsdelivr.net');
         possibleUrls = [registeredUrl, dependencyMap[fileName]];
-        console.log(`[缓存代理] 下载 ${fileName} (课件注册地址)...`);
+        console.log(`[proxy] downloading ${fileName} (registered url)...`);
     } else {
         // 从文件名猜测 npm 包名
         let packageName = fileName
@@ -210,7 +213,7 @@ app.use('/lib/:fileName', (req, res) => {
             `https://unpkg.com/${packageName}@latest/dist/${fileName}`,
             `https://unpkg.com/${packageName}@latest/${fileName}`
         ];
-        console.log(`[缓存代理] 下载 ${fileName}...`);
+        console.log(`[proxy] downloading ${fileName}...`);
     }
     
     // 尝试从指定 URL 下载
@@ -250,7 +253,7 @@ app.use('/lib/:fileName', (req, res) => {
         });
 
         req.on('error', (err) => {
-            console.warn(`[缓存代理] 请求失败 ${url}: ${err.message}`);
+            console.warn(`[proxy] request failed ${url}: ${err.message}`);
             onError();
         });
     };
@@ -258,8 +261,8 @@ app.use('/lib/:fileName', (req, res) => {
     // 尝试下载，使用第一个成功的
     const tryNextUrl = (index) => {
         if (index >= possibleUrls.length) {
-            console.log(`[缓存代理] ❌ 无法找到 ${fileName}`);
-            return res.status(404).send(`无法找到脚本: ${fileName}`);
+            console.log(`[proxy] [FAIL] not found: ${fileName}`);
+            return res.status(404).send(`not found: ${fileName}`);
         }
         
         const url = possibleUrls[index];
@@ -267,7 +270,7 @@ app.use('/lib/:fileName', (req, res) => {
         tryDownloadFromUrl(url, 
             (response, finalUrl) => {
                 const size = response.headers['content-length'] || '未知';
-                console.log(`[缓存代理] ✅ ${fileName} 已下载 (${size} bytes)`);
+                console.log(`[proxy] [OK] ${fileName} downloaded (${size} bytes)`);
                 
                 // 设置响应头
                 res.setHeader('Content-Type', response.headers['content-type'] || 'application/javascript');
@@ -289,7 +292,7 @@ app.use('/lib/:fileName', (req, res) => {
                 
                 response.on('error', (err) => {
                     fileStream.destroy();
-                    console.error(`[缓存代理] 下载出错: ${err.message}`);
+                    console.error(`[proxy] download error: ${err.message}`);
                     if (fs.existsSync(localPath)) {
                         fs.unlinkSync(localPath);
                     }
@@ -317,7 +320,7 @@ app.use('/webfonts/:fileName', (req, res) => {
     // 本地不存在，从 KNOWN_FILE_URLS 下载
     const remoteUrl = KNOWN_FILE_URLS[fileName];
     if (remoteUrl) {
-        console.log(`[缓存代理] 下载字体 ${fileName} (已知地址)...`);
+        console.log(`[proxy] downloading font ${fileName}...`);
         return downloadAndCache(remoteUrl, localPath, res);
     }
     res.status(404).send('字体文件未找到');
@@ -346,7 +349,7 @@ app.use('/images/proxy', (req, res) => {
         return res.sendFile(cachePath);
     }
     
-    console.log(`[图片代理] 下载: ${imageUrl.substring(0, 60)}...`);
+    console.log(`[img-proxy] downloading: ${imageUrl.substring(0, 60)}...`);
     
     // 下载图片
     const client = imageUrl.startsWith('https') ? require('https') : require('http');
@@ -357,21 +360,21 @@ app.use('/images/proxy', (req, res) => {
             
             fileStream.on('finish', () => {
                 fileStream.close();
-                console.log(`[图片代理] ✅ 已缓存: ${cacheFileName}`);
+                console.log(`[img-proxy] [OK] cached: ${cacheFileName}`);
                 res.sendFile(cachePath);
             });
             
             fileStream.on('error', (err) => {
-                console.error(`[图片代理] 保存失败: ${err.message}`);
+                console.error(`[img-proxy] save failed: ${err.message}`);
                 if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
                 res.status(500).send('图片保存失败');
             });
         } else {
-            console.error(`[图片代理] 下载失败: ${response.statusCode}`);
+            console.error(`[img-proxy] download failed: ${response.statusCode}`);
             res.status(response.statusCode).send('图片下载失败');
         }
     }).on('error', (err) => {
-        console.error(`[图片代理] 请求失败: ${err.message}`);
+        console.error(`[img-proxy] request failed: ${err.message}`);
         res.status(500).send('图片请求失败');
     });
 });
@@ -381,7 +384,7 @@ app.use('/weights/:fileName', (req, res) => {
     if (req.method === 'HEAD') return res.status(200).end();
     
     const fileName = req.params.fileName;
-    console.log(`[缓存代理] 自动帮您从公网抓取缺失模型: ${fileName}`);
+    console.log(`[proxy] fetching model from CDN: ${fileName}`);
     const remoteUrl = `https://fastly.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/${fileName}`;
     const localPath = path.join(weightsDir, fileName);
     downloadAndCache(remoteUrl, localPath, res);
@@ -414,9 +417,36 @@ app.post('/api/refresh-courses', (req, res) => {
     res.json({ success: true, courses: courseCatalog });
 });
 
+// 获取当前在线学生列表
+app.get('/api/students', (req, res) => {
+    const students = Array.from(studentIPs.keys()).map(ip => ip.startsWith('::ffff:') ? ip.slice(7) : ip);
+    res.json({ students });
+});
+
 // 获取学生操作日志
 app.get('/api/student-log', (req, res) => {
     res.json({ log: studentLog });
+});
+
+// 下载 Skill 文件（create-course.md）
+app.get('/api/download-skill', (req, res) => {
+    const skillPath = path.join(__dirname, 'create-course.md');
+    if (!fs.existsSync(skillPath)) {
+        return res.status(404).send('skill file not found');
+    }
+    res.setHeader('Content-Disposition', 'attachment; filename="create-course.md"');
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.sendFile(skillPath);
+});
+
+// 获取课件教程内容（course-template.md）
+app.get('/api/course-guide', (req, res) => {
+    const guidePath = path.join(__dirname, 'course-template.md');
+    if (!fs.existsSync(guidePath)) {
+        return res.status(404).send('guide file not found');
+    }
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.sendFile(guidePath);
 });
 
 // ========================================================
@@ -437,6 +467,16 @@ app.get('*', (req, res) => {
 
 let studentIPs = new Map(); // IP -> socket数量，同一IP只计一个学生
 
+// 教师端当前设置（服务端缓存，用于新连接学生同步）
+let currentHostSettings = {
+    forceFullscreen: true,
+    syncFollow: true,
+    alertJoin: true,
+    alertLeave: true,
+    alertFullscreenExit: true,
+    alertTabHidden: true,
+};
+
 // 学生操作日志（内存，最多保留 500 条）
 const studentLog = [];
 const LOG_MAX = 500;
@@ -446,22 +486,25 @@ function pushLog(type, ip, extra) {
     studentLog.push(entry);
     if (studentLog.length > LOG_MAX) studentLog.shift();
     io.to('hosts').emit('student-log-entry', entry);
-    console.log(`[学生日志] ${entry.time} | ${type} | IP: ${ip}${extra.slide !== undefined ? ' | 页面: ' + extra.slide : ''}`);
+    console.log(`[student-log] ${entry.time} | ${type} | IP: ${ip}${extra.slide !== undefined ? ' | slide: ' + extra.slide : ''}`);
 }
 
 io.on('connection', (socket) => {
-    const clientIp = socket.handshake.address;
-    const isLocalhost = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1';
+    // 统一转换为 IPv4，去掉 IPv6 映射前缀 ::ffff:
+    const rawIp = socket.handshake.address;
+    const clientIp = rawIp.startsWith('::ffff:') ? rawIp.slice(7) : rawIp;
+    const isLocalhost = clientIp === '127.0.0.1' || clientIp === '::1';
     
     const role = isLocalhost ? 'host' : 'viewer';
-    console.log(`🟢 用户连接: IP=${clientIp}, 自动分配: ${role === 'host' ? '🧑‍🏫 老师端' : '👨‍🎓 学生端'}`);
+    console.log(`[conn] IP=${clientIp} role=${role}`);
 
     // 发送角色信息和当前课程状态给当前客户端
     socket.emit('role-assigned', { 
         role: role,
         currentCourseId: currentCourseId,
         currentSlideIndex: currentSlideIndex,
-        courseCatalog: courseCatalog
+        courseCatalog: courseCatalog,
+        hostSettings: currentHostSettings,
     });
 
     // 处理监控逻辑
@@ -500,12 +543,13 @@ io.on('connection', (socket) => {
             if (course) {
                 currentCourseId = data.courseId;
                 currentSlideIndex = 0;
-                console.log(`📚 老师切换课程: ${course.title} (${course.id})`);
+                console.log(`[course] switched to: ${course.title} (${course.id})`);
                 // 广播给所有客户端切换课程
                 io.emit('course-changed', {
                     courseId: currentCourseId,
                     courseFile: course.file,
-                    slideIndex: 0
+                    slideIndex: 0,
+                    hostSettings: currentHostSettings,
                 });
             }
         }
@@ -516,7 +560,7 @@ io.on('connection', (socket) => {
         if (role === 'host') {
             currentCourseId = null;
             currentSlideIndex = 0;
-            console.log(`🏠 老师结束课程，返回课程选择界面`);
+            console.log(`[course] ended, back to selector`);
             io.emit('course-ended');
         }
     });
@@ -544,7 +588,16 @@ io.on('connection', (socket) => {
     // 教师端推送设置变更给所有学生
     socket.on('host-settings', (settings) => {
         if (role === 'host') {
+            currentHostSettings = { ...currentHostSettings, ...settings };
             socket.broadcast.emit('host-settings', settings);
+        }
+    });
+
+    // 教师端推送新管理员密码给所有学生
+    socket.on('set-admin-password', (data) => {
+        if (role === 'host' && data && data.hash) {
+            console.log('[admin] password update pushed to students');
+            socket.broadcast.emit('set-admin-password', { hash: data.hash });
         }
     });
 
@@ -558,7 +611,7 @@ io.on('connection', (socket) => {
 
     // 处理断开连接逻辑
     socket.on('disconnect', () => {
-        console.log(`🔴 用户离开: IP=${clientIp}`);
+        console.log(`[conn] disconnected: IP=${clientIp}`);
         if (role === 'viewer') {
             const remaining = (studentIPs.get(clientIp) || 1) - 1;
             if (remaining <= 0) {
@@ -578,8 +631,8 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`\n=========================================`);
-    console.log(`🚀 互动课堂服务器 (智能代理版) 已启动!`);
-    console.log(`👉 老师端 (主控): http://localhost:${PORT}`);
-    console.log(`👉 学生端 (观看): http://局域网IP:${PORT}`);
+    console.log(`[server] SyncClassroom started on port ${PORT}`);
+    console.log(`[server] Teacher (host): http://localhost:${PORT}`);
+    console.log(`[server] Student (viewer): http://<LAN-IP>:${PORT}`);
     console.log(`=========================================\n`);
 });

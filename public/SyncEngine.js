@@ -6,32 +6,738 @@
 const { useState, useEffect, useRef } = React;
 
 // ========================================================
+// ⚙️ 共享设置面板组件（教师端两处复用）
+// ========================================================
+function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = 'z-50' }) {
+    const [newPwd, setNewPwd] = useState('');
+    const [pwdStatus, setPwdStatus] = useState(null); // 'ok' | 'err' | null
+
+    const handleSetPassword = () => {
+        if (!newPwd.trim()) return;
+        // 在浏览器端计算 SHA-256
+        const encoder = new TextEncoder();
+        const data = encoder.encode(newPwd.trim());
+        crypto.subtle.digest('SHA-256', data).then(buf => {
+            const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+            socket && socket.emit('set-admin-password', { hash });
+            setNewPwd('');
+            setPwdStatus('ok');
+            setTimeout(() => setPwdStatus(null), 3000);
+        }).catch(() => {
+            setPwdStatus('err');
+            setTimeout(() => setPwdStatus(null), 3000);
+        });
+    };
+
+    return (
+        <div className={`fixed inset-0 ${zIndex} flex justify-end`} onClick={onClose}>
+            <div
+                className="w-80 h-full bg-white shadow-2xl border-l border-slate-200 flex flex-col overflow-y-auto"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                    <h3 className="font-bold text-slate-800 text-lg flex items-center">
+                        <i className="fas fa-gear mr-2 text-blue-500"></i> 课堂设置
+                    </h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                        <i className="fas fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <div className="flex-1 px-6 py-4 space-y-5">
+                    {[
+                        { key: 'forceFullscreen',     label: '强制学生全屏',  icon: 'fa-expand' },
+                        { key: 'syncFollow',          label: '学生跟随翻页',  icon: 'fa-rotate' },
+                        { key: 'alertJoin',           label: '学生上线提醒',  icon: 'fa-user-plus' },
+                        { key: 'alertLeave',          label: '学生离线提醒',  icon: 'fa-user-minus' },
+                        { key: 'alertFullscreenExit', label: '退出全屏提醒',  icon: 'fa-compress' },
+                        { key: 'alertTabHidden',      label: '切换页面提醒',  icon: 'fa-eye-slash' },
+                    ].map(({ key, label, icon }) => (
+                        <div key={key} className="flex items-center justify-between">
+                            <span className="flex items-center text-slate-700 font-medium text-sm">
+                                <i className={`fas ${icon} w-5 mr-2 text-slate-400`}></i>
+                                {label}
+                            </span>
+                            <button
+                                onClick={() => onSettingsChange(key, !settings[key])}
+                                className={`relative w-12 h-6 rounded-full transition-colors ${settings[key] ? 'bg-blue-500' : 'bg-slate-300'}`}
+                            >
+                                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${settings[key] ? 'left-7' : 'left-1'}`}></span>
+                            </button>
+                        </div>
+                    ))}
+
+                    {/* 分隔线 */}
+                    <div className="border-t border-slate-200 pt-4">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center">
+                            <i className="fas fa-lock w-4 mr-2 text-slate-400"></i>
+                            学生端管理员密码
+                        </p>
+                        <div className="space-y-2">
+                            <input
+                                type="password"
+                                value={newPwd}
+                                onChange={e => setNewPwd(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSetPassword()}
+                                placeholder="输入新密码"
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800"
+                            />
+                            <button
+                                onClick={handleSetPassword}
+                                disabled={!newPwd.trim()}
+                                className={`w-full py-2 rounded-lg text-sm font-bold transition-colors ${newPwd.trim() ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                            >
+                                <i className="fas fa-paper-plane mr-2"></i>
+                                推送到所有学生端
+                            </button>
+                            {pwdStatus === 'ok' && (
+                                <p className="text-xs text-green-600 flex items-center">
+                                    <i className="fas fa-check mr-1"></i> 已推送，在线学生将立即生效
+                                </p>
+                            )}
+                            {pwdStatus === 'err' && (
+                                <p className="text-xs text-red-500 flex items-center">
+                                    <i className="fas fa-xmark mr-1"></i> 推送失败，请重试
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ========================================================
+// 🏫 机房视图组件（教师端）
+// 功能：显示所有学生座位，支持命名、拖拽排列、在线状态
+// 布局和命名持久化到 localStorage
+// ========================================================
+function ClassroomView({ onClose, socket, studentLog }) {
+    const STORAGE_KEY = 'classroom-layout-v1';
+
+    // seats: { id, ip, name, row, col }[]
+    // onlineIPs: Set<string>
+    const [seats, setSeats] = useState(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            // 规范化历史数据中可能存在的 ::ffff: 前缀
+            return saved.map(s => ({ ...s, ip: s.ip && s.ip.startsWith('::ffff:') ? s.ip.slice(7) : s.ip }));
+        } catch(e) { return []; }
+    });
+    const [onlineIPs, setOnlineIPs] = useState([]);
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [dragId, setDragId] = useState(null);
+    const [dragOver, setDragOver] = useState(null); // { row, col }
+    const [addRow, setAddRow] = useState(1);
+    const [addCol, setAddCol] = useState(1);
+    const [addIp, setAddIp] = useState('');
+    const [addName, setAddName] = useState('');
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [autoImporting, setAutoImporting] = useState(false);
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+    const [importError, setImportError] = useState(null);
+    const fileInputRef = useRef(null);
+
+    // 计算网格尺寸
+    const maxRow = seats.reduce((m, s) => Math.max(m, s.row), 0);
+    const maxCol = seats.reduce((m, s) => Math.max(m, s.col), 0);
+    const gridRows = Math.max(maxRow, 4);
+    const gridCols = Math.max(maxCol, 6);
+
+    // 持久化
+    const saveSeats = (next) => {
+        setSeats(next);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    };
+
+    // 规范化 IP：去掉 IPv6 映射前缀 ::ffff:，只保留 IPv4
+    const normalizeIp = ip => ip && ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+
+    // 拉取在线学生列表
+    const fetchOnline = () => {
+        fetch('/api/students').then(r => r.json()).then(d => {
+            setOnlineIPs((d.students || []).map(normalizeIp));
+        }).catch(() => {});
+    };
+
+    useEffect(() => {
+        fetchOnline();
+        const t = setInterval(fetchOnline, 3000);
+        return () => clearInterval(t);
+    }, []);
+
+    // 自动导入：把在线但没有座位的 IP 加入未分配区
+    const handleAutoImport = () => {
+        setAutoImporting(true);
+        fetch('/api/students').then(r => r.json()).then(d => {
+            const ips = (d.students || []).map(normalizeIp);
+            const existing = new Set(seats.map(s => s.ip));
+            const newIps = ips.filter(ip => !existing.has(ip));
+            if (newIps.length === 0) { setAutoImporting(false); return; }
+            // 放到网格末尾
+            let row = gridRows;
+            let col = 0;
+            const added = newIps.map(ip => {
+                col++;
+                if (col > gridCols) { col = 1; row++; }
+                return { id: `seat-${Date.now()}-${ip}`, ip, name: '', row, col };
+            });
+            saveSeats([...seats, ...added]);
+            setAutoImporting(false);
+        }).catch(() => setAutoImporting(false));
+    };
+
+    // 最近告警：取最后 50 条日志，按 IP 归类
+    const recentAlerts = {};
+    const logSlice = (studentLog || []).slice(-50);
+    logSlice.forEach(e => {
+        if (!recentAlerts[e.ip]) recentAlerts[e.ip] = [];
+        recentAlerts[e.ip].push(e);
+    });
+
+    // 拖拽处理
+    const handleDragStart = (e, id) => {
+        setDragId(id);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+    const handleDragOverCell = (e, row, col) => {
+        e.preventDefault();
+        setDragOver({ row, col });
+    };
+    const handleDropCell = (e, row, col) => {
+        e.preventDefault();
+        if (!dragId) return;
+        // 检查目标格是否已有座位
+        const target = seats.find(s => s.row === row && s.col === col);
+        const dragged = seats.find(s => s.id === dragId);
+        if (!dragged) return;
+        if (target && target.id !== dragId) {
+            // 交换位置
+            saveSeats(seats.map(s => {
+                if (s.id === dragId) return { ...s, row: target.row, col: target.col };
+                if (s.id === target.id) return { ...s, row: dragged.row, col: dragged.col };
+                return s;
+            }));
+        } else {
+            saveSeats(seats.map(s => s.id === dragId ? { ...s, row, col } : s));
+        }
+        setDragId(null);
+        setDragOver(null);
+    };
+    const handleDragEnd = () => { setDragId(null); setDragOver(null); };
+
+    // 下载模板 CSV
+    const handleDownloadTemplate = () => {
+        const content = [
+            '# 机房座位列表模板',
+            '# 格式：ip,名称,行,列',
+            '# 每行一个座位，# 开头为注释行',
+            '# 行列从 1 开始，左上角为 (1,1)',
+            '#',
+            '# 示例：',
+            '192.168.1.101,A01,1,1',
+            '192.168.1.102,A02,1,2',
+            '192.168.1.103,A03,1,3',
+            '192.168.1.104,A04,1,4',
+            '192.168.1.105,A05,1,5',
+            '192.168.1.106,A06,1,6',
+            '192.168.1.201,B01,2,1',
+            '192.168.1.202,B02,2,2',
+            '192.168.1.203,B03,2,3',
+        ].join('\n');
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'classroom-seats-template.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // 从文件导入座位列表
+    const handleImportFile = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        setImportError(null);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const text = ev.target.result;
+            const lines = text.split(/\r?\n/);
+            const imported = [];
+            const errors = [];
+            lines.forEach((line, idx) => {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) return;
+                const parts = trimmed.split(',');
+                if (parts.length < 2) { errors.push(`第 ${idx + 1} 行格式错误`); return; }
+                const ip = normalizeIp(parts[0].trim());
+                const name = parts[1] ? parts[1].trim() : '';
+                const row = parts[2] ? parseInt(parts[2].trim(), 10) : null;
+                const col = parts[3] ? parseInt(parts[3].trim(), 10) : null;
+                if (!ip) { errors.push(`第 ${idx + 1} 行 IP 为空`); return; }
+                if (row !== null && (isNaN(row) || row < 1)) { errors.push(`第 ${idx + 1} 行 行号无效`); return; }
+                if (col !== null && (isNaN(col) || col < 1)) { errors.push(`第 ${idx + 1} 行 列号无效`); return; }
+                imported.push({ ip, name, row: row || null, col: col || null });
+            });
+            if (errors.length > 0) {
+                setImportError(errors.slice(0, 3).join('；') + (errors.length > 3 ? `…等 ${errors.length} 处错误` : ''));
+            }
+            if (imported.length === 0) return;
+            // 合并：已有座位保留，新 IP 追加；若 IP 已存在则更新名称/位置
+            let nextSeats = [...seats];
+            // 计算未指定行列时的起始位置
+            let autoRow = Math.max(...nextSeats.map(s => s.row || 0), 0) + 1;
+            let autoCol = 0;
+            imported.forEach(item => {
+                const existing = nextSeats.find(s => s.ip === item.ip);
+                let r = item.row, c = item.col;
+                if (!r || !c) {
+                    // 自动排列
+                    autoCol++;
+                    if (autoCol > gridCols) { autoCol = 1; autoRow++; }
+                    r = autoRow; c = autoCol;
+                }
+                if (existing) {
+                    nextSeats = nextSeats.map(s => s.ip === item.ip ? { ...s, name: item.name || s.name, row: r, col: c } : s);
+                } else {
+                    nextSeats.push({ id: `seat-${Date.now()}-${item.ip}`, ip: item.ip, name: item.name, row: r, col: c });
+                }
+            });
+            saveSeats(nextSeats);
+        };
+        reader.readAsText(file, 'utf-8');
+        // 重置 input，允许重复导入同一文件
+        e.target.value = '';
+    };
+
+    // 添加座位
+    const handleAddSeat = () => {
+        if (!addIp.trim()) return;
+        const id = `seat-${Date.now()}`;
+        saveSeats([...seats, { id, ip: normalizeIp(addIp.trim()), name: addName.trim(), row: Number(addRow), col: Number(addCol) }]);
+        setAddIp(''); setAddName(''); setShowAddForm(false);
+    };
+
+    // 删除座位
+    const handleDelete = (id) => saveSeats(seats.filter(s => s.id !== id));
+
+    // 重命名
+    const startEdit = (seat) => { setEditingId(seat.id); setEditName(seat.name); };
+    const commitEdit = () => {
+        saveSeats(seats.map(s => s.id === editingId ? { ...s, name: editName } : s));
+        setEditingId(null);
+    };
+
+    const alertIcons = {
+        'fullscreen-exit': { icon: 'fa-compress', color: 'text-orange-400', label: '退出全屏' },
+        'tab-hidden':      { icon: 'fa-eye-slash', color: 'text-red-400',    label: '切换页面' },
+        'join':            { icon: 'fa-user-plus', color: 'text-green-400',  label: '上线' },
+        'leave':           { icon: 'fa-user-minus', color: 'text-slate-400', label: '离线' },
+    };
+
+    // 渲染单个座位卡片
+    const renderSeat = (seat) => {
+        const isOnline = onlineIPs.includes(seat.ip);
+        const alerts = recentAlerts[seat.ip] || [];
+        const lastAlert = alerts[alerts.length - 1];
+        const isDragging = dragId === seat.id;
+
+        return (
+            <div
+                key={seat.id}
+                draggable
+                onDragStart={e => handleDragStart(e, seat.id)}
+                onDragEnd={handleDragEnd}
+                className={`relative flex flex-col items-center justify-center p-2 rounded-xl border-2 cursor-grab select-none transition-all duration-200 group
+                    ${isDragging ? 'opacity-40 scale-95' : ''}
+                    ${isOnline
+                        ? 'bg-green-900/40 border-green-500/60 shadow-green-500/20 shadow-md'
+                        : 'bg-slate-800/60 border-slate-600/40'
+                    }`}
+                style={{ minHeight: 80 }}
+            >
+                {/* 删除按钮 */}
+                <button
+                    onClick={() => handleDelete(seat.id)}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-700 hover:bg-red-500 text-slate-400 hover:text-white text-xs items-center justify-center hidden group-hover:flex transition-colors z-10"
+                >
+                    <i className="fas fa-xmark text-[10px]"></i>
+                </button>
+
+                {/* 在线指示灯 */}
+                <div className={`w-2.5 h-2.5 rounded-full mb-1.5 ${isOnline ? 'bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.8)]' : 'bg-slate-600'}`}></div>
+
+                {/* 名称（可编辑） */}
+                {editingId === seat.id ? (
+                    <input
+                        autoFocus
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); }}
+                        className="w-full text-center text-xs bg-slate-700 border border-blue-400 rounded px-1 py-0.5 text-white outline-none"
+                        onClick={e => e.stopPropagation()}
+                    />
+                ) : (
+                    <span
+                        className="text-xs font-bold text-white truncate max-w-full px-1 cursor-text"
+                        title={seat.name || seat.ip}
+                        onDoubleClick={() => startEdit(seat)}
+                    >
+                        {seat.name || <span className="text-slate-500 italic">双击命名</span>}
+                    </span>
+                )}
+
+                {/* IP */}
+                <span className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-full px-1">{seat.ip}</span>
+
+                {/* 最近告警 */}
+                {lastAlert && alertIcons[lastAlert.type] && (
+                    <div className={`mt-1 flex items-center text-[10px] ${alertIcons[lastAlert.type].color}`}>
+                        <i className={`fas ${alertIcons[lastAlert.type].icon} mr-1`}></i>
+                        {alertIcons[lastAlert.type].label}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // 列表视图
+    const renderList = () => (
+        <div className="overflow-auto flex-1 p-4">
+            <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                    <tr className="text-slate-500 text-xs uppercase tracking-wider border-b border-slate-700">
+                        <th className="px-3 py-2 w-6 text-center">#</th>
+                        <th className="px-3 py-2">状态</th>
+                        <th className="px-3 py-2">IP 地址</th>
+                        <th className="px-3 py-2">名称</th>
+                        <th className="px-3 py-2 text-center">行</th>
+                        <th className="px-3 py-2 text-center">列</th>
+                        <th className="px-3 py-2">最近告警</th>
+                        <th className="px-3 py-2 text-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {seats.length === 0 && (
+                        <tr><td colSpan="8" className="text-center text-slate-600 py-12">暂无座位，请导入或手动添加</td></tr>
+                    )}
+                    {[...seats].sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col).map((seat, idx) => {
+                        const isOnline = onlineIPs.includes(seat.ip);
+                        const alerts = recentAlerts[seat.ip] || [];
+                        const lastAlert = alerts[alerts.length - 1];
+                        return (
+                            <tr key={seat.id} className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors">
+                                <td className="px-3 py-2 text-slate-600 text-center text-xs">{idx + 1}</td>
+                                <td className="px-3 py-2">
+                                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${isOnline ? 'text-green-400' : 'text-slate-500'}`}>
+                                        <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-400' : 'bg-slate-600'}`}></span>
+                                        {isOnline ? '在线' : '离线'}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-2 font-mono text-slate-300 text-xs">{seat.ip}</td>
+                                <td className="px-3 py-2">
+                                    {editingId === seat.id ? (
+                                        <input
+                                            autoFocus
+                                            value={editName}
+                                            onChange={e => setEditName(e.target.value)}
+                                            onBlur={commitEdit}
+                                            onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); }}
+                                            className="bg-slate-700 border border-blue-400 rounded px-2 py-0.5 text-white text-xs outline-none w-32"
+                                        />
+                                    ) : (
+                                        <span
+                                            className="text-white text-xs cursor-text hover:text-blue-300 transition-colors"
+                                            onDoubleClick={() => startEdit(seat)}
+                                            title="双击编辑"
+                                        >
+                                            {seat.name || <span className="text-slate-600 italic">双击命名</span>}
+                                        </span>
+                                    )}
+                                </td>
+                                <td className="px-3 py-2 text-center text-slate-400 text-xs">{seat.row}</td>
+                                <td className="px-3 py-2 text-center text-slate-400 text-xs">{seat.col}</td>
+                                <td className="px-3 py-2 text-xs">
+                                    {lastAlert && alertIcons[lastAlert.type] ? (
+                                        <span className={`flex items-center gap-1 ${alertIcons[lastAlert.type].color}`}>
+                                            <i className={`fas ${alertIcons[lastAlert.type].icon}`}></i>
+                                            {alertIcons[lastAlert.type].label}
+                                        </span>
+                                    ) : <span className="text-slate-700">—</span>}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                    <button
+                                        onClick={() => handleDelete(seat.id)}
+                                        className="text-slate-600 hover:text-red-400 transition-colors text-xs"
+                                        title="删除"
+                                    >
+                                        <i className="fas fa-trash-can"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+
+    // 构建网格
+    const renderGrid = () => {
+        const rows = [];
+        for (let r = 1; r <= gridRows + 1; r++) {
+            const cols = [];
+            for (let c = 1; c <= gridCols + 1; c++) {
+                const seat = seats.find(s => s.row === r && s.col === c);
+                const isOver = dragOver && dragOver.row === r && dragOver.col === c;
+                cols.push(
+                    <div
+                        key={`${r}-${c}`}
+                        onDragOver={e => handleDragOverCell(e, r, c)}
+                        onDrop={e => handleDropCell(e, r, c)}
+                        className={`min-w-[100px] min-h-[90px] rounded-xl transition-all duration-150
+                            ${isOver && dragId ? 'bg-blue-500/20 border-2 border-blue-400 border-dashed' : ''}
+                            ${!seat && !isOver ? 'border border-dashed border-slate-700/40 rounded-xl' : ''}
+                        `}
+                    >
+                        {seat ? renderSeat(seat) : null}
+                    </div>
+                );
+            }
+            rows.push(
+                <div key={r} className="flex gap-3">
+                    <div className="w-6 flex items-center justify-center text-xs text-slate-600 font-mono shrink-0">{r}</div>
+                    {cols}
+                </div>
+            );
+        }
+        return rows;
+    };
+
+    return (
+        <div className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center" onClick={onClose}>
+            <div
+                className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col overflow-hidden"
+                style={{ width: '90vw', maxWidth: 1100, height: '85vh' }}
+                onClick={e => e.stopPropagation()}
+            >
+                {/* 顶栏 */}
+                <div className="flex items-center justify-between px-6 py-4 bg-slate-800 border-b border-slate-700 shrink-0">
+                    <div className="flex items-center space-x-3">
+                        <i className="fas fa-chalkboard text-blue-400 text-xl"></i>
+                        <h2 className="text-white font-bold text-lg">机房视图</h2>
+                        <span className="px-2.5 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold border border-green-500/30">
+                            {onlineIPs.length} 在线
+                        </span>
+                        <span className="px-2.5 py-1 bg-slate-700 text-slate-400 rounded-full text-xs font-bold">
+                            {seats.length} 座位
+                        </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        {/* 视图切换 */}
+                        <div className="flex rounded-lg overflow-hidden border border-slate-600">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`px-3 py-1.5 text-sm transition-colors ${viewMode === 'grid' ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                                title="网格视图"
+                            >
+                                <i className="fas fa-table-cells"></i>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`px-3 py-1.5 text-sm transition-colors ${viewMode === 'list' ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                                title="列表视图"
+                            >
+                                <i className="fas fa-list"></i>
+                            </button>
+                        </div>
+                        <button
+                            onClick={handleAutoImport}
+                            disabled={autoImporting}
+                            className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+                            title="将当前在线学生自动添加为座位"
+                        >
+                            <i className={`fas ${autoImporting ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'} mr-1.5`}></i>
+                            自动导入
+                        </button>
+                        {/* 导入文件 */}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".csv,.txt"
+                            className="hidden"
+                            onChange={handleImportFile}
+                        />
+                        <button
+                            onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                            className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600"
+                            title="从 CSV 文件导入座位列表"
+                        >
+                            <i className="fas fa-file-import mr-1.5"></i>
+                            导入列表
+                        </button>
+                        <button
+                            onClick={handleDownloadTemplate}
+                            className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600"
+                            title="下载座位列表模板文件"
+                        >
+                            <i className="fas fa-download mr-1.5"></i>
+                            模板
+                        </button>
+                        <button
+                            onClick={() => setShowAddForm(v => !v)}
+                            className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600"
+                        >
+                            <i className="fas fa-plus mr-1.5"></i>
+                            手动添加
+                        </button>
+                        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                            <i className="fas fa-xmark text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                {/* 手动添加表单 */}
+                {showAddForm && (
+                    <div className="px-6 py-3 bg-slate-800/80 border-b border-slate-700 flex items-center gap-3 shrink-0">
+                        <input value={addIp} onChange={e => setAddIp(e.target.value)} placeholder="IP 地址" className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-blue-400 w-36" />
+                        <input value={addName} onChange={e => setAddName(e.target.value)} placeholder="计算机名称（可选）" className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-blue-400 w-44" />
+                        <span className="text-slate-400 text-sm">行</span>
+                        <input type="number" min="1" value={addRow} onChange={e => setAddRow(e.target.value)} className="px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white outline-none focus:border-blue-400 w-16 text-center" />
+                        <span className="text-slate-400 text-sm">列</span>
+                        <input type="number" min="1" value={addCol} onChange={e => setAddCol(e.target.value)} className="px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white outline-none focus:border-blue-400 w-16 text-center" />
+                        <button onClick={handleAddSeat} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors">添加</button>
+                        <button onClick={() => setShowAddForm(false)} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition-colors">取消</button>
+                    </div>
+                )}
+
+                {/* 导入错误提示 */}
+                {importError && (
+                    <div className="px-6 py-2 bg-red-900/40 border-b border-red-700/50 flex items-center gap-3 shrink-0 text-sm text-red-300">
+                        <i className="fas fa-triangle-exclamation text-red-400"></i>
+                        <span>{importError}</span>
+                        <button onClick={() => setImportError(null)} className="ml-auto text-red-400 hover:text-red-200">
+                            <i className="fas fa-xmark"></i>
+                        </button>
+                    </div>
+                )}
+
+                {/* 图例 */}
+                <div className="px-6 py-2 bg-slate-900 border-b border-slate-800 flex items-center gap-5 text-xs text-slate-500 shrink-0">
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block"></span>在线</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-600 inline-block"></span>离线</span>
+                    <span className="flex items-center gap-1.5"><i className="fas fa-compress text-orange-400"></i>退出全屏</span>
+                    <span className="flex items-center gap-1.5"><i className="fas fa-eye-slash text-red-400"></i>切换页面</span>
+                    <span className="ml-auto text-slate-600">拖拽座位可调整位置 · 双击名称可编辑</span>
+                </div>
+
+                {/* 讲台 */}
+                <div className="px-6 pt-4 shrink-0">
+                    <div className="flex justify-center">
+                        <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">
+                            讲台
+                        </div>
+                    </div>
+                </div>
+
+                {/* 内容区：网格 or 列表 */}
+                {viewMode === 'list' ? renderList() : (
+                    <div className="flex-1 overflow-auto p-6">
+                        <div className="flex flex-col gap-3 items-center">
+                            {/* 列号 */}
+                            <div className="flex gap-3">
+                                <div className="w-6 shrink-0"></div>
+                                {Array.from({ length: gridCols + 1 }, (_, i) => (
+                                    <div key={i} className="min-w-[100px] text-center text-xs text-slate-600 font-mono">{i + 1}</div>
+                                ))}
+                            </div>
+                            {renderGrid()}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ========================================================
 // 📚 课程选择界面组件（仅教师端）
 // ========================================================
-function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, socket }) {
+function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, socket, settings, onSettingsChange, studentCount, studentLog }) {
     const [selectedId, setSelectedId] = useState(currentCourseId);
-    
+    const [showGuide, setShowGuide] = useState(false);
+    const [guideContent, setGuideContent] = useState('');
+    const [showSettings, setShowSettings] = useState(false);
+    const [showClassroomView, setShowClassroomView] = useState(false);
+
     const handleSelect = (courseId) => {
         setSelectedId(courseId);
     };
-    
+
     const handleStartCourse = () => {
         if (selectedId && socket) {
             socket.emit('select-course', { courseId: selectedId });
         }
     };
+
+    const handleDownloadSkill = () => {
+        const a = document.createElement('a');
+        a.href = '/api/download-skill';
+        a.download = 'create-course.md';
+        a.click();
+    };
+
+    const handleImportCourse = async () => {
+        if (!window.electronAPI?.importCourse) return;
+        const result = await window.electronAPI.importCourse();
+        if (result && result.success && result.imported.length > 0) {
+            // 触发服务端重新扫描，更新课程列表
+            onRefresh();
+        }
+    };
+
+    const handleOpenGuide = async () => {
+        if (!guideContent) {
+            const res = await fetch('/api/course-guide');
+            const text = await res.text();
+            setGuideContent(text);
+        }
+        setShowGuide(true);
+    };
     
     return (
         <div className="flex flex-col h-screen bg-slate-900 text-white overflow-hidden">
             {/* 顶栏 */}
-            <div className="flex items-center justify-between px-8 py-5 bg-slate-800 border-b border-slate-700">
+            <div className="flex items-center justify-between px-8 py-5 bg-slate-800 border-b border-slate-700" style={{WebkitAppRegion:'drag'}}>
                 <div className="flex items-center space-x-3">
                     <i className="fas fa-chalkboard-teacher text-blue-400 text-2xl"></i>
                     <h1 className="text-2xl font-bold">教师控制台</h1>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3" style={{WebkitAppRegion:'no-drag'}}>
+                    {/* 在线学生人数（可点击打开机房视图） */}
+                    <button
+                        onClick={() => setShowClassroomView(true)}
+                        className="px-3 py-1.5 bg-purple-500/20 text-purple-300 rounded-full text-sm font-bold border border-purple-500/30 flex items-center hover:bg-purple-500/30 transition-colors"
+                        title="点击查看机房视图"
+                    >
+                        <span className="relative flex h-2 w-2 mr-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                        </span>
+                        在线学生: {studentCount}
+                    </button>
+                    {/* 设置按钮 */}
+                    <button
+                        onClick={() => setShowSettings(v => !v)}
+                        className="flex items-center px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg border border-slate-600 transition-colors text-sm"
+                        title="课堂设置"
+                    >
+                        <i className="fas fa-gear"></i>
+                    </button>
                     <span className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-full text-sm font-bold border border-blue-500/30">
-                        🧑‍🏫 老师端 (主控)
+                        老师端 (主控)
                     </span>
                 </div>
             </div>
@@ -45,8 +751,16 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                         <p className="text-slate-400">从下方列表中选择要讲授的课程，学生将同步进入课堂</p>
                     </div>
                     
-                    {/* 刷新按钮 */}
-                    <div className="mb-6 flex justify-end">
+                    {/* 刷新 + 导入按钮 */}
+                    <div className="mb-6 flex justify-end gap-3">
+                        {window.electronAPI?.importCourse && (
+                            <button
+                                onClick={handleImportCourse}
+                                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-sm font-medium"
+                            >
+                                <i className="fas fa-file-import mr-2"></i> 导入课程
+                            </button>
+                        )}
                         <button 
                             onClick={onRefresh}
                             className="flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-sm"
@@ -60,7 +774,7 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                         <div className="text-center py-20 bg-slate-800/50 rounded-2xl border border-slate-700">
                             <i className="fas fa-folder-open text-6xl text-slate-600 mb-4"></i>
                             <h3 className="text-xl font-bold text-slate-400 mb-2">暂无课程</h3>
-                            <p className="text-slate-500">请在 public/courses/ 目录下添加课程文件</p>
+                            <p className="text-slate-500">点击右上角"导入课程"按钮，或将课程文件放入 public/courses/ 目录</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -104,15 +818,31 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
             {/* 底部操作栏 */}
             <div className="px-8 py-5 bg-slate-800 border-t border-slate-700">
                 <div className="max-w-6xl mx-auto flex justify-between items-center">
-                    <div className="text-slate-400 text-sm">
-                        共 {courses.length} 个课程
+                    <div className="flex items-center space-x-3">
+                        <span className="text-slate-400 text-sm">共 {courses.length} 个课程</span>
+                        <button
+                            onClick={handleDownloadSkill}
+                            className="flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors text-sm font-medium border border-slate-600"
+                            title="下载 AI 课件生成 Skill 文件"
+                        >
+                            <i className="fas fa-download mr-2 text-blue-400"></i>
+                            下载 Skill
+                        </button>
+                        <button
+                            onClick={handleOpenGuide}
+                            className="flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors text-sm font-medium border border-slate-600"
+                            title="查看课件开发教程"
+                        >
+                            <i className="fas fa-book-open mr-2 text-green-400"></i>
+                            课件教程
+                        </button>
                     </div>
                     <button
                         onClick={handleStartCourse}
                         disabled={!selectedId}
                         className={`flex items-center px-8 py-3 rounded-xl font-bold text-lg transition-all ${
-                            selectedId 
-                                ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-blue-500/30' 
+                            selectedId
+                                ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-blue-500/30'
                                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
                         }`}
                     >
@@ -121,6 +851,60 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                     </button>
                 </div>
             </div>
+
+            {/* 设置面板 */}
+            {showSettings && (
+                <SettingsPanel
+                    settings={settings}
+                    onSettingsChange={onSettingsChange}
+                    socket={socket}
+                    onClose={() => setShowSettings(false)}
+                    zIndex="z-50"
+                />
+            )}
+
+            {/* 课件教程面板 */}
+            {showGuide && (
+                <div className="fixed inset-0 z-50 flex" onClick={() => setShowGuide(false)}>
+                    <div className="ml-auto w-full max-w-2xl h-full bg-white shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                        {/* 面板顶栏 */}
+                        <div className="flex items-center justify-between px-6 py-4 bg-slate-800 border-b border-slate-700 shrink-0">
+                            <h3 className="text-white font-bold text-lg flex items-center">
+                                <i className="fas fa-book-open mr-2 text-green-400"></i>
+                                课件开发教程
+                            </h3>
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={handleDownloadSkill}
+                                    className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    <i className="fas fa-download mr-1.5"></i>
+                                    下载 Skill
+                                </button>
+                                <button onClick={() => setShowGuide(false)} className="text-slate-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors">
+                                    <i className="fas fa-xmark text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {/* 面板内容 */}
+                        <div className="flex-1 overflow-y-auto p-6 text-slate-800">
+                            <div
+                                className="markdown-body text-sm leading-relaxed"
+                                dangerouslySetInnerHTML={{ __html: window.marked ? window.marked.parse(guideContent) : guideContent }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 机房视图 */}
+            {showClassroomView && (
+                <ClassroomView
+                    onClose={() => setShowClassroomView(false)}
+                    socket={socket}
+                    studentLog={studentLog}
+                />
+            )}
         </div>
     );
 }
@@ -147,34 +931,24 @@ function StudentWaitingRoom({ message }) {
     );
 }
 
-function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHost, initialSlide }) {
+function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHost, initialSlide, settings, onSettingsChange, studentCount, studentLog }) {
     const [currentSlide, setCurrentSlide] = useState(initialSlide || 0);
     
     // 角色与状态控制
     const [isHost, setIsHost] = useState(initialIsHost || false);
-    const [roleAssigned, setRoleAssigned] = useState(true); // 从父组件传入，已分配
+    const [roleAssigned, setRoleAssigned] = useState(true);
     
     // 学生监控与弹窗状态
-    const [studentCount, setStudentCount] = useState(0);
     const [toasts, setToasts] = useState([]);
-    const [studentLog, setStudentLog] = useState([]);
     const [showLog, setShowLog] = useState(false);
+    const [showClassroomView, setShowClassroomView] = useState(false);
     
-    // 教师设置
-    const [settings, setSettings] = useState({
-        forceFullscreen: true,
-        syncFollow: true,
-        alertJoin: true,
-        alertLeave: true,
-        alertFullscreenExit: true,
-        alertTabHidden: true,
-    });
+    // 教师设置面板
     const [showSettings, setShowSettings] = useState(false);
     
     const socketRef = useRef(socket);
-    const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(!initialIsHost);
 
-    // 学生端：自动全屏逻辑
+    // 用 ref 跟踪最新 settings，供事件回调使用
     const settingsRef = useRef(settings);
     useEffect(() => { settingsRef.current = settings; }, [settings]);
 
@@ -183,7 +957,7 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
 
         const onFullscreenChange = () => {
             if (!document.fullscreenElement) {
-                if (settingsRef.current.forceFullscreen) setShowFullscreenPrompt(true);
+                // 仅上报日志，全屏控制由 Electron 主进程负责
                 socketRef.current && socketRef.current.emit('student-alert', { type: 'fullscreen-exit' });
             }
         };
@@ -222,13 +996,12 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
             setCurrentSlide(data.slideIndex);
         });
 
-        // 监听学生上下线状态 (只有后端判断是 host 才会发过来)
+        // 监听学生上下线状态
         socket.on('student-status', (data) => {
-            setStudentCount(data.count);
             if (data.action === 'join' && settingsRef.current.alertJoin) {
-                showToast(`👋 学生上线 (IP: ${data.ip})`, 'success');
+                showToast(`学生上线 (IP: ${data.ip})`, 'success');
             } else if (data.action === 'leave' && settingsRef.current.alertLeave) {
-                showToast(`🏃 学生离开 (IP: ${data.ip})`, 'warning');
+                showToast(`学生离开 (IP: ${data.ip})`, 'warning');
             }
         });
 
@@ -236,38 +1009,18 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
         socket.on('student-alert', (data) => {
             const ip = data.ip;
             if (data.type === 'fullscreen-exit' && settingsRef.current.alertFullscreenExit) {
-                showToast(`⚠️ 学生退出全屏 (IP: ${ip})`, 'warning');
+                showToast(`学生退出全屏 (IP: ${ip})`, 'warning');
             } else if (data.type === 'tab-hidden' && settingsRef.current.alertTabHidden) {
-                showToast(`👁️ 学生切换页面 (IP: ${ip})`, 'warning');
+                showToast(`学生切换页面 (IP: ${ip})`, 'warning');
             }
         });
 
-        // 学生端监听教师设置变更
-        socket.on('host-settings', (s) => {
-            setSettings(s);
-            if (!isHost && s.forceFullscreen && !document.fullscreenElement) {
-                setShowFullscreenPrompt(true);
-            }
-        });
-
-        // 如果是老师端，主动请求当前学生人数
-        if (isHost) {
-            socket.emit('get-student-count');
-            // 拉取历史日志
-            fetch('/api/student-log').then(r => r.json()).then(d => setStudentLog(d.log || []));
-        }
-
-        // 实时接收新日志条目
-        socket.on('student-log-entry', (entry) => {
-            setStudentLog(prev => [...prev, entry].slice(-500));
-        });
+        // 如果是老师端，拉取历史日志（由 ClassroomApp 统一管理，此处无需重复）
 
         return () => {
             socket.off('sync-slide');
             socket.off('student-status');
             socket.off('student-alert');
-            socket.off('host-settings');
-            socket.off('student-log-entry');
         };
     }, [socket, isHost]);
 
@@ -284,13 +1037,6 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
 
     const nextSlide = () => goToSlide(currentSlide + 1);
     const prevSlide = () => goToSlide(currentSlide - 1);
-
-    // 教师端：更新设置并广播给学生
-    const updateSetting = (key, value) => {
-        const next = { ...settingsRef.current, [key]: value };
-        setSettings(next);
-        socketRef.current && socketRef.current.emit('host-settings', next);
-    };
 
     // ========================================================
     // 界面渲染
@@ -311,23 +1057,8 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     return (
         <div className="flex flex-col h-screen bg-slate-900 text-slate-800 font-sans overflow-hidden select-none">
             
-            {/* 学生端全屏提示遮罩 */}
-            {!isHost && showFullscreenPrompt && settings.forceFullscreen && (
-                <div
-                    className="fixed inset-0 z-[9999] bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer"
-                    onClick={() => {
-                        document.documentElement.requestFullscreen().catch(() => {});
-                        setShowFullscreenPrompt(false);
-                    }}
-                >
-                    <i className="fas fa-expand text-6xl text-blue-400 mb-6"></i>
-                    <h2 className="text-3xl font-bold text-white mb-3">点击进入课堂</h2>
-                    <p className="text-slate-400">全屏模式以获得最佳体验</p>
-                </div>
-            )}
-            
             {/* 顶栏 (Header) */}
-            <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-white shadow-md z-20 relative h-[72px] shrink-0">
+            <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-white shadow-md z-20 relative h-[72px] shrink-0" style={{WebkitAppRegion:'drag'}}>
                 <div className="flex items-center space-x-3">
                     <i className="fas fa-microchip text-blue-600 text-2xl md:text-3xl"></i>
                     <h1 className="text-lg md:text-2xl font-bold text-slate-800 tracking-wide truncate max-w-[200px] md:max-w-none">{title}</h1>
@@ -340,20 +1071,25 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                             {isHost ? '🧑‍🏫 老师端 (主控)' : '👨‍🎓 学生端 (观看)'}
                         </span>
                         
-                        {/* 仅老师端显示在线人数 */}
+                        {/* 仅老师端显示在线人数（可点击打开机房视图） */}
                         {isHost && (
-                            <span className="px-3 py-1 text-xs md:text-sm font-bold rounded-full border bg-purple-50 text-purple-600 border-purple-200 flex items-center shadow-inner">
+                            <button
+                                onClick={() => setShowClassroomView(true)}
+                                className="px-3 py-1 text-xs md:text-sm font-bold rounded-full border bg-purple-50 text-purple-600 border-purple-200 flex items-center shadow-inner hover:bg-purple-100 transition-colors"
+                                title="点击查看机房视图"
+                                style={{WebkitAppRegion:'no-drag'}}
+                            >
                                 <span className="relative flex h-2 w-2 mr-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
                                 </span>
                                 在线学生: {studentCount}
-                            </span>
+                            </button>
                         )}
                     </div>
                 </div>
 
-                <div className="flex items-center space-x-3 md:space-x-4">
+                <div className="flex items-center space-x-3 md:space-x-4" style={{WebkitAppRegion:'no-drag'}}>
                     {/* 结束课程按钮（仅教师端） */}
                     {isHost && onEndCourse && (
                         <button
@@ -469,16 +1205,48 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                         </button>
                     </>
                 ) : (
-                    // 学生端：隐藏按钮，仅显示观看状态
-                    <div className="w-full flex justify-center items-center">
-                        <div className="text-slate-500 font-bold text-sm md:text-lg tracking-widest bg-slate-50 border border-slate-200 px-6 md:px-10 py-2 md:py-2.5 rounded-full flex items-center shadow-inner">
-                            <span className="relative flex h-3 w-3 mr-3 md:mr-4">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    // 学生端：syncFollow 关闭时显示翻页按钮，开启时显示观看状态
+                    !settings.syncFollow ? (
+                        <>
+                            <button
+                                onClick={prevSlide}
+                                disabled={currentSlide === 0}
+                                className={`flex items-center px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all ${
+                                    currentSlide === 0
+                                        ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
+                                        : 'text-white bg-green-500 hover:bg-green-600 shadow-md hover:-translate-x-1'
+                                }`}
+                            >
+                                <i className="fas fa-chevron-left mr-2"></i>
+                                上一页
+                            </button>
+                            <span className="text-slate-500 font-bold text-base md:text-lg tracking-widest bg-slate-100 px-4 md:px-6 py-1 md:py-2 rounded-full shadow-inner border border-slate-200">
+                                {currentSlide + 1} / {slides.length}
                             </span>
-                            正在观看老师演示 | 进度：{currentSlide + 1} / {slides.length}
+                            <button
+                                onClick={nextSlide}
+                                disabled={currentSlide === slides.length - 1}
+                                className={`flex items-center px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all ${
+                                    currentSlide === slides.length - 1
+                                        ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
+                                        : 'text-white bg-green-500 hover:bg-green-600 shadow-md hover:translate-x-1'
+                                }`}
+                            >
+                                下一页
+                                <i className="fas fa-chevron-right ml-2"></i>
+                            </button>
+                        </>
+                    ) : (
+                        <div className="w-full flex justify-center items-center">
+                            <div className="text-slate-500 font-bold text-sm md:text-lg tracking-widest bg-slate-50 border border-slate-200 px-6 md:px-10 py-2 md:py-2.5 rounded-full flex items-center shadow-inner">
+                                <span className="relative flex h-3 w-3 mr-3 md:mr-4">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                </span>
+                                正在观看老师演示 | 进度：{currentSlide + 1} / {slides.length}
+                            </div>
                         </div>
-                    </div>
+                    )
                 )}
             </div>
             
@@ -494,12 +1262,6 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                                 <i className="fas fa-list-ul mr-2 text-blue-500"></i> 学生操作日志
                             </h3>
                             <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={() => setStudentLog([])}
-                                    className="text-xs text-slate-400 hover:text-red-500 px-2 py-1 rounded transition-colors"
-                                >
-                                    清空
-                                </button>
                                 <button onClick={() => setShowLog(false)} className="text-slate-400 hover:text-slate-600">
                                     <i className="fas fa-xmark text-xl"></i>
                                 </button>
@@ -538,44 +1300,22 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
 
             {/* 设置面板（仅教师端） */}
             {isHost && showSettings && (
-                <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => setShowSettings(false)}>
-                    <div
-                        className="w-80 h-full bg-white shadow-2xl border-l border-slate-200 flex flex-col overflow-y-auto"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                            <h3 className="font-bold text-slate-800 text-lg flex items-center">
-                                <i className="fas fa-gear mr-2 text-blue-500"></i> 课堂设置
-                            </h3>
-                            <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
-                                <i className="fas fa-xmark text-xl"></i>
-                            </button>
-                        </div>
-                        <div className="flex-1 px-6 py-4 space-y-5">
-                            {[
-                                { key: 'forceFullscreen',     label: '强制学生全屏',     icon: 'fa-expand' },
-                                { key: 'syncFollow',          label: '学生跟随翻页',     icon: 'fa-rotate' },
-                                { key: 'alertJoin',           label: '学生上线提醒',     icon: 'fa-user-plus' },
-                                { key: 'alertLeave',          label: '学生离线提醒',     icon: 'fa-user-minus' },
-                                { key: 'alertFullscreenExit', label: '退出全屏提醒',     icon: 'fa-compress' },
-                                { key: 'alertTabHidden',      label: '切换页面提醒',     icon: 'fa-eye-slash' },
-                            ].map(({ key, label, icon }) => (
-                                <div key={key} className="flex items-center justify-between">
-                                    <span className="flex items-center text-slate-700 font-medium text-sm">
-                                        <i className={`fas ${icon} w-5 mr-2 text-slate-400`}></i>
-                                        {label}
-                                    </span>
-                                    <button
-                                        onClick={() => updateSetting(key, !settings[key])}
-                                        className={`relative w-12 h-6 rounded-full transition-colors ${settings[key] ? 'bg-blue-500' : 'bg-slate-300'}`}
-                                    >
-                                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${settings[key] ? 'left-7' : 'left-1'}`}></span>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                <SettingsPanel
+                    settings={settings}
+                    onSettingsChange={onSettingsChange}
+                    socket={socketRef.current}
+                    onClose={() => setShowSettings(false)}
+                    zIndex="z-[9998]"
+                />
+            )}
+
+            {/* 机房视图（仅教师端） */}
+            {isHost && showClassroomView && (
+                <ClassroomView
+                    onClose={() => setShowClassroomView(false)}
+                    socket={socketRef.current}
+                    studentLog={studentLog}
+                />
             )}
 
             {/* 侧边通知弹窗容器 (Toast) */}
@@ -688,8 +1428,47 @@ function ClassroomApp() {
     const [isLoading, setIsLoading] = useState(false);
     const [courseError, setCourseError] = useState(null);
     const [copyDone, setCopyDone] = useState(false);
+    // Shared state lifted from SyncClassroom
+    const DEFAULT_SETTINGS = {
+        forceFullscreen: true,
+        syncFollow: true,
+        alertJoin: true,
+        alertLeave: true,
+        alertFullscreenExit: true,
+        alertTabHidden: true,
+    };
+    const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+    const [studentCount, setStudentCount] = useState(0);
+    const [sharedStudentLog, setSharedStudentLog] = useState([]);
     const socketRef = useRef(null);
-    const courseCatalogRef = useRef([]); // 用于解决闭包问题
+    const courseCatalogRef = useRef([]);
+    const settingsRef = useRef(settings);
+    useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+    // 初始化时从 Electron 读取持久化设置（仅教师端有此 API）
+    // 加载完成后立即同步给服务端，确保 course-changed 携带正确的 hostSettings
+    useEffect(() => {
+        if (window.electronAPI?.getSettings) {
+            window.electronAPI.getSettings().then(saved => {
+                if (!saved) return;
+                const next = { ...settingsRef.current, ...saved };
+                settingsRef.current = next;
+                setSettings(next);
+                // 如果 socket 已连接（role-assigned 已触发），立即同步给服务端
+                if (socketRef.current && socketRef.current.connected) {
+                    socketRef.current.emit('host-settings', next);
+                }
+            });
+        }
+    }, []);
+
+    // Update a single setting, broadcast to students, and persist
+    const handleSettingsChange = (key, value) => {
+        const next = { ...settingsRef.current, [key]: value };
+        setSettings(next);
+        if (socketRef.current) socketRef.current.emit('host-settings', next);
+        window.electronAPI?.saveSettings?.(next);
+    };
 
     useEffect(() => {
         // 初始化 Socket 连接
@@ -700,15 +1479,42 @@ function ClassroomApp() {
             setIsHost(data.role === 'host');
             const catalog = data.courseCatalog || [];
             setCourseCatalog(catalog);
-            courseCatalogRef.current = catalog; // 更新 ref
+            courseCatalogRef.current = catalog;
             setCurrentCourseId(data.currentCourseId);
             setRoleAssigned(true);
             
-            // 如果已经有选中的课程，加载它
             if (data.currentCourseId) {
                 setInitialSlideIndex(data.currentSlideIndex || 0);
                 loadCourse(data.currentCourseId, catalog);
+                if (data.role !== 'host') {
+                    const fs = data.hostSettings?.forceFullscreen ?? true;
+                    if (data.hostSettings) setSettings(s => ({ ...s, ...data.hostSettings }));
+                    window.electronAPI?.classStarted({ forceFullscreen: fs });
+                }
             }
+
+            // 教师端：拉取当前学生人数，并同步持久化设置给服务端
+            if (data.role === 'host') {
+                socketRef.current.emit('get-student-count');
+                // 把本地持久化的设置推给服务端，确保 course-changed 携带正确值
+                socketRef.current.emit('host-settings', settingsRef.current);
+            }
+        });
+
+        // 监听学生上下线（教师端）
+        socketRef.current.on('student-status', (data) => {
+            setStudentCount(data.count);
+        });
+
+        // 监听教师设置变更（学生端）
+        socketRef.current.on('host-settings', (s) => {
+            setSettings(s);
+            window.electronAPI?.setFullscreen(s.forceFullscreen);
+        });
+
+        // 监听教师推送的管理员密码变更（学生端）
+        socketRef.current.on('set-admin-password', (data) => {
+            window.electronAPI?.setAdminPassword?.(data.hash);
         });
 
         // 监听课程切换
@@ -716,6 +1522,9 @@ function ClassroomApp() {
             setCurrentCourseId(data.courseId);
             setInitialSlideIndex(data.slideIndex || 0);
             loadCourse(data.courseId, courseCatalogRef.current);
+            const fs = data.hostSettings?.forceFullscreen ?? true;
+            if (data.hostSettings) setSettings(s => ({ ...s, ...data.hostSettings }));
+            window.electronAPI?.classStarted({ forceFullscreen: fs });
         });
 
         // 监听课程结束
@@ -723,6 +1532,7 @@ function ClassroomApp() {
             setCurrentCourseId(null);
             setCurrentCourseData(null);
             window.CourseData = null;
+            window.electronAPI?.classEnded();
         });
 
         // 监听课程列表更新
@@ -730,6 +1540,16 @@ function ClassroomApp() {
             setCourseCatalog(data.courses);
             courseCatalogRef.current = data.courses;
         });
+
+        // 教师端：实时接收学生日志（供机房视图使用）
+        socketRef.current.on('student-log-entry', (entry) => {
+            setSharedStudentLog(prev => [...prev, entry].slice(-500));
+        });
+
+        // 教师端：拉取历史日志
+        fetch('/api/student-log').then(r => r.json()).then(d => {
+            setSharedStudentLog(d.log || []);
+        }).catch(() => {});
 
         return () => {
             if (socketRef.current) socketRef.current.disconnect();
@@ -768,7 +1588,7 @@ function ClassroomApp() {
             if (window.Babel) {
                 try {
                     const result = window.Babel.transform(scriptContent, {
-                        presets: ['react'],
+                        presets: ['react', 'typescript'],
                         filename: course.file
                     });
                     compiledCode = result.code;
@@ -868,6 +1688,10 @@ function ClassroomApp() {
                 onSelectCourse={(id) => setCurrentCourseId(id)}
                 onRefresh={handleRefreshCourses}
                 socket={socketRef.current}
+                settings={settings}
+                onSettingsChange={handleSettingsChange}
+                studentCount={studentCount}
+                studentLog={sharedStudentLog}
             />
         );
     }
@@ -958,6 +1782,10 @@ function ClassroomApp() {
             socket={socketRef.current}
             isHost={isHost}
             initialSlide={initialSlideIndex}
+            settings={settings}
+            onSettingsChange={handleSettingsChange}
+            studentCount={studentCount}
+            studentLog={sharedStudentLog}
         />
     );
 }

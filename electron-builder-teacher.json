@@ -1,0 +1,50 @@
+{
+  "appId": "com.syncclassroom.teacher",
+  "productName": "SyncClassroom 教师端",
+  "copyright": "Copyright © 2024",
+  "directories": {
+    "output": "dist/teacher",
+    "buildResources": "build"
+  },
+  "files": [
+    "electron/main-teacher.js",
+    "electron/preload.js",
+    "electron/config.js",
+    "assets/**",
+    "public/**",
+    "server.js",
+    "node_modules/**",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "electron/main-teacher.js"
+  },
+  "asar": true,
+  "asarUnpack": [
+    "node_modules/node-windows/**"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon-teacher.ico",
+    "requestedExecutionLevel": "requireAdministrator"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "installerLanguages": ["zh_CN"],
+    "language": "2052",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "SyncClassroom 教师端",
+    "installerIcon": "build/icon-teacher.ico",
+    "uninstallerIcon": "build/icon-teacher.ico",
+    "installerHeaderIcon": "build/icon-teacher.ico",
+    "deleteAppDataOnUninstall": false
+  }
+}

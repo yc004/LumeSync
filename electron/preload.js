@@ -1,0 +1,30 @@
+// ========================================================
+// Electron 预加载脚本 - 安全桥接主进程与渲染进程
+// ========================================================
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+    // 学生端：通知主进程课堂已开始（全屏置顶）
+    classStarted: (opts) => ipcRenderer.send('class-started', opts),
+    // 学生端：通知主进程课堂已结束（恢复普通窗口）
+    classEnded: () => ipcRenderer.send('class-ended'),
+    // 教师端远程控制学生端全屏开关
+    setFullscreen: (enable) => ipcRenderer.send('set-fullscreen', enable),
+    // 获取配置（教师机 IP 等）
+    getConfig: () => ipcRenderer.invoke('get-config'),
+    // 保存配置（管理员页面使用）
+    saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+    // 验证管理员密码
+    verifyPassword: (pwd) => ipcRenderer.invoke('verify-password', pwd),
+    // 获取角色（teacher / student）
+    getRole: () => ipcRenderer.invoke('get-role'),
+    // 学生端：手动触发重连
+    manualRetry: () => ipcRenderer.send('manual-retry'),
+    // 学生端：接收教师端推送的新管理员密码 hash
+    setAdminPassword: (hash) => ipcRenderer.send('set-admin-password', hash),
+    // 教师端：读取/保存课堂设置
+    getSettings: () => ipcRenderer.invoke('get-settings'),
+    saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+    // 教师端：导入课程文件（弹出文件选择对话框，复制到 courses 目录）
+    importCourse: () => ipcRenderer.invoke('import-course'),
+});

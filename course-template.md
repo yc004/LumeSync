@@ -6,27 +6,28 @@
 
 ## 课程文件结构
 
-课程文件是位于 `public/courses/` 目录下的 JavaScript 文件，使用 JSX 语法编写。
+课程文件是位于 `public/courses/` 目录下的 **TSX 文件**，使用 JSX + TypeScript 语法编写，由 Babel Standalone（`react` + `typescript` 预设）在浏览器中实时编译执行。
 
 ### 基本模板
 
-```javascript
+```tsx
 // ========================================================
-// 🎨 课程内容：[课程名称]
+// 课程内容：[课程名称]
 // ========================================================
 
 const { useState, useEffect, useRef } = React;
 
-// ================= 常量定义（可选）=================
-// 定义课程中使用的常量、图片 URL 等
+// ================= 类型定义（可选）=================
+
+interface SlideProps {
+    title: string;
+}
 
 // ================= SLIDE COMPONENTS =================
-// 每个幻灯片是一个独立的 React 函数组件
 
 function Slide1() {
     return (
         <div className="flex flex-col items-center justify-center min-h-full text-center p-8 md:p-12 space-y-8 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-            {/* 幻灯片内容 */}
             <h1 className="text-4xl md:text-6xl font-extrabold text-slate-800">
                 幻灯片标题
             </h1>
@@ -43,7 +44,6 @@ function Slide2() {
             <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-8">
                 第二页标题
             </h2>
-            {/* 更多内容 */}
         </div>
     );
 }
@@ -53,7 +53,6 @@ function Slide2() {
 const mySlides = [
     { id: 'slide-1', component: <Slide1 /> },
     { id: 'slide-2', component: <Slide2 /> },
-    // 添加更多幻灯片...
 ];
 
 window.CourseData = {
@@ -61,7 +60,7 @@ window.CourseData = {
     icon: "📚",
     desc: "课程简短描述，显示在课程选择卡片上",
     color: "from-blue-500 to-indigo-600",
-    dependencies: [],  // 如需引用外部脚本，参考下方 dependencies 说明
+    dependencies: [],
     slides: mySlides
 };
 ```
@@ -73,10 +72,38 @@ window.CourseData = {
 - 使用 `Slide` 前缀 + 数字/描述，如：`Slide1`, `IntroSlide`, `SummarySlide`
 - 组件名使用 PascalCase
 
-### 2. 幻灯片布局
+### 2. TypeScript 类型注解
+
+支持完整的 TypeScript 语法，推荐为 props 和 state 添加类型：
+
+```tsx
+// Props 接口
+interface CardProps {
+    title: string;
+    content: string;
+    highlight?: boolean;
+}
+
+// 带类型的 state
+const [count, setCount] = useState<number>(0);
+const [items, setItems] = useState<string[]>([]);
+const ref = useRef<HTMLCanvasElement>(null);
+
+// 带类型的子组件
+function Card({ title, content, highlight = false }: CardProps) {
+    return (
+        <div className={highlight ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-slate-100'}>
+            <h3>{title}</h3>
+            <p>{content}</p>
+        </div>
+    );
+}
+```
+
+### 3. 幻灯片布局
 
 #### 标题页布局
-```javascript
+```tsx
 <div className="flex flex-col items-center justify-center min-h-full text-center p-8 md:p-12 space-y-8 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
     <div className="w-32 md:w-40 h-32 md:h-40 bg-blue-100 rounded-full flex items-center justify-center">
         <i className="fas fa-icon-name text-blue-600 text-6xl"></i>
@@ -87,24 +114,23 @@ window.CourseData = {
 ```
 
 #### 内容页布局
-```javascript
+```tsx
 <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-    <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-8 flex items-center">
+    <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-8 flex items-center shrink-0">
         <i className="fas fa-icon mr-4 text-color-500"></i> 标题
     </h2>
-    {/* 内容区域 */}
+    <div className="flex-1">
+        {/* 内容区域，flex-1 占满剩余空间 */}
+    </div>
 </div>
 ```
 
-### 3. 响应式设计
+### 4. 响应式设计
 
 - 使用 Tailwind CSS 的响应式前缀：`md:`, `lg:`
 - 移动端优先，从小屏幕开始设计
-- 常用断点：
-  - `md:` - 768px 以上
-  - `lg:` - 1024px 以上
 
-### 4. 样式规范
+### 5. 样式规范
 
 #### 颜色系统
 - 主色调：`blue-500`, `blue-600`
@@ -143,17 +169,17 @@ window.CourseData = {
 
 用于声明课程需要的外部 JavaScript 库。系统会**优先从局域网加载**，如未缓存则自动从公网下载并缓存，供后续使用。
 
-```javascript
+```tsx
 dependencies: [
     {
         name: "chartjs",
         localSrc: "/lib/chart.umd.min.js",
-        publicSrc: "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+        publicSrc: "https://fastly.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
     },
     {
         name: "katex",
         localSrc: "/lib/katex.min.js",
-        publicSrc: "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        publicSrc: "https://fastly.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
     }
 ]
 ```
@@ -162,16 +188,17 @@ dependencies: [
 1. 课件加载时，系统自动将 `filename → publicSrc` 的映射注册到服务端
 2. 当 `/lib/` 下的文件不存在时，服务端用 `publicSrc` 精确地址自动下载并缓存
 3. 后续所有客户端直接从局域网加载，速度提升 10-100 倍
-4. **注意**：`localSrc` 中的文件名必须与 CDN 上的实际文件名一致（如 `chart.umd.min.js`，而不是 `chart.js`）
+4. **注意**：`localSrc` 中的文件名必须与 CDN 上的实际文件名一致（如 `chart.umd.min.js`）
+5. **CDN 使用 `fastly.jsdelivr.net`**，不要使用 `cdn.jsdelivr.net`
 
 **常用外部库：**
 
 | 库名称 | 用途 | CDN 地址 | 本地文件名 |
 |--------|------|----------|-----------|
-| Chart.js | 图表绘制 | `https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js` | `chart.umd.min.js` |
-| KaTeX | 数学公式 | `https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js` | `katex.min.js` |
-| Prism.js | 代码高亮 | `https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js` | `prism.min.js` |
-| face-api.js | 人脸识别 | `https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js` | `face-api.min.js` |
+| Chart.js | 图表绘制 | `https://fastly.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js` | `chart.umd.min.js` |
+| KaTeX | 数学公式 | `https://fastly.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js` | `katex.min.js` |
+| Prism.js | 代码高亮 | `https://fastly.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js` | `prism.min.js` |
+| face-api.js | 人脸识别 | `https://fastly.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js` | `face-api.min.js` |
 
 ### 断网环境支持
 
@@ -187,37 +214,26 @@ dependencies: [
 ```bash
 node download-resources.js
 ```
-此命令预先下载 React、Babel、Tailwind、FontAwesome 等核心框架，适合在正式上课前提前准备，避免课中等待。课件自定义依赖无需手动预下载，首次打开课件时会自动拉取。
 
 **外部图片处理**：
-如果课件需要使用外部图片（如 Unsplash），使用图片代理服务：
-```javascript
+```tsx
 const IMAGE_URL = "/images/proxy?url=https://example.com/image.jpg";
 ```
-图片会在首次访问时自动下载并缓存到 `public/images/`，断网后也可正常显示。
 
 ### modelsUrls 格式
 
-用于配置 AI 模型文件的加载路径。适用于需要加载预训练模型的库（如 face-api.js）。
-
-```javascript
+```tsx
 modelsUrls: {
-    local: "/weights",     // 局域网模型路径（教师端已下载）
-    public: "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights"  // 公网模型路径
+    local: "/weights",
+    public: "https://fastly.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights"
 }
 ```
 
-**模型缓存机制：**
-- 首次使用时，教师端自动从公网下载模型文件到 `public/weights/` 目录
-- 学生端直接从教师端局域网获取，加载速度提升 10-100 倍
-- 支持断点续传和多文件并行下载
-
 ## 幻灯片数组格式
 
-```javascript
+```tsx
 const mySlides = [
     { id: '唯一标识符', component: <组件名 /> },
-    // 示例：
     { id: 'intro', component: <IntroSlide /> },
     { id: 'content-1', component: <ContentSlide1 /> },
     { id: 'summary', component: <SummarySlide /> },
@@ -227,7 +243,7 @@ const mySlides = [
 ## 最佳实践
 
 ### 1. 组件组织
-- 将可复用的子组件定义在文件顶部
+- 将可复用的子组件定义在文件顶部，并为其 props 定义 TypeScript 接口
 - 每个幻灯片组件保持独立和完整
 - 使用有意义的组件名
 
@@ -237,16 +253,17 @@ const mySlides = [
 - 适当使用动画：`animate-bounce`, `animate-pulse`
 
 ### 3. 交互组件
-如需交互，使用 React Hooks：
+使用 React Hooks，推荐加类型注解：
 
-```javascript
+```tsx
 function InteractiveSlide() {
-    const [count, setCount] = useState(0);
+    const [count, setCount] = useState<number>(0);
+    const [active, setActive] = useState<boolean>(false);
     
     return (
         <div>
             <p>点击次数: {count}</p>
-            <button onClick={() => setCount(count + 1)}>
+            <button onClick={() => setCount((c: number) => c + 1)}>
                 点击我
             </button>
         </div>
@@ -255,19 +272,37 @@ function InteractiveSlide() {
 ```
 
 ### 4. 图片资源
-- 使用外部 URL 或 `/courses/images/` 下的本地资源
-- 推荐 Unsplash 等免费图库
+- 使用图片代理服务确保断网可用：`/images/proxy?url=...`
 
 ## 完整示例
 
-参考文件：`public/courses/intro-to-ai.js`
-
-```javascript
+```tsx
 // ========================================================
-// 🎨 课程内容：AI 基础导论
+// 课程内容：AI 基础导论
 // ========================================================
 
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect } = React;
+
+// ================= 类型定义 =================
+
+interface FeatureCardProps {
+    icon: string;
+    title: string;
+    desc: string;
+    color: string;
+}
+
+// ================= 子组件 =================
+
+function FeatureCard({ icon, title, desc, color }: FeatureCardProps) {
+    return (
+        <div className={`p-5 rounded-2xl border ${color}`}>
+            <i className={`fas ${icon} text-2xl mb-3`}></i>
+            <h3 className="font-bold text-lg mb-2">{title}</h3>
+            <p className="text-sm leading-relaxed">{desc}</p>
+        </div>
+    );
+}
 
 // ================= SLIDE COMPONENTS =================
 
@@ -280,19 +315,60 @@ function Slide1() {
             <h1 className="text-4xl md:text-6xl font-extrabold text-slate-800">
                 人工智能基础导论
             </h1>
+            <p className="max-w-2xl text-lg text-slate-500 bg-white/80 p-6 rounded-2xl">
+                探索 AI 的核心概念与应用
+            </p>
         </div>
     );
 }
 
 function Slide2() {
+    const features: FeatureCardProps[] = [
+        { icon: 'fa-robot', title: '机器学习', desc: '让机器从数据中自动学习规律', color: 'bg-blue-50 border-blue-100' },
+        { icon: 'fa-eye', title: '计算机视觉', desc: '让机器理解和分析图像', color: 'bg-green-50 border-green-100' },
+        { icon: 'fa-comments', title: '自然语言处理', desc: '让机器理解和生成人类语言', color: 'bg-purple-50 border-purple-100' },
+    ];
+
     return (
         <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-            <h2 className="text-3xl font-bold text-slate-800 mb-8">
-                什么是 AI？
+            <h2 className="text-3xl font-bold text-slate-800 mb-6 shrink-0">
+                <i className="fas fa-sitemap mr-3 text-green-500"></i> AI 的主要分支
             </h2>
-            <p className="text-lg text-slate-600">
-                人工智能是...
-            </p>
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {features.map((f, i) => (
+                    <FeatureCard key={i} {...f} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function Slide3() {
+    const [selected, setSelected] = useState<number | null>(null);
+    const options: string[] = ['监督学习', '无监督学习', '强化学习'];
+
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl font-bold text-slate-800 mb-6 shrink-0">
+                <i className="fas fa-question-circle mr-3 text-blue-500"></i> 小测验
+            </h2>
+            <div className="flex-1 flex flex-col justify-center gap-4">
+                <p className="text-xl text-slate-600 mb-4">AlphaGo 下围棋属于哪种学习方式？</p>
+                {options.map((opt, i) => (
+                    <button
+                        key={i}
+                        onClick={() => setSelected(i)}
+                        className={`p-4 rounded-xl border-2 text-left font-medium transition-all ${
+                            selected === i
+                                ? i === 2 ? 'border-green-500 bg-green-50 text-green-700' : 'border-red-400 bg-red-50 text-red-700'
+                                : 'border-slate-200 hover:border-blue-300 text-slate-700'
+                        }`}
+                    >
+                        {opt}
+                        {selected === i && (i === 2 ? ' ✓ 正确！' : ' ✗ 再想想')}
+                    </button>
+                ))}
+            </div>
         </div>
     );
 }
@@ -302,6 +378,7 @@ function Slide2() {
 const mySlides = [
     { id: 's1', component: <Slide1 /> },
     { id: 's2', component: <Slide2 /> },
+    { id: 's3', component: <Slide3 /> },
 ];
 
 window.CourseData = {
@@ -309,7 +386,7 @@ window.CourseData = {
     icon: "🌟",
     desc: "AI 入门第一课",
     color: "from-green-500 to-teal-600",
-    dependencies: [],  // 如需外部库，参考上方 dependencies 格式
+    dependencies: [],
     slides: mySlides
 };
 ```
@@ -323,6 +400,7 @@ window.CourseData = {
 
 ## 文件命名规范
 
-- 使用小写字母和连字符
-- 示例：`intro-to-ai.js`, `face-recognition.js`, `machine-learning-basics.js`
-- 文件名将作为课程 ID（去掉 `.js` 后缀）
+- 使用 `.tsx` 扩展名
+- 文件名使用小写字母和连字符
+- 示例：`intro-to-ai.tsx`, `face-recognition.tsx`, `machine-learning-basics.tsx`
+- 文件名将作为课程 ID（去掉 `.tsx` 后缀）

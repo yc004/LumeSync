@@ -1,0 +1,67 @@
+@echo off
+chcp 65001 >nul
+echo [BUILD] SyncClassroom 打包脚本
+echo =========================================
+
+REM 检查 Node.js
+node --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] 未找到 Node.js，请先安装 Node.js 18+
+    pause
+    exit /b 1
+)
+
+REM 安装依赖
+echo [INFO] 安装依赖...
+call npm install
+if errorlevel 1 (
+    echo [ERROR] npm install 失败
+    pause
+    exit /b 1
+)
+
+REM 安装图标转换工具
+echo [INFO] 安装图标转换工具...
+call npm install png-to-ico --save-dev
+
+REM 生成 .ico 图标
+echo [INFO] 生成图标文件...
+call python build/convert-icons.py
+if errorlevel 1 (
+    echo [WARN] 图标生成失败，将使用默认图标继续
+)
+
+REM 打包 verify-password.exe
+echo [INFO] 打包密码验证工具...
+call npm run build:verify
+if errorlevel 1 (
+    echo [ERROR] verify-password.exe 打包失败
+    pause
+    exit /b 1
+)
+
+REM 打包教师端
+echo [INFO] 打包教师端安装包...
+call npm run build:teacher
+if errorlevel 1 (
+    echo [ERROR] 教师端打包失败
+    pause
+    exit /b 1
+)
+
+REM 打包学生端
+echo [INFO] 打包学生端安装包...
+call electron-builder --config electron-builder-student.json
+if errorlevel 1 (
+    echo [ERROR] 学生端打包失败
+    pause
+    exit /b 1
+)
+
+echo.
+echo =========================================
+echo [OK] 打包完成！
+echo [OK] 教师端安装包: dist\teacher\
+echo [OK] 学生端安装包: dist\student\
+echo =========================================
+pause

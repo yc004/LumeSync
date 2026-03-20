@@ -21,15 +21,49 @@
     <!-- 5. 引入 Socket.io 客户端 (由 Node.js 后端自动提供) -->
     <script src="/socket.io/socket.io.js"></script>
 
+    <!-- 6. 引入 marked (Markdown 渲染) -->
+    <script src="/lib/marked.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/marked@9/marked.min.js'"></script>
+
     <style>
-        /* 隐藏滚动条的小插件，用于画布区域 */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        /* 全局隐藏滚动条（保留滚动功能） */
+        * { scrollbar-width: none; -ms-overflow-style: none; user-select: none; -webkit-user-select: none; }
+        *::-webkit-scrollbar { display: none; }
+
+        /* Markdown 渲染样式 */
+        .markdown-body { color: #334155; line-height: 1.7; }
+        .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+            font-weight: 700; margin: 1.2em 0 0.5em; color: #1e293b;
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .markdown-body h1 { font-size: 1.5em; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3em; }
+        .markdown-body h2 { font-size: 1.25em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.2em; }
+        .markdown-body h3 { font-size: 1.1em; }
+        .markdown-body p { margin: 0.6em 0; }
+        .markdown-body ul, .markdown-body ol { padding-left: 1.5em; margin: 0.6em 0; }
+        .markdown-body li { margin: 0.25em 0; }
+        .markdown-body code {
+            background: #f1f5f9; border: 1px solid #e2e8f0;
+            border-radius: 4px; padding: 0.1em 0.4em;
+            font-family: 'Consolas', monospace; font-size: 0.85em; color: #0f172a;
         }
+        .markdown-body pre {
+            background: #1e293b; border-radius: 8px; padding: 1em;
+            overflow-x: auto; margin: 0.8em 0;
+        }
+        .markdown-body pre code {
+            background: none; border: none; color: #e2e8f0;
+            font-size: 0.82em; padding: 0;
+        }
+        .markdown-body blockquote {
+            border-left: 4px solid #3b82f6; padding-left: 1em;
+            margin: 0.8em 0; color: #64748b; background: #f8fafc;
+            border-radius: 0 6px 6px 0;
+        }
+        .markdown-body hr { border: none; border-top: 1px solid #e2e8f0; margin: 1em 0; }
+        .markdown-body a { color: #3b82f6; text-decoration: underline; }
+        .markdown-body strong { font-weight: 700; color: #0f172a; }
+        .markdown-body table { border-collapse: collapse; width: 100%; margin: 0.8em 0; font-size: 0.9em; }
+        .markdown-body th, .markdown-body td { border: 1px solid #e2e8f0; padding: 0.4em 0.8em; }
+        .markdown-body th { background: #f1f5f9; font-weight: 700; }
     </style>
 </head>
 <body class="bg-slate-900">

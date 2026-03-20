@@ -1,0 +1,53 @@
+{
+  "appId": "com.syncclassroom.student",
+  "productName": "SyncClassroom 学生端",
+  "copyright": "Copyright © 2024",
+  "directories": {
+    "output": "dist/student",
+    "buildResources": "build"
+  },
+  "files": [
+    "electron/main-student.js",
+    "electron/preload.js",
+    "electron/config.js",
+    "electron/admin.html",
+    "electron/offline.html",
+    "assets/**",
+    "package.json",
+    "node_modules/**"
+  ],
+  "extraResources": [
+    {
+      "from": "build/verify-password.exe",
+      "to": "verify-password.exe"
+    }
+  ],
+  "extraMetadata": {
+    "main": "electron/main-student.js"
+  },
+  "asar": true,
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon-student.ico",
+    "requestedExecutionLevel": "requireAdministrator"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": true,
+    "allowElevation": true,
+    "installerLanguages": ["zh_CN"],
+    "language": "2052",
+    "createDesktopShortcut": false,
+    "createStartMenuShortcut": false,
+    "include": "build/student-installer.nsh",
+    "installerIcon": "build/icon-student.ico",
+    "uninstallerIcon": "build/icon-student.ico",
+    "installerHeaderIcon": "build/icon-student.ico",
+    "deleteAppDataOnUninstall": false
+  }
+}

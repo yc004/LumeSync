@@ -159,6 +159,32 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     const [toasts, setToasts] = useState([]);
     
     const socketRef = useRef(socket);
+    const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(!initialIsHost);
+
+    // 学生端：自动全屏逻辑
+    useEffect(() => {
+        if (isHost) return;
+
+        const onFullscreenChange = () => {
+            if (!document.fullscreenElement) {
+                setShowFullscreenPrompt(true);
+                socketRef.current && socketRef.current.emit('student-alert', { type: 'fullscreen-exit' });
+            }
+        };
+
+        const onVisibilityChange = () => {
+            if (document.hidden) {
+                socketRef.current && socketRef.current.emit('student-alert', { type: 'tab-hidden' });
+            }
+        };
+
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', onFullscreenChange);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    }, [isHost]);
 
     // 弹窗管理：动态推入新提示，3秒后自动销毁
     const showToast = (message, type) => {
@@ -182,11 +208,20 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
         // 监听学生上下线状态 (只有后端判断是 host 才会发过来)
         socket.on('student-status', (data) => {
             setStudentCount(data.count);
-            // 初始化的时候不弹窗，只有发生上下线动作时才提示
             if (data.action === 'join') {
                 showToast(`👋 学生上线 (IP: ${data.ip})`, 'success');
             } else if (data.action === 'leave') {
                 showToast(`🏃 学生离开 (IP: ${data.ip})`, 'warning');
+            }
+        });
+
+        // 监听学生异常行为
+        socket.on('student-alert', (data) => {
+            const ip = data.ip;
+            if (data.type === 'fullscreen-exit') {
+                showToast(`⚠️ 学生退出全屏 (IP: ${ip})`, 'warning');
+            } else if (data.type === 'tab-hidden') {
+                showToast(`👁️ 学生切换页面 (IP: ${ip})`, 'warning');
             }
         });
 
@@ -196,9 +231,9 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
         }
 
         return () => {
-            // 清理事件监听器
             socket.off('sync-slide');
             socket.off('student-status');
+            socket.off('student-alert');
         };
     }, [socket, isHost]);
 
@@ -234,6 +269,21 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     // 分配好角色后，显示主界面
     return (
         <div className="flex flex-col h-screen bg-slate-900 text-slate-800 font-sans overflow-hidden select-none">
+            
+            {/* 学生端全屏提示遮罩 */}
+            {!isHost && showFullscreenPrompt && (
+                <div
+                    className="fixed inset-0 z-[9999] bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer"
+                    onClick={() => {
+                        document.documentElement.requestFullscreen().catch(() => {});
+                        setShowFullscreenPrompt(false);
+                    }}
+                >
+                    <i className="fas fa-expand text-6xl text-blue-400 mb-6"></i>
+                    <h2 className="text-3xl font-bold text-white mb-3">点击进入课堂</h2>
+                    <p className="text-slate-400">全屏模式以获得最佳体验</p>
+                </div>
+            )}
             
             {/* 顶栏 (Header) */}
             <div className="flex items-center justify-between px-6 md:px-8 py-4 bg-white shadow-md z-20 relative h-[72px] shrink-0">
@@ -473,6 +523,7 @@ function ClassroomApp() {
     const [initialSlideIndex, setInitialSlideIndex] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [courseError, setCourseError] = useState(null);
+    const [copyDone, setCopyDone] = useState(false);
     const socketRef = useRef(null);
     const courseCatalogRef = useRef([]); // 用于解决闭包问题
 
@@ -677,6 +728,13 @@ function ClassroomApp() {
 
     // 加载失败（仅教师端显示错误详情）
     if (courseError && !currentCourseData) {
+        const errorText = courseError.message || String(courseError);
+        const handleCopy = () => {
+            navigator.clipboard.writeText(errorText).then(() => {
+                setCopyDone(true);
+                setTimeout(() => setCopyDone(false), 2000);
+            });
+        };
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white select-none p-8">
                 <i className="fas fa-circle-exclamation text-5xl text-red-400 mb-6"></i>
@@ -684,11 +742,20 @@ function ClassroomApp() {
                 {isHost ? (
                     <div className="mt-4 w-full max-w-2xl">
                         <div className="bg-red-950/60 border border-red-500/40 rounded-2xl p-6 text-left">
-                            <p className="text-red-300 font-bold mb-2 flex items-center">
-                                <i className="fas fa-bug mr-2"></i> 错误详情
-                            </p>
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-red-300 font-bold flex items-center">
+                                    <i className="fas fa-bug mr-2"></i> 错误详情
+                                </p>
+                                <button
+                                    onClick={handleCopy}
+                                    className={`flex items-center px-3 py-1 rounded-lg text-xs font-bold transition-colors ${copyDone ? 'bg-green-600 text-white' : 'bg-red-900/60 hover:bg-red-800/60 text-red-300'}`}
+                                >
+                                    <i className={`fas ${copyDone ? 'fa-check' : 'fa-copy'} mr-1.5`}></i>
+                                    {copyDone ? '已复制' : '复制'}
+                                </button>
+                            </div>
                             <pre className="text-red-200 text-sm font-mono whitespace-pre-wrap break-all leading-relaxed">
-                                {courseError.message || String(courseError)}
+                                {errorText}
                             </pre>
                         </div>
                         <button

@@ -2,65 +2,182 @@
 
 ## 描述
 
-为 SyncClassroom 互动课堂框架创建一个新的课程文件。根据用户提供的课程主题和内容大纲，生成符合框架规范的 JavaScript 课程文件。
+为 SyncClassroom 互动课堂框架创建课程文件。根据用户提供的课程主题和内容大纲，生成符合框架规范的 JavaScript 课程文件。
 
 ## 调用方式
 
 用户说"创建一个关于 XXX 的课程"或"生成 XXX 课件"时调用此 skill。
 
+---
+
+## ⚠️ 运行环境说明（必读，避免报错）
+
+课程文件通过 **Babel Standalone** 在浏览器中实时编译，再用 `new Function(compiledCode)()` 执行。这个环境与标准 Node.js 或 Webpack 项目有重要区别：
+
+### 全局变量
+
+以下变量**直接可用**，无需 import：
+
+| 变量 | 来源 | 说明 |
+|------|------|------|
+| `React` | 全局 | React 18 |
+| `useState`, `useEffect`, `useRef`, `useCallback`, `useMemo` 等 | 需从 React 解构 | 见下方写法 |
+| `window.CourseData` | 全局赋值 | 课程数据出口，必须赋值 |
+| `window.Chart` | 加载后可用 | Chart.js（需在 dependencies 中声明） |
+| `window.katex` | 加载后可用 | KaTeX（需在 dependencies 中声明） |
+| `window._` | 加载后可用 | Lodash（需在 dependencies 中声明） |
+
+**正确写法（文件第一行）：**
+```javascript
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+```
+
+**❌ 绝对禁止：**
+```javascript
+import React from 'react';           // 报错：不支持 ES Module import
+import { useState } from 'react';    // 报错：同上
+require('react');                    // 报错：不支持 require
+export default function ...          // 报错：不支持 export
+```
+
+### JSX 规则
+
+- JSX 由 Babel 编译，语法与标准 React 相同
+- 组件名必须以**大写字母**开头，否则被当作 HTML 标签
+- 每个组件必须返回**单一根元素**（可用 `<>...</>` Fragment 包裹）
+- 属性使用 `className` 而非 `class`，`htmlFor` 而非 `for`
+- 事件处理器使用驼峰命名：`onClick`、`onChange`、`onSubmit`
+
+### 样式系统
+
+- 使用 **Tailwind CSS**（CDN 版，支持所有标准类名）
+- 使用 **FontAwesome 6**（图标类名：`fas fa-xxx`、`fab fa-xxx`）
+- **不支持** CSS Modules、styled-components、内联 `<style>` 标签（会被忽略）
+- 动态类名必须完整拼写，不能字符串拼接：
+  ```javascript
+  // ❌ 错误：Tailwind 无法识别动态拼接的类名
+  className={`text-${color}-500`}
+  
+  // ✅ 正确：使用条件判断选择完整类名
+  className={isActive ? 'text-blue-500' : 'text-slate-500'}
+  ```
+
+### 外部库使用规则
+
+依赖库通过 `dependencies` 声明后**异步加载**，在幻灯片组件渲染时库可能尚未就绪。
+
+**必须做防御性检查：**
+```javascript
+function ChartSlide() {
+    const ref = useRef(null);
+    const [ready, setReady] = useState(false);
+
+    useEffect(() => {
+        // ✅ 检查库是否已加载
+        if (typeof window.Chart === 'undefined') {
+            setReady(false);
+            return;
+        }
+        setReady(true);
+        const ctx = ref.current.getContext('2d');
+        const chart = new window.Chart(ctx, { /* ... */ });
+        // ✅ 组件卸载时销毁图表，防止内存泄漏
+        return () => chart.destroy();
+    }, []);
+
+    if (!ready) return <div>Chart.js 加载中...</div>;
+    return <canvas ref={ref}></canvas>;
+}
+```
+
+**❌ 错误写法（库未加载时直接使用会报错）：**
+```javascript
+// 在组件顶层直接使用，库可能还没加载
+const chart = new Chart(ctx, {...});   // ReferenceError
+```
+
+---
+
 ## 执行步骤
 
-### 步骤 1: 分析需求
+### 步骤 1：分析需求
 
 从用户输入中提取：
 - 课程主题/标题
 - 目标受众（初学者/进阶）
 - 内容要点/大纲
-- 预计幻灯片数量
-- 是否需要特殊依赖（如 face-api.js 等）
+- 是否需要外部库（图表、公式、动画等）
 
-### 步骤 2: 设计课程结构
+### 步骤 2：设计课程结构
 
-规划幻灯片结构：
-1. **标题页** - 课程名称、副标题、引入
-2. **目录/概述页** - 课程内容概览
-3. **内容页** (多个) - 核心知识点
-4. **实践/互动页** (可选) - 练习或演示
+规划幻灯片（建议 4-8 页）：
+1. **标题页** - 课程名称、副标题、简介
+2. **目录/概述页** - 课程内容概览（可选）
+3. **内容页** × N - 核心知识点，每页聚焦一个主题
+4. **互动/实践页** - 带 `useState` 的交互组件（可选）
 5. **总结页** - 要点回顾
 
-### 步骤 3: 生成课程文件
+### 步骤 3：生成课程文件
 
 在 `public/courses/` 目录下创建 `.js` 文件，文件名格式：`主题关键词.js`（小写，连字符连接）
 
-### 步骤 4: 遵循代码规范
+---
 
-#### 文件头部
+## 代码规范
+
+### 文件结构（严格按此顺序）
+
 ```javascript
 // ========================================================
 // 🎨 课程内容：[课程名称]
 // ========================================================
 
+// 1. 解构 React Hooks（必须在文件顶部）
 const { useState, useEffect, useRef } = React;
+
+// 2. 常量定义（可选）
+const SOME_CONSTANT = '...';
+
+// 3. 幻灯片组件（每个独立函数）
+function IntroSlide() { ... }
+function ContentSlide1() { ... }
+// ...
+
+// 4. 幻灯片数组
+const mySlides = [
+    { id: 'intro', component: <IntroSlide /> },
+    { id: 'content-1', component: <ContentSlide1 /> },
+];
+
+// 5. 课程数据导出（必须是文件最后一部分）
+window.CourseData = {
+    title: "课程标题",
+    icon: "📚",
+    desc: "简短描述，50字以内",
+    color: "from-blue-500 to-indigo-600",
+    dependencies: [],
+    slides: mySlides
+};
 ```
 
-#### 幻灯片组件模板
+### 幻灯片组件模板
 
 **标题页：**
 ```javascript
 function IntroSlide() {
     return (
-        <div className="flex flex-col items-center justify-center min-h-full text-center p-8 md:p-12 space-y-8 bg-gradient-to-br from-[主色]-50 via-white to-[副色]-50">
-            <div className="w-32 md:w-40 h-32 md:h-40 bg-[主色]-100 rounded-full flex items-center justify-center shadow-inner border-4 border-white">
-                <i className="fas fa-[图标] text-[主色]-600 text-6xl md:text-[80px] drop-shadow-md"></i>
+        <div className="flex flex-col items-center justify-center min-h-full text-center p-8 md:p-12 space-y-8 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+            <div className="w-32 md:w-40 h-32 md:h-40 bg-blue-100 rounded-full flex items-center justify-center shadow-inner border-4 border-white">
+                <i className="fas fa-brain text-blue-600 text-6xl md:text-[80px] drop-shadow-md"></i>
             </div>
-            <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[主色]-600 to-[副色]-600 tracking-tight">
-                [课程标题]
+            <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 tracking-tight">
+                课程标题
             </h1>
-            <h2 className="text-xl md:text-3xl font-bold text-slate-600 mt-4 tracking-wide">
-                [副标题]
+            <h2 className="text-xl md:text-3xl font-bold text-slate-600 tracking-wide">
+                副标题
             </h2>
-            <p className="max-w-3xl text-lg md:text-xl text-slate-500 mt-6 leading-relaxed bg-white/80 p-6 rounded-2xl shadow-sm">
-                [课程简介]
+            <p className="max-w-3xl text-lg md:text-xl text-slate-500 leading-relaxed bg-white/80 p-6 rounded-2xl shadow-sm">
+                课程简介
             </p>
         </div>
     );
@@ -69,165 +186,254 @@ function IntroSlide() {
 
 **内容页：**
 ```javascript
-function ContentSlide1() {
+function ContentSlide() {
     return (
         <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6 md:mb-8 flex items-center shrink-0">
-                <i className="fas fa-[图标] mr-4 text-[颜色]-500"></i> [标题]
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6 flex items-center shrink-0">
+                <i className="fas fa-lightbulb mr-4 text-yellow-500"></i> 页面标题
             </h2>
-            
-            <div className="bg-[颜色]-50 p-6 rounded-2xl shadow-sm border border-[颜色]-100">
-                [内容区域]
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                    <h3 className="text-xl font-bold text-blue-700 mb-3">子标题</h3>
+                    <p className="text-slate-600 leading-relaxed">内容...</p>
+                </div>
+                <div className="bg-green-50 p-6 rounded-2xl border border-green-100">
+                    <h3 className="text-xl font-bold text-green-700 mb-3">子标题</h3>
+                    <p className="text-slate-600 leading-relaxed">内容...</p>
+                </div>
             </div>
         </div>
     );
 }
 ```
 
-#### 数据导出
+**交互页（带 useState）：**
 ```javascript
-const mySlides = [
-    { id: 'intro', component: <IntroSlide /> },
-    { id: 'content-1', component: <ContentSlide1 /> },
-    // ... 更多幻灯片
-];
+function InteractiveSlide() {
+    const [value, setValue] = useState(0);
 
-window.CourseData = {
-    title: "[课程标题]",
-    icon: "[emoji图标]",
-    desc: "[简短描述，50字以内]",
-    color: "from-[主色]-500 to-[副色]-600",
-    dependencies: [], // 或根据需要添加外部脚本依赖
-    slides: mySlides
-};
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl font-bold text-slate-800 mb-6 shrink-0">
+                <i className="fas fa-hand-pointer mr-3 text-blue-500"></i> 互动演示
+            </h2>
+            <div className="flex-1 flex flex-col items-center justify-center gap-6">
+                <p className="text-2xl font-bold text-slate-700">当前值：{value}</p>
+                <button
+                    onClick={() => setValue(v => v + 1)}
+                    className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-lg transition-colors"
+                >
+                    点击 +1
+                </button>
+            </div>
+        </div>
+    );
+}
 ```
 
-### 引用外部脚本（dependencies）
+---
 
-如果课程需要使用外部 JavaScript 库（如 Chart.js、KaTeX 等），在 `dependencies` 数组中声明：
+## window.CourseData 配置
+
+### 必需字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `title` | string | 课程标题 |
+| `icon` | string | 课程图标（emoji） |
+| `desc` | string | 课程描述，显示在选课卡片 |
+| `color` | string | 卡片渐变色，格式：`from-[色]-500 to-[色]-600` |
+| `slides` | array | 幻灯片数组，每项：`{ id: string, component: <Component /> }` |
+
+### dependencies 格式
+
+声明课程需要的外部 JavaScript 库。系统优先从局域网缓存加载，未缓存时自动从公网下载并缓存。
 
 ```javascript
 dependencies: [
     {
-        name: "chartjs",
-        localSrc: "/lib/chart.umd.min.js",
+        name: "chartjs",                          // 任意标识符
+        localSrc: "/lib/chart.umd.min.js",        // 本地缓存路径（文件名必须与CDN一致）
         publicSrc: "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
-    },
-    {
-        name: "katex",
-        localSrc: "/lib/katex.min.js",
-        publicSrc: "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
     }
 ]
 ```
 
-**工作原理：**
-1. 课件加载时，系统自动将 `filename → publicSrc` 的映射注册到服务端
-2. 当 `/lib/` 下的文件不存在时，服务端用 `publicSrc` 精确地址自动下载并缓存
-3. 后续所有学生端直接从局域网加载，速度提升 10-100 倍
-4. **注意**：`localSrc` 中的文件名必须与 CDN 上的实际文件名一致（如 `chart.umd.min.js`，而不是 `chart.js`）
+**⚠️ 注意：`localSrc` 的文件名必须与 CDN URL 最后一段完全一致。**
 
-**常用外部库推荐：**
+**常用外部库：**
 
-| 库名称 | 用途 | CDN 地址 | 本地文件名 |
-|--------|------|----------|-----------|
-| Chart.js | 图表绘制 | `https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js` | `chart.umd.min.js` |
-| KaTeX | 数学公式 | `https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js` | `katex.min.js` |
-| Prism.js | 代码高亮 | `https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js` | `prism.min.js` |
-| face-api.js | 人脸识别 | `https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js` | `face-api.min.js` |
+| 库 | 用途 | localSrc | publicSrc |
+|----|------|----------|-----------|
+| Chart.js | 图表 | `/lib/chart.umd.min.js` | `https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js` |
+| KaTeX | 数学公式 | `/lib/katex.min.js` | `https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js` |
+| Lodash | 工具函数 | `/lib/lodash.min.js` | `https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js` |
+| Marked | Markdown渲染 | `/lib/marked.min.js` | `https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js` |
+| Day.js | 日期处理 | `/lib/dayjs.min.js` | `https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js` |
+| Anime.js | 动画 | `/lib/anime.min.js` | `https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js` |
+| Prism.js | 代码高亮 | `/lib/prism.min.js` | `https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js` |
+| face-api.js | 人脸识别 | `/lib/face-api.min.js` | `https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js` |
 
-**断网环境支持：**
-
-| 资源类型 | 处理方式 |
-|---------|---------|
-| 核心框架（React/Babel/Tailwind/FontAwesome） | 服务端固定地址映射，首次访问自动下载 |
-| 课件 `dependencies` | 服务端接收 `publicSrc` 注册后，首次访问自动下载 |
-| 外部图片 | 图片代理服务首次访问自动缓存 |
-
-课件声明的 `dependencies` **无需手动预下载**，首次打开课件时服务端会自动从 `publicSrc` 拉取并缓存。
-
-**AI 模型文件（modelsUrls）：**
-
-如果依赖需要加载模型文件（如 face-api.js 的权重文件），额外配置 `modelsUrls`：
+### modelsUrls（AI 模型，仅 face-api 等需要）
 
 ```javascript
+modelsUrls: {
+    local: "/weights",
+    public: "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights"
+}
+```
+
+---
+
+## 常见报错与解决方案
+
+| 报错信息 | 原因 | 解决方案 |
+|---------|------|---------|
+| `Cannot use import statement` | 使用了 ES Module import | 改用全局变量，删除所有 import |
+| `React is not defined` | 忘记解构 React | 文件顶部加 `const { useState } = React;` |
+| `X is not a function` / `X is not defined` | 外部库未加载就使用 | 在 useEffect 中加 `typeof window.X === 'undefined'` 检查 |
+| `Each child in a list should have a unique "key"` | 列表渲染缺少 key | `.map()` 中每个元素加 `key={唯一值}` |
+| `window.CourseData is null` | CourseData 未赋值或赋值在异步中 | 确保 `window.CourseData = {...}` 在文件顶层同步执行 |
+| 组件渲染空白 | 组件返回了 null 或 undefined | 检查所有条件渲染分支都有返回值 |
+| Tailwind 样式不生效 | 使用了动态拼接类名 | 改用完整类名 + 条件判断 |
+
+---
+
+## 样式指南
+
+### 颜色主题建议
+
+| 主题 | 主色 | 副色 |
+|------|------|------|
+| 科技/AI | `blue` | `indigo` |
+| 自然/生物 | `green` | `teal` |
+| 数学/逻辑 | `purple` | `violet` |
+| 创意/设计 | `pink` | `rose` |
+| 商业/管理 | `slate` | `blue` |
+| 警示/重点 | `orange` | `amber` |
+
+### 常用 FontAwesome 图标
+
+```
+教育：fa-graduation-cap  fa-book  fa-chalkboard-teacher
+技术：fa-code  fa-microchip  fa-robot  fa-brain
+数据：fa-chart-line  fa-database  fa-table
+交互：fa-hand-pointer  fa-sliders-h  fa-toggle-on
+状态：fa-check-circle  fa-times-circle  fa-exclamation-triangle
+```
+
+### 布局模式
+
+```javascript
+// 卡片
+<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+
+// 彩色高亮框
+<div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+
+// 全屏居中（标题页）
+<div className="flex flex-col items-center justify-center min-h-full text-center p-8">
+
+// 内容页（顶部标题 + 剩余空间内容）
+<div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+    <h2 className="... shrink-0">标题</h2>  {/* shrink-0 防止标题被压缩 */}
+    <div className="flex-1 ...">内容</div>   {/* flex-1 占满剩余空间 */}
+</div>
+```
+
+---
+
+## 图片使用
+
+外部图片通过代理服务自动缓存，断网后仍可访问：
+
+```javascript
+// ✅ 使用图片代理（推荐）
+<img src="/images/proxy?url=https://images.unsplash.com/photo-xxx" alt="描述" className="rounded-xl" />
+
+// ❌ 直接引用外部图片（断网时失效）
+<img src="https://images.unsplash.com/photo-xxx" />
+```
+
+---
+
+## 完整最小示例
+
+```javascript
+// ========================================================
+// 🎨 课程内容：Python 入门
+// ========================================================
+
+const { useState } = React;
+
+function IntroSlide() {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-full text-center p-8 space-y-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+            <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center">
+                <i className="fas fa-code text-blue-600 text-6xl"></i>
+            </div>
+            <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+                Python 入门
+            </h1>
+            <p className="max-w-2xl text-lg text-slate-500 bg-white/80 p-6 rounded-2xl">
+                从零开始学习 Python 编程语言
+            </p>
+        </div>
+    );
+}
+
+function ContentSlide() {
+    const [count, setCount] = useState(0);
+    return (
+        <div className="flex flex-col min-h-full p-8 bg-white">
+            <h2 className="text-3xl font-bold text-slate-800 mb-6 shrink-0">
+                <i className="fas fa-terminal mr-3 text-blue-500"></i> 变量与数据类型
+            </h2>
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                    <h3 className="font-bold text-blue-700 mb-3">整数 (int)</h3>
+                    <code className="text-sm bg-white p-3 rounded-lg block">x = 42</code>
+                </div>
+                <div className="bg-green-50 p-5 rounded-2xl border border-green-100">
+                    <h3 className="font-bold text-green-700 mb-3">字符串 (str)</h3>
+                    <code className="text-sm bg-white p-3 rounded-lg block">name = "Python"</code>
+                </div>
+            </div>
+            <div className="mt-4 flex items-center gap-4">
+                <button
+                    onClick={() => setCount(c => c + 1)}
+                    className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition-colors"
+                >
+                    点击计数
+                </button>
+                <span className="text-slate-600">已点击 {count} 次</span>
+            </div>
+        </div>
+    );
+}
+
+const mySlides = [
+    { id: 'intro', component: <IntroSlide /> },
+    { id: 'content', component: <ContentSlide /> },
+];
+
 window.CourseData = {
-    title: "人脸识别课程",
-    icon: "🤖",
-    desc: "使用 face-api.js 进行实时人脸识别",
+    title: "Python 入门",
+    icon: "🐍",
+    desc: "从零开始学习 Python 编程",
     color: "from-blue-500 to-indigo-600",
-    dependencies: [
-        {
-            name: "face-api",
-            localSrc: "/lib/face-api.min.js",
-            publicSrc: "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"
-        }
-    ],
-    modelsUrls: {
-        local: "/weights",     // 局域网模型路径
-        public: "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights"
-    },
+    dependencies: [],
     slides: mySlides
 };
 ```
 
-**模型文件缓存机制：**
-- 首次使用时，教师端自动从公网下载模型文件到 `public/weights/`
-- 后续学生端直接从教师端局域网获取，加载速度提升 10-100 倍
-
-### 步骤 5: 样式指南
-
-#### 颜色搭配建议
-- 科技/AI 主题：`blue`, `indigo`, `purple`
-- 自然/生物主题：`green`, `teal`, `emerald`
-- 活力/创意主题：`orange`, `pink`, `rose`
-- 商业/专业主题：`slate`, `gray`, `blue`
-
-#### 图标选择（FontAwesome）
-- 概念/想法：`fa-lightbulb`
-- 学习/教育：`fa-graduation-cap`, `fa-book`
-- 技术/代码：`fa-code`, `fa-microchip`, `fa-robot`
-- 数据/分析：`fa-chart-line`, `fa-database`
-- 用户/人群：`fa-users`, `fa-user-graduate`
-
-#### 布局组件
-- 卡片：`bg-white p-6 rounded-2xl shadow-sm border`
-- 高亮框：`bg-[颜色]-50 p-6 rounded-2xl border border-[颜色]-100`
-- 步骤指示器：带数字的圆角矩形
-- 对比布局：左右分栏或上下排列
-
-### 步骤 6: 验证与测试
-
-创建文件后：
-1. 检查文件路径是否正确：`public/courses/文件名.js`
-2. 验证 JSX 语法是否正确
-3. 确保 `window.CourseData` 包含所有必需字段
-4. 提醒用户刷新课程列表或重启服务器
-
-## 输出格式
-
-完成课程创建后，向用户报告：
-- 课程文件路径
-- 课程标题和描述
-- 幻灯片数量
-- 使用说明（如何查看新课程）
-
-## 示例对话
-
-**用户：** 创建一个关于 Python 编程入门的课程
-
-**助手：** 
-1. 确认需求：初学者、基础语法、约 5-6 页
-2. 设计结构：标题页 → Python 简介 → 变量与数据类型 → 控制流 → 函数 → 总结
-3. 创建文件：`public/courses/python-intro.js`
-4. 使用蓝色主题、`fa-python` 图标（或 `fa-code`）
-5. 生成代码并保存
-6. 报告完成
+---
 
 ## 注意事项
 
-1. 课程内容要适合在 16:9 比例的幻灯片中展示
-2. 每页内容不要过多，保持简洁明了
-3. 使用响应式类名（`md:`, `lg:`）确保在不同屏幕尺寸下正常显示
-4. 避免使用外部状态管理，每个幻灯片组件应该是独立的
-5. 如需图片，使用图片代理服务确保断网可用：`/images/proxy?url=https://图片地址`（推荐 Unsplash 等免费 HTTPS 图库）
+1. 每页内容保持简洁，不要在一页塞太多信息
+2. 使用 `shrink-0` 防止标题在 flex 容器中被压缩
+3. 使用 `flex-1` 让内容区域占满剩余空间
+4. 交互组件的 `useEffect` 清理函数要销毁图表/定时器等资源
+5. 列表渲染必须加 `key` 属性
+6. 文件名将作为课程 ID，使用小写字母和连字符：`python-intro.js`

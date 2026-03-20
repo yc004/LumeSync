@@ -515,6 +515,13 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 学生端上报异常行为（退出全屏、切换标签页等）
+    socket.on('student-alert', (data) => {
+        if (role === 'viewer') {
+            io.to('hosts').emit('student-alert', { ip: clientIp, type: data.type });
+        }
+    });
+
     // 刷新课程列表
     socket.on('refresh-courses', () => {
         if (role === 'host') {

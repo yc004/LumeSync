@@ -1,0 +1,83 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Pillow
+        run: pip install Pillow
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: python build/convert-icons.py
+
+      - name: Build verify-password.exe
+        run: npm run build:verify
+
+      - name: Build Teacher installer
+        run: npm run build:teacher
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Student installer
+        run: npx electron-builder --config electron-builder-student.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get tag name
+        id: tag
+        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $env:GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SyncClassroom ${{ steps.tag.outputs.TAG }}
+          tag_name: ${{ steps.tag.outputs.TAG }}
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.TAG, '-') }}
+          body: |
+            ## SyncClassroom ${{ steps.tag.outputs.TAG }}
+
+            ### 安装说明
+
+            | 文件 | 说明 |
+            |------|------|
+            | `SyncClassroom-教师端-Setup-*.exe` | 教师端安装包，正常安装卸载 |
+            | `SyncClassroom-学生端-Setup-*.exe` | 学生端安装包，卸载需要管理员密码（默认 `admin123`） |
+
+            ### 离线安装
+            两个安装包均为完全离线包，安装后无需联网即可运行。
+
+            ### 学生端说明
+            - 安装需要管理员权限
+            - 安装后自动注册为 Windows 服务（开机自启）
+            - 卸载时需输入管理员密码
+          files: |
+            dist/teacher/*.exe
+            dist/student/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

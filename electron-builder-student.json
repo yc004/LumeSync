@@ -1,6 +1,6 @@
 {
   "appId": "com.syncclassroom.student",
-  "productName": "SyncClassroom 学生端",
+  "productName": "SyncClassroom Student",
   "copyright": "Copyright © 2024",
   "directories": {
     "output": "dist/student",

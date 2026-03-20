@@ -1,7 +1,7 @@
 {
   "name": "ai-class-sync",
   "version": "1.0.0",
-  "description": "深度学习人脸识别局域网同步课件",
+  "description": "AI-powered face recognition LAN classroom sync tool",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

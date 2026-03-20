@@ -64,20 +64,20 @@ jobs:
           body: |
             ## SyncClassroom ${{ steps.tag.outputs.TAG }}
 
-            ### 安装说明
+            ### Installation
 
-            | 文件 | 说明 |
-            |------|------|
-            | `SyncClassroom-教师端-Setup-*.exe` | 教师端安装包，正常安装卸载 |
-            | `SyncClassroom-学生端-Setup-*.exe` | 学生端安装包，卸载需要管理员密码（默认 `admin123`） |
+            | File | Description |
+            |------|-------------|
+            | `SyncClassroom-Teacher-Setup-*.exe` | Teacher installer, normal uninstall |
+            | `SyncClassroom-Student-Setup-*.exe` | Student installer, requires admin password to uninstall (default: `admin123`) |
 
-            ### 离线安装
-            两个安装包均为完全离线包，安装后无需联网即可运行。
+            ### Offline Install
+            Both installers are fully self-contained. No internet connection required after installation.
 
-            ### 学生端说明
-            - 安装需要管理员权限
-            - 安装后自动注册为 Windows 服务（开机自启）
-            - 卸载时需输入管理员密码
+            ### Student Notes
+            - Installation requires administrator privileges
+            - Automatically registers as a Windows service (auto-start on boot)
+            - Uninstall requires admin password
           files: |
             dist/teacher/*.exe
             dist/student/*.exe

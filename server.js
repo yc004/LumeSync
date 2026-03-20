@@ -30,7 +30,7 @@ function scanCourses() {
     
     const files = fs.readdirSync(coursesDir);
     const courses = files
-        .filter(f => f.endsWith('.js'))
+        .filter(f => f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.tsx'))
         .map(f => {
             const courseId = f.replace('.js', '');
             const filePath = path.join(coursesDir, f);

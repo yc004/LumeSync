@@ -768,7 +768,7 @@ function ClassroomApp() {
             if (window.Babel) {
                 try {
                     const result = window.Babel.transform(scriptContent, {
-                        presets: ['react'],
+                        presets: ['react', 'typescript'],
                         filename: course.file
                     });
                     compiledCode = result.code;

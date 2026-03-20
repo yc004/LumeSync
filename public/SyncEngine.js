@@ -157,6 +157,8 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     // 学生监控与弹窗状态
     const [studentCount, setStudentCount] = useState(0);
     const [toasts, setToasts] = useState([]);
+    const [studentLog, setStudentLog] = useState([]);
+    const [showLog, setShowLog] = useState(false);
     
     // 教师设置
     const [settings, setSettings] = useState({
@@ -251,13 +253,21 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
         // 如果是老师端，主动请求当前学生人数
         if (isHost) {
             socket.emit('get-student-count');
+            // 拉取历史日志
+            fetch('/api/student-log').then(r => r.json()).then(d => setStudentLog(d.log || []));
         }
+
+        // 实时接收新日志条目
+        socket.on('student-log-entry', (entry) => {
+            setStudentLog(prev => [...prev, entry].slice(-500));
+        });
 
         return () => {
             socket.off('sync-slide');
             socket.off('student-status');
             socket.off('student-alert');
             socket.off('host-settings');
+            socket.off('student-log-entry');
         };
     }, [socket, isHost]);
 
@@ -367,6 +377,22 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                         </button>
                     )}
                     
+                    {/* 日志按钮（仅教师端） */}
+                    {isHost && (
+                        <button
+                            onClick={() => setShowLog(v => !v)}
+                            className="flex items-center px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors text-sm font-bold relative"
+                            title="学生日志"
+                        >
+                            <i className="fas fa-list-ul"></i>
+                            {studentLog.length > 0 && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                                    {studentLog.length > 99 ? '99' : studentLog.length}
+                                </span>
+                            )}
+                        </button>
+                    )}
+                    
                     <div className="flex space-x-1.5 hidden md:flex">
                         {slides.map((_, idx) => (
                             <div
@@ -456,6 +482,60 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                 )}
             </div>
             
+            {/* 日志面板（仅教师端） */}
+            {isHost && showLog && (
+                <div className="fixed inset-0 z-[9997] flex justify-end" onClick={() => setShowLog(false)}>
+                    <div
+                        className="w-96 h-full bg-white shadow-2xl border-l border-slate-200 flex flex-col"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+                            <h3 className="font-bold text-slate-800 text-lg flex items-center">
+                                <i className="fas fa-list-ul mr-2 text-blue-500"></i> 学生操作日志
+                            </h3>
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={() => setStudentLog([])}
+                                    className="text-xs text-slate-400 hover:text-red-500 px-2 py-1 rounded transition-colors"
+                                >
+                                    清空
+                                </button>
+                                <button onClick={() => setShowLog(false)} className="text-slate-400 hover:text-slate-600">
+                                    <i className="fas fa-xmark text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5 text-sm">
+                            {studentLog.length === 0 ? (
+                                <div className="text-center text-slate-400 mt-16">
+                                    <i className="fas fa-inbox text-3xl mb-3 block"></i>
+                                    暂无记录
+                                </div>
+                            ) : (
+                                [...studentLog].reverse().map((entry, i) => {
+                                    const timeStr = new Date(entry.time).toLocaleTimeString('zh-CN', { hour12: false });
+                                    const configs = {
+                                        'join':            { icon: 'fa-user-plus',    color: 'text-green-600',  bg: 'bg-green-50',  label: '上线' },
+                                        'leave':           { icon: 'fa-user-minus',   color: 'text-slate-500',  bg: 'bg-slate-50',  label: '离线' },
+                                        'fullscreen-exit': { icon: 'fa-compress',     color: 'text-orange-500', bg: 'bg-orange-50', label: '退出全屏' },
+                                        'tab-hidden':      { icon: 'fa-eye-slash',    color: 'text-red-500',    bg: 'bg-red-50',    label: '切换页面' },
+                                    };
+                                    const cfg = configs[entry.type] || { icon: 'fa-circle-info', color: 'text-blue-500', bg: 'bg-blue-50', label: entry.type };
+                                    return (
+                                        <div key={i} className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${cfg.bg}`}>
+                                            <i className={`fas ${cfg.icon} ${cfg.color} w-4 shrink-0`}></i>
+                                            <span className={`font-bold ${cfg.color} w-16 shrink-0`}>{cfg.label}</span>
+                                            <span className="text-slate-600 font-mono text-xs flex-1 truncate">{entry.ip}</span>
+                                            <span className="text-slate-400 text-xs shrink-0">{timeStr}</span>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 设置面板（仅教师端） */}
             {isHost && showSettings && (
                 <div className="fixed inset-0 z-[9998] flex justify-end" onClick={() => setShowSettings(false)}>

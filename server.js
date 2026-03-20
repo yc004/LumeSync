@@ -414,6 +414,11 @@ app.post('/api/refresh-courses', (req, res) => {
     res.json({ success: true, courses: courseCatalog });
 });
 
+// 获取学生操作日志
+app.get('/api/student-log', (req, res) => {
+    res.json({ log: studentLog });
+});
+
 // ========================================================
 // 🛠️ 诊断路由
 // ========================================================
@@ -431,6 +436,18 @@ app.get('*', (req, res) => {
 // ========================================================
 
 let studentIPs = new Map(); // IP -> socket数量，同一IP只计一个学生
+
+// 学生操作日志（内存，最多保留 500 条）
+const studentLog = [];
+const LOG_MAX = 500;
+
+function pushLog(type, ip, extra) {
+    const entry = { time: new Date().toISOString(), type, ip, ...extra };
+    studentLog.push(entry);
+    if (studentLog.length > LOG_MAX) studentLog.shift();
+    io.to('hosts').emit('student-log-entry', entry);
+    console.log(`[学生日志] ${entry.time} | ${type} | IP: ${ip}${extra.slide !== undefined ? ' | 页面: ' + extra.slide : ''}`);
+}
 
 io.on('connection', (socket) => {
     const clientIp = socket.handshake.address;
@@ -456,6 +473,7 @@ io.on('connection', (socket) => {
         studentIPs.set(clientIp, prev + 1);
         // 只有该 IP 的第一个连接才触发 join 通知
         if (prev === 0) {
+            pushLog('join', clientIp, {});
             io.to('hosts').emit('student-status', { count: studentIPs.size, action: 'join', ip: clientIp });
         }
     }
@@ -518,6 +536,7 @@ io.on('connection', (socket) => {
     // 学生端上报异常行为（退出全屏、切换标签页等）
     socket.on('student-alert', (data) => {
         if (role === 'viewer') {
+            pushLog(data.type, clientIp, {});
             io.to('hosts').emit('student-alert', { ip: clientIp, type: data.type });
         }
     });
@@ -544,6 +563,7 @@ io.on('connection', (socket) => {
             const remaining = (studentIPs.get(clientIp) || 1) - 1;
             if (remaining <= 0) {
                 studentIPs.delete(clientIp);
+                pushLog('leave', clientIp, {});
                 io.to('hosts').emit('student-status', { count: studentIPs.size, action: 'leave', ip: clientIp });
             } else {
                 studentIPs.set(clientIp, remaining);

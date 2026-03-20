@@ -4,7 +4,6 @@
 ; ============================================================
 
 !include LogicLib.nsh
-!include nsDialogs.nsh
 
 ; ── Install: register Windows service ───────────────────────
 !macro customInstall
@@ -13,51 +12,57 @@
 !macroend
 
 ; ── Uninstall: password verification then stop/delete service ─
-Var un.dlg
-Var un.pwdField
-Var un.enteredPwd
-Var un.verifyResult
-
 !macro customUnInstall
-    nsDialogs::Create 1018
-    Pop $un.dlg
-    ${If} $un.dlg == error
-        MessageBox MB_OK|MB_ICONSTOP "Cannot create uninstall dialog."
+    ; Write a VBScript that shows a password InputBox and saves result to temp file
+    FileOpen $R8 "$TEMP\sc_getpwd.vbs" w
+    FileWrite $R8 "Dim pwd"
+    FileWriteByte $R8 "13"
+    FileWriteByte $R8 "10"
+    FileWrite $R8 "pwd = InputBox(""Enter admin password to uninstall SyncClassroom Student:"", ""SyncClassroom Student"")"
+    FileWriteByte $R8 "13"
+    FileWriteByte $R8 "10"
+    FileWrite $R8 "If pwd = """" Then WScript.Quit 1"
+    FileWriteByte $R8 "13"
+    FileWriteByte $R8 "10"
+    FileWrite $R8 "Set fso = CreateObject(""Scripting.FileSystemObject"")"
+    FileWriteByte $R8 "13"
+    FileWriteByte $R8 "10"
+    FileWrite $R8 "Set f = fso.OpenTextFile(""$TEMP\sc_pwd.tmp"", 2, True)"
+    FileWriteByte $R8 "13"
+    FileWriteByte $R8 "10"
+    FileWrite $R8 "f.Write pwd"
+    FileWriteByte $R8 "13"
+    FileWriteByte $R8 "10"
+    FileWrite $R8 "f.Close"
+    FileWriteByte $R8 "13"
+    FileWriteByte $R8 "10"
+    FileWrite $R8 "WScript.Quit 0"
+    FileClose $R8
+
+    ExecWait 'wscript.exe //NoLogo "$TEMP\sc_getpwd.vbs"' $R7
+    Delete "$TEMP\sc_getpwd.vbs"
+
+    ${If} $R7 != 0
+        Delete "$TEMP\sc_pwd.tmp"
         Abort
     ${EndIf}
 
-    ${NSD_CreateLabel} 0 0 100% 24u "Enter admin password to uninstall SyncClassroom Student:"
-    Pop $0
-
-    ${NSD_CreatePassword} 0 28u 100% 14u ""
-    Pop $un.pwdField
-
-    ${NSD_CreateButton} 0 48u 45% 14u "Uninstall"
-    Pop $0
-
-    ${NSD_CreateButton} 55% 48u 45% 14u "Cancel"
-    Pop $0
-    GetFunctionAddress $1 un.CancelUninstallSC
-    nsDialogs::OnClick $0 $1
-
-    nsDialogs::Show
-
-    ${NSD_GetText} $un.pwdField $un.enteredPwd
-
-    StrCpy $un.verifyResult "1"
+    ; Verify password
+    StrCpy $R6 "1"
     ${If} ${FileExists} "$INSTDIR\resources\verify-password.exe"
-        FileOpen $R3 "$TEMP\sc_pwd.tmp" w
-        FileWrite $R3 $un.enteredPwd
-        FileClose $R3
-        ExecWait '"$INSTDIR\resources\verify-password.exe" --file "$TEMP\sc_pwd.tmp" --config "$APPDATA\SyncClassroom Student\config.json"' $un.verifyResult
-        Delete "$TEMP\sc_pwd.tmp"
+        ExecWait '"$INSTDIR\resources\verify-password.exe" --file "$TEMP\sc_pwd.tmp" --config "$APPDATA\SyncClassroom Student\config.json"' $R6
     ${Else}
-        ${If} $un.enteredPwd == "admin123"
-            StrCpy $un.verifyResult "0"
+        FileOpen $R5 "$TEMP\sc_pwd.tmp" r
+        FileRead $R5 $R0
+        FileClose $R5
+        ${If} $R0 == "admin123"
+            StrCpy $R6 "0"
         ${EndIf}
     ${EndIf}
 
-    ${If} $un.verifyResult != "0"
+    Delete "$TEMP\sc_pwd.tmp"
+
+    ${If} $R6 != "0"
         MessageBox MB_OK|MB_ICONEXCLAMATION "Incorrect password. Uninstall cancelled."
         Abort
     ${EndIf}
@@ -66,11 +71,3 @@ Var un.verifyResult
     nsExec::ExecToLog 'sc stop "SyncClassroomStudent"'
     nsExec::ExecToLog 'sc delete "SyncClassroomStudent"'
 !macroend
-
-; Guard with BUILD_UNINSTALLER so this function only exists in the
-; uninstaller pass — prevents warning 6020 in the installer pass.
-!ifdef BUILD_UNINSTALLER
-Function un.CancelUninstallSC
-    SendMessage $un.dlg ${WM_CLOSE} 0 0
-FunctionEnd
-!endif

@@ -40,6 +40,7 @@
     "oneClick": false,
     "perMachine": true,
     "allowElevation": true,
+    "warningsAsErrors": false,
     "installerLanguages": ["zh_CN"],
     "language": "2052",
     "createDesktopShortcut": false,

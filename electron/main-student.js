@@ -37,7 +37,7 @@ function createMainWindow() {
         width: 1280,
         height: 800,
         title: 'SyncClassroom 学生端',
-        frame: true,
+        frame: false,
         resizable: true,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
@@ -45,6 +45,7 @@ function createMainWindow() {
         },
         show: true,
     });
+    mainWindow.setMenu(null);
 
     mainWindow.loadURL(url).catch(() => {
         // 连接失败时显示离线提示页

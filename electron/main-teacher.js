@@ -38,12 +38,14 @@ function createWindow() {
         minWidth: 900,
         minHeight: 600,
         title: 'SyncClassroom 教师端',
+        frame: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
         },
         show: false,
     });
+    mainWindow.setMenu(null);
 
     // 等服务器就绪后加载页面
     const tryLoad = (retries = 20) => {

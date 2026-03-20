@@ -1,10 +1,13 @@
 """
-将 assets/tray-icon.png 转换为多尺寸 ICO 文件
-依赖：Pillow（pip install Pillow）
-用法：python build/convert-icons.py
+Convert assets/tray-icon.png to multi-size ICO files.
+Manually builds the ICO binary so every size is guaranteed to be embedded.
+Requires: Pillow (pip install Pillow)
+Usage: python build/convert-icons.py
 """
 import sys
 import os
+import io
+import struct
 from PIL import Image
 
 src = os.path.join(os.path.dirname(__file__), '..', 'assets', 'tray-icon.png')
@@ -18,12 +21,65 @@ if not os.path.exists(src):
 img = Image.open(src).convert('RGBA')
 print('[icons] source size: ' + str(img.size))
 
-# Generate standard multi-size ICO (16/32/48/64/128/256)
-sizes = [(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)]
-imgs = [img.resize(s, Image.LANCZOS) for s in sizes]
+SIZES = [16, 32, 48, 64, 128, 256]
 
-imgs[0].save(out_teacher, format='ICO', sizes=sizes)
-imgs[0].save(out_student,  format='ICO', sizes=sizes)
+def build_ico(base_img, sizes):
+    """
+    Build a valid ICO file containing one PNG-encoded frame per size.
+    ICO format:
+      ICONDIR  (6 bytes)
+      ICONDIRENTRY * n  (16 bytes each)
+      PNG data * n
+    """
+    # Encode each size as PNG bytes
+    png_bufs = []
+    for s in sizes:
+        resized = base_img.resize((s, s), Image.LANCZOS)
+        buf = io.BytesIO()
+        resized.save(buf, format='PNG')
+        png_bufs.append(buf.getvalue())
 
+    n = len(sizes)
+    header_size = 6 + 16 * n          # ICONDIR + all ICONDIRENTRYs
+    offsets = []
+    offset = header_size
+    for pb in png_bufs:
+        offsets.append(offset)
+        offset += len(pb)
+
+    out = io.BytesIO()
+
+    # ICONDIR
+    out.write(struct.pack('<HHH', 0, 1, n))  # reserved=0, type=1(ICO), count=n
+
+    # ICONDIRENTRYs
+    for i, s in enumerate(sizes):
+        w = 0 if s >= 256 else s
+        h = 0 if s >= 256 else s
+        out.write(struct.pack('<BBBBHHII',
+            w,              # width  (0 = 256)
+            h,              # height (0 = 256)
+            0,              # color count
+            0,              # reserved
+            1,              # planes
+            32,             # bit count
+            len(png_bufs[i]),  # size of image data
+            offsets[i],        # offset of image data
+        ))
+
+    # PNG data
+    for pb in png_bufs:
+        out.write(pb)
+
+    return out.getvalue()
+
+ico_data = build_ico(img, SIZES)
+
+with open(out_teacher, 'wb') as f:
+    f.write(ico_data)
+with open(out_student, 'wb') as f:
+    f.write(ico_data)
+
+print('[icons] sizes embedded: ' + str(SIZES))
 print('[icons] OK: ' + out_teacher)
 print('[icons] OK: ' + out_student)

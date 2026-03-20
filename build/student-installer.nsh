@@ -1,6 +1,6 @@
 ; ============================================================
 ; SyncClassroom Student - Custom NSIS Script
-; Requires admin password to uninstall.
+; Password verification via MUI_CUSTOMFUNCTION_UNGUIINIT hook.
 ; ============================================================
 
 !include LogicLib.nsh
@@ -11,9 +11,20 @@
     nsExec::ExecToLog '"$INSTDIR\SyncClassroom Student.exe" --register-service'
 !macroend
 
-; ── Uninstall: password verification then stop/delete service ─
+; ── customUnInstall: stop/delete service after files are removed ─
 !macro customUnInstall
-    ; Write a VBScript that shows a password InputBox and saves result to temp file
+    DetailPrint "Stopping daemon service..."
+    nsExec::ExecToLog 'sc stop "SyncClassroomStudent"'
+    nsExec::ExecToLog 'sc delete "SyncClassroomStudent"'
+!macroend
+
+; ── Define custom function for MUI uninstaller GUI init ─
+!ifdef BUILD_UNINSTALLER
+
+!define MUI_CUSTOMFUNCTION_UNGUIINIT un.PasswordCheck
+
+Function un.PasswordCheck
+    ; Write VBScript to show password InputBox
     FileOpen $R8 "$TEMP\sc_getpwd.vbs" w
     FileWrite $R8 'Dim pwd$\r$\npwd = InputBox("Enter admin password to uninstall SyncClassroom Student:", "SyncClassroom Student")$\r$\nIf pwd = "" Then WScript.Quit 1$\r$\nSet fso = CreateObject("Scripting.FileSystemObject")$\r$\nSet f = fso.OpenTextFile("$TEMP\sc_pwd.tmp", 2, True)$\r$\nf.Write pwd$\r$\nf.Close$\r$\nWScript.Quit 0'
     FileClose $R8
@@ -23,7 +34,7 @@
 
     ${If} $R7 != 0
         Delete "$TEMP\sc_pwd.tmp"
-        Abort
+        Quit
     ${EndIf}
 
     ; Verify password
@@ -43,10 +54,8 @@
 
     ${If} $R6 != "0"
         MessageBox MB_OK|MB_ICONEXCLAMATION "Incorrect password. Uninstall cancelled."
-        Abort
+        Quit
     ${EndIf}
+FunctionEnd
 
-    DetailPrint "Stopping daemon service..."
-    nsExec::ExecToLog 'sc stop "SyncClassroomStudent"'
-    nsExec::ExecToLog 'sc delete "SyncClassroomStudent"'
-!macroend
+!endif

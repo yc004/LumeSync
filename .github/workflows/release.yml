@@ -50,13 +50,9 @@ jobs:
 
       - name: Build Teacher installer
         run: npm run build:teacher
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Student installer
         run: npx electron-builder --config electron-builder-student.json
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get tag name
         id: tag
@@ -87,7 +83,7 @@ jobs:
             - Automatically registers as a Windows service (auto-start on boot)
             - Uninstall requires admin password
           files: |
-            dist/teacher/*.exe
-            dist/student/*.exe
+            dist/teacher/SyncClassroom-Teacher-Setup-*.exe
+            dist/student/SyncClassroom-Student-Setup-*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

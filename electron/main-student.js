@@ -316,20 +316,44 @@ ipcMain.handle('save-config', async (_, newConfig) => {
 
     // 移除 _quit 属性（如果有），防止污染配置
     const { _quit, ...cleanConfig } = newConfig;
+    const oldTeacherIp = config.teacherIp;
+    const oldPort = config.port || 3000;
+
     config = { ...config, ...cleanConfig };
     const ok = saveConfig(config);
+
     if (ok && mainWindow) {
-        logger.info('CONFIG', 'Config saved, reloading window', { teacherIp: config.teacherIp, port: config.port });
+        logger.info('CONFIG', 'Config saved, preparing to reload window', {
+            oldIp: oldTeacherIp,
+            newIp: config.teacherIp,
+            port: config.port
+        });
+
         stopRetrying();
-        // 重新加载新 IP
         const url = `http://${config.teacherIp}:${config.port || 3000}`;
-        try {
-            await mainWindow.loadURL(url);
-            logger.info('CONFIG', 'Window reloaded successfully');
-        } catch (err) {
-            logger.error('CONFIG', 'Failed to load URL, showing offline page', err);
-            await mainWindow.loadFile(path.join(__dirname, 'offline.html'));
-            startRetrying();
+
+        // 只有当 IP 或端口改变时才重新加载
+        if (oldTeacherIp !== config.teacherIp || oldPort !== config.port) {
+            logger.info('CONFIG', 'IP or port changed, reloading window');
+            try {
+                // 先停止当前导航，避免 ERR_ABORTED
+                mainWindow.webContents.stop();
+                // 等待一小段时间让停止操作完成
+                await new Promise(resolve => setTimeout(resolve, 50));
+                // 加载新 URL
+                await mainWindow.loadURL(url);
+                logger.info('CONFIG', 'Window reloaded successfully');
+            } catch (err) {
+                logger.error('CONFIG', 'Failed to load URL, showing offline page', err);
+                try {
+                    await mainWindow.loadFile(path.join(__dirname, 'offline.html'));
+                    startRetrying();
+                } catch (loadErr) {
+                    logger.error('CONFIG', 'Failed to load offline page', loadErr);
+                }
+            }
+        } else {
+            logger.info('CONFIG', 'IP and port unchanged, no reload needed');
         }
     }
     return ok;

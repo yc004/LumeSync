@@ -156,8 +156,20 @@ SyncClassroom/
 ├── server.js                          # 后端服务（Express + Socket.io + CDN 代理）
 ├── public/
 │   ├── index.html                     # 入口页面
-│   ├── SyncEngine.js                  # 前端引擎（React 组件 + Socket 同步）
-│   └── courses/                       # 课件目录（.tsx 文件）
+│   ├── engine/                        # 前端引擎模块
+│   │   ├── 00-globals.js              # 全局配置和工具
+│   │   ├── 01-settings-panel.js       # 设置面板
+│   │   ├── 02-classroom-view.js       # 机房视图
+│   │   ├── 03-course-selector.js      # 课程选择器
+│   │   ├── 04-student-waiting.js      # 学生等待页
+│   │   ├── 05-sync-classroom.js       # 同步课堂核心
+│   │   ├── 06-resource-loader.js      # 资源加载器
+│   │   ├── 07-camera-manager.js       # 摄像头管理
+│   │   └── 08-app.js                  # 应用入口
+│   ├── courses/                       # 课件目录（.tsx 文件）
+│   ├── lib/                           # 第三方库缓存目录
+│   ├── images/                        # 图片资源
+│   └── weights/                       # AI 模型权重
 ├── electron/
 │   ├── main-teacher.js                # 教师端主进程
 │   ├── main-student.js                # 学生端主进程
@@ -170,6 +182,8 @@ SyncClassroom/
 │   ├── convert-icons.py               # PNG 转 ICO
 │   ├── verify-password.js             # 卸载密码验证工具
 │   └── student-installer.nsh          # NSIS 自定义安装脚本
+├── assets/
+│   └── tray-icon.png                  # 应用图标
 ├── electron-builder-teacher.json      # 教师端打包配置
 ├── electron-builder-student.json      # 学生端打包配置
 ├── course-template.md                 # 课件开发文档

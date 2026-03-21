@@ -58,6 +58,17 @@ jobs:
         id: tag
         run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $env:GITHUB_OUTPUT
 
+      - name: Rename installers (remove spaces for upload)
+        run: |
+          Get-ChildItem "dist/teacher/*.exe" | ForEach-Object {
+            $newName = $_.Name -replace ' ', '-'
+            if ($_.Name -ne $newName) { Rename-Item $_.FullName $newName }
+          }
+          Get-ChildItem "dist/student/*.exe" | ForEach-Object {
+            $newName = $_.Name -replace ' ', '-'
+            if ($_.Name -ne $newName) { Rename-Item $_.FullName $newName }
+          }
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:

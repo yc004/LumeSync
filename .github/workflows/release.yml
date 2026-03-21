@@ -49,10 +49,10 @@ jobs:
         run: npm run build:verify
 
       - name: Build Teacher installer
-        run: npm run build:teacher
+        run: npm run build:teacher -- --publish never
 
       - name: Build Student installer
-        run: npx electron-builder --config electron-builder-student.json
+        run: npx electron-builder --config electron-builder-student.json --publish never
 
       - name: Get tag name
         id: tag

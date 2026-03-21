@@ -4,3 +4,4 @@ node_modules
 .qoder
 images
 dist
+*.exe

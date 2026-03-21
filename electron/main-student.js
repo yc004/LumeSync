@@ -57,12 +57,35 @@ const RETRY_INTERVAL_MS = 5000; // 每 5 秒重试一次
     );
 }
 
-// ── 开机自启 ─────────────────────────────────────────────
-app.setLoginItemSettings({
-    openAtLogin: true,
-    openAsHidden: false,
-    name: 'SyncClassroom 学生端',
-});
+// ── 开机自启（默认开启，可在管理员设置中修改）──────────
+// perMachine 安装在 Program Files，必须写 HKLM 才对所有用户生效
+// app.setLoginItemSettings 写 HKCU，在管理员身份下无效，改用 reg 命令
+function setAutostartRegistry(enable) {
+    const exePath = process.execPath;
+    if (enable) {
+        spawnSync('reg', [
+            'add', 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+            '/v', 'SyncClassroomStudent',
+            '/t', 'REG_SZ',
+            '/d', `"${exePath}"`,
+            '/f',
+        ], { shell: false, stdio: 'ignore' });
+    } else {
+        spawnSync('reg', [
+            'delete', 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+            '/v', 'SyncClassroomStudent',
+            '/f',
+        ], { shell: false, stdio: 'ignore' });
+    }
+}
+
+function getAutostartRegistry() {
+    const result = spawnSync('reg', [
+        'query', 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+        '/v', 'SyncClassroomStudent',
+    ], { shell: false, encoding: 'utf-8' });
+    return result.status === 0;
+}
 
 // ── 后台轮询重连 ─────────────────────────────────────────
 function startRetrying() {
@@ -304,6 +327,15 @@ ipcMain.on('set-admin-password', (_, hash) => {
     config = { ...config, adminPasswordHash: hash };
     saveConfig(config);
     console.log('[admin] password updated remotely');
+});
+
+ipcMain.handle('get-autostart', () => {
+    return getAutostartRegistry();
+});
+
+ipcMain.handle('set-autostart', (_, enable) => {
+    setAutostartRegistry(enable);
+    return true;
 });
 
 // 手动重试（offline.html 按钮触发）

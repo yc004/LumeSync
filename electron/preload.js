@@ -29,4 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     importCourse: () => ipcRenderer.invoke('import-course'),
     // 教师端：切换全屏
     toggleFullscreen: () => ipcRenderer.send('toggle-fullscreen'),
+    // 学生端：读取/设置开机自启动
+    getAutostart: () => ipcRenderer.invoke('get-autostart'),
+    setAutostart: (enable) => ipcRenderer.invoke('set-autostart', enable),
 });

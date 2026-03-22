@@ -1,31 +1,29 @@
+# 萤火互动课堂 (SyncClassroom)
+
 <div align="center">
-
-# 萤火课堂 v2.0
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
-[![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://www.microsoft.com/windows)
-
-<img src="assets/tray-icon.png" alt="萤火课堂 Icon" width="128" height="128">
-
-**局域网互动课堂框架** - 支持教师端全局控制、学生端实时同步、机房视图管理，提供 Windows 桌面应用安装包
-
-[功能特性](#-功能特性) · [快速开始](#-快速开始) · [桌面应用](#-桌面应用) · [课件开发](#-课件开发) · [项目结构](#-项目结构)
-
+  <img src="assets/tray-icon.png" width="100" height="100" alt="SyncClassroom Logo" />
+  <img src="assets/editor-icon.png" width="100" height="100" alt="Editor Logo" />
 </div>
 
----
+基于 React + Electron 的低延迟局域网互动教学系统。
 
-## ✨ 功能特性
+## 🌟 核心特性
 
-- **🎓 教师端控制台** - 多课件选择、一键开课/结课、在线学生监控
-- **👨‍🎓 学生端** - 自动跟随翻页、全屏锁定、断线自动重连
-- **🖥️ 机房视图** - 座位网格/列表双视图，支持 CSV 批量导入，拖拽排列，实时在线状态
-- **🌐 智能 CDN 缓存代理** - 首次从公网下载依赖后缓存到本地，后续完全离线
+- **🚀 零延迟同步** - 基于 WebSocket 的极致流畅教学体验
 - **⚡ JSX 热编译** - 课件为纯文本 `.tsx` 文件，无需构建工具
 - **🤖 AI 课件编辑器** - 集成 AI 助手，支持对话式生成互动课件，提供实时预览与源码编辑
+- **📱 跨端支持** - 专为教室环境优化的全屏学生端与便捷教师端
 - **💻 Electron 桌面应用** - 教师端/学生端/编辑器独立安装包，学生端卸载需管理员密码
 - **🎨 现代化 UI** - 基于 Tailwind CSS 的精美界面设计
+
+## 🤖 AI 课件编辑器 (LumeSync Editor)
+
+全新的 AI 驱动课件开发工具，旨在让每一位教师都能轻松创作互动内容：
+
+- **自然语言创作**：通过与 AI 对话，描述你的教学需求（如：“帮我写一个勾股定理的互动演示”），AI 将自动生成完整的互动代码。
+- **流式实时预览**：代码生成过程中即可看到左侧预览区同步更新，支持 16:9 工业标准比例。
+- **VS Code 级编辑体验**：支持源码编辑、行号显示、滚动同步，方便进行精细化调整。
+- **一键应用**：生成的代码可直接保存为课件文件，供教师端分发。
 
 ---
 
@@ -52,17 +50,19 @@ node server.js
 
 ---
 
-## 💻 桌面应用
+## 📦 安装包说明
 
-### 下载安装包
+| 端类型 | 图标 | 说明 |
+|------|------|------|
+| **教师端** | <img src="assets/tray-icon.png" width="24" /> | 用于开启课堂、分发课件、监控学生状态 |
+| **学生端** | <img src="assets/tray-icon.png" width="24" /> | 全屏置顶运行，卸载需管理员密码（默认 `admin123`） |
+| **编辑器** | <img src="assets/editor-icon.png" width="24" /> | 独立的 AI 课件开发环境，集成 AI 聊天助手 |
 
-前往 [Releases](../../releases) 下载最新版本：
+## 🛠 本地开发与打包
 
-| 文件 | 说明 |
-|------|------|
-| `LumeSync Teacher Setup *.exe` | 教师端，正常安装卸载 |
-| `LumeSync Student Setup *.exe` | 学生端，卸载需管理员密码（默认 `admin123`） |
-| `LumeSync Editor Setup *.exe` | AI 课件编辑器，集成 AI 对话生成功能 |
+### 环境要求
+- Node.js 18+
+- Python 3.x (用于生成图标)
 
 ### 本地打包
 
@@ -71,7 +71,7 @@ node server.js
 build\build.bat
 
 # 或分步执行
-python build/convert-icons.py       # 生成图标
+python build/convert-icons.py       # 生成各端图标 (icon-teacher.ico, icon-editor.ico 等)
 npm run build:verify                # 打包密码验证工具
 npm run build:teacher               # 教师端安装包 -> dist/teacher/
 npm run build:student               # 学生端安装包 -> dist/student/

@@ -1,6 +1,6 @@
 {
-  "appId": "com.syncclassroom.teacher",
-  "productName": "SyncClassroom Teacher",
+  "appId": "com.lumesync.teacher",
+  "productName": "萤火课堂 教师端",
   "copyright": "Copyright © 2024",
   "directories": {
     "output": "dist/teacher",
@@ -43,7 +43,7 @@
     "language": "2052",
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "SyncClassroom Teacher",
+    "shortcutName": "萤火课堂 教师端",
     "installerIcon": "build/icon-teacher.ico",
     "uninstallerIcon": "build/icon-teacher.ico",
     "installerHeaderIcon": "build/icon-teacher.ico",

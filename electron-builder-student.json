@@ -1,6 +1,6 @@
 {
-  "appId": "com.syncclassroom.student",
-  "productName": "SyncClassroom Student",
+  "appId": "com.lumesync.student",
+  "productName": "萤火课堂 学生端",
   "copyright": "Copyright © 2024",
   "directories": {
     "output": "dist/student",

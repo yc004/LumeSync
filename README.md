@@ -1,12 +1,12 @@
 <div align="center">
 
-# SyncClassroom v2.0
+# 萤火课堂 v2.0
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://www.microsoft.com/windows)
 
-<img src="assets/tray-icon.png" alt="SyncClassroom Icon" width="128" height="128">
+<img src="assets/tray-icon.png" alt="萤火课堂 Icon" width="128" height="128">
 
 **局域网互动课堂框架** - 支持教师端全局控制、学生端实时同步、机房视图管理，提供 Windows 桌面应用安装包
 
@@ -59,8 +59,8 @@ node server.js
 
 | 文件 | 说明 |
 |------|------|
-| `SyncClassroom-教师端-Setup-*.exe` | 教师端，正常安装卸载 |
-| `SyncClassroom-学生端-Setup-*.exe` | 学生端，卸载需管理员密码（默认 `admin123`） |
+| `萤火课堂-教师端-Setup-*.exe` | 教师端，正常安装卸载 |
+| `萤火课堂-学生端-Setup-*.exe` | 学生端，卸载需管理员密码（默认 `admin123`） |
 
 ### 本地打包
 
@@ -80,7 +80,7 @@ npm run build:student               # 学生端安装包 -> dist/student/
 ### 学生端特性
 
 - 安装需要管理员权限
-- 自动注册为 Windows 服务（`SyncClassroomStudent`），开机自启
+- 自动注册为 Windows 服务（`LumeSyncStudent`），开机自启
 - 普通用户无法关闭服务
 - 卸载时弹出密码验证（默认密码 `admin123`）
 - 管理员密码可在教师端"课堂设置"中修改并实时推送到所有在线学生端
@@ -152,7 +152,7 @@ window.CourseData = {
 ## 📁 项目结构
 
 ```
-SyncClassroom/
+萤火课堂/
 ├── server.js                          # 后端服务（Express + Socket.io + CDN 代理）
 ├── public/
 │   ├── index.html                     # 入口页面

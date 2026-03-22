@@ -1,8 +1,8 @@
-# SyncClassroom 日志系统文档
+# 萤火课堂 日志系统文档
 
 ## 概述
 
-SyncClassroom 集成了标准化的日志系统，自动记录应用运行期间的所有事件和错误，方便管理人员排查问题和进行故障修复。
+萤火课堂集成了标准化的日志系统，自动记录应用运行期间的所有事件和错误，方便管理人员排查问题和进行故障修复。
 
 ## 日志特性
 
@@ -25,21 +25,21 @@ SyncClassroom 集成了标准化的日志系统，自动记录应用运行期间
 - 超过限制自动删除最旧的文件
 
 ### 4. 分类存储
-- **教师端**: `~/.SyncClassroom-Teacher/logs/`
-- **学生端**: `~/.SyncClassroom-Student/logs/`
+- **教师端**: `~/.萤火课堂-教师端/logs/`
+- **学生端**: `~/.萤火课堂-学生端/logs/`
 
 ## 日志文件位置
 
 ### Windows
 ```
-C:\Users\[用户名]\.SyncClassroom-Teacher\logs\
-C:\Users\[用户名]\.SyncClassroom-Student\logs\
+C:\Users\[用户名]\.萤火课堂-教师端\logs\
+C:\Users\[用户名]\.萤火课堂-学生端\logs\
 ```
 
 ### 日志文件命名
 ```
-SyncClassroom-Teacher-2024-03-21.log
-SyncClassroom-Student-2024-03-21.log
+萤火课堂-教师端-2024-03-21.log
+萤火课堂-学生端-2024-03-21.log
 ```
 
 ## 日志格式
@@ -73,8 +73,8 @@ SyncClassroom-Student-2024-03-21.log
 
 ### 方法 3: 直接访问
 直接导航到以下目录：
-- 教师端: `%USERPROFILE%\.SyncClassroom-Teacher\logs`
-- 学生端: `%USERPROFILE%\.SyncClassroom-Student\logs`
+- 教师端: `%USERPROFILE%\.萤火课堂-教师端\logs`
+- 学生端: `%USERPROFILE%\.萤火课堂-学生端\logs`
 
 ## 常见问题排查
 
@@ -123,13 +123,13 @@ taskkill /F /PID [进程ID]
 **Windows (CMD)**:
 ```cmd
 set LOG_LEVEL=DEBUG
-SyncClassroom-Teacher.exe
+萤火课堂-教师端.exe
 ```
 
 **Windows (PowerShell)**:
 ```powershell
 $env:LOG_LEVEL="DEBUG"
-.\SyncClassroom-Teacher.exe
+.\萤火课堂-教师端.exe
 ```
 
 ## 导出日志
@@ -142,10 +142,10 @@ $env:LOG_LEVEL="DEBUG"
 ### 使用命令导出
 ```cmd
 # 复制今天的日志到桌面
-copy %USERPROFILE%\.SyncClassroom-Teacher\logs\SyncClassroom-Teacher-%date:~0,10%.log %USERPROFILE%\Desktop\
+copy %USERPROFILE%\.萤火课堂-教师端\logs\萤火课堂-教师端-%date:~0,10%.log %USERPROFILE%\Desktop\
 
 # 压缩所有日志
-7z a logs.zip %USERPROFILE%\.SyncClassroom-Teacher\logs\*
+7z a logs.zip %USERPROFILE%\.萤火课堂-教师端\logs\*
 ```
 
 ## 日志最佳实践

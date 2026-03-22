@@ -1,4 +1,4 @@
-# SyncClassroom 打包说明
+# 萤火课堂 打包说明
 
 ## 环境要求
 
@@ -13,8 +13,8 @@ build\build.bat
 ```
 
 输出目录：
-- 教师端：`dist/teacher/SyncClassroom 教师端 Setup 1.0.0.exe`
-- 学生端：`dist/student/SyncClassroom 学生端 Setup 1.0.0.exe`
+- 教师端：`dist/teacher/萤火课堂 教师端 Setup 1.0.0.exe`
+- 学生端：`dist/student/萤火课堂 学生端 Setup 1.0.0.exe`
 
 ## 分步打包
 
@@ -75,4 +75,4 @@ build/
 1. `build/verify-password.exe` 由 `npm run build:verify` 自动生成，不需要手动创建
 2. 图标文件必须是 `.ico` 格式，`build:icons` 脚本会自动从 `assets/tray-icon.png` 转换
 3. 学生端安装包使用 `perMachine: true`，安装到 `Program Files`，需要管理员权限
-4. 学生端服务名：`SyncClassroomStudent`，可用 `sc query SyncClassroomStudent` 查看状态
+4. 学生端服务名：`LumeSyncStudent`，可用 `sc query LumeSyncStudent` 查看状态

@@ -1,9 +1,9 @@
 @echo off
-title SyncClassroom Launcher
+title 萤火课堂 Launcher
 cls
 
 echo ==========================================
-echo   SyncClassroom Launcher
+echo   萤火课堂 Launcher
 echo ==========================================
 echo.
 
@@ -15,7 +15,7 @@ if %errorLevel% neq 0 (
     pause
     cls
     echo ==========================================
-    echo   SyncClassroom Launcher
+    echo   萤火课堂 Launcher
     echo ==========================================
     echo.
 )
@@ -117,7 +117,7 @@ if not defined LOCAL_IP (
 
 cls
 echo ==========================================
-echo   SyncClassroom Launcher
+echo   萤火课堂 Launcher
 echo ==========================================
 echo.
 echo [OK] Environment check complete

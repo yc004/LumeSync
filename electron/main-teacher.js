@@ -9,7 +9,7 @@ const { loadSettings, saveSettings } = require('./config.js');
 const { Logger } = require('./logger.js');
 
 // 初始化日志系统
-const logger = new Logger('SyncClassroom-Teacher');
+const logger = new Logger('萤火课堂-教师端');
 
 // 切换 Windows 控制台代码页为 UTF-8，解决中文乱码
 if (process.platform === 'win32') {

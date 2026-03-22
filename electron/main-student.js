@@ -13,7 +13,7 @@ const { loadConfig, saveConfig, getAdminPasswordHash } = require('./config.js');
 const { Logger } = require('./logger.js');
 
 // 初始化日志系统
-const logger = new Logger('SyncClassroom-Student');
+const logger = new Logger('萤火课堂-学生端');
 
 // 切换 Windows 控制台代码页为 UTF-8，解决中文乱码
 if (process.platform === 'win32') {
@@ -25,13 +25,13 @@ if (process.argv.includes('--register-service')) {
     // 以 sc.exe 注册自启动服务，指向当前 exe
     const exePath = process.execPath;
     spawnSync('sc', [
-        'create', 'SyncClassroomStudent',
+        'create', 'LumeSyncStudent',
         'binPath=', `"${exePath}"`,
         'start=', 'auto',
-        'DisplayName=', 'SyncClassroom Student Guard',
+        'DisplayName=', '萤火课堂 学生端守护服务',
     ], { shell: false, stdio: 'ignore' });
-    spawnSync('sc', ['description', 'SyncClassroomStudent', 'SyncClassroom 学生端守护服务'], { shell: false, stdio: 'ignore' });
-    spawnSync('sc', ['start', 'SyncClassroomStudent'], { shell: false, stdio: 'ignore' });
+    spawnSync('sc', ['description', 'LumeSyncStudent', '萤火课堂 学生端守护服务'], { shell: false, stdio: 'ignore' });
+    spawnSync('sc', ['start', 'LumeSyncStudent'], { shell: false, stdio: 'ignore' });
     process.exit(0);
 }
 

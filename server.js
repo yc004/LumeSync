@@ -16,7 +16,7 @@ const app = express();
 const server = http.createServer(app);
 
 // 初始化 Socket.io
-const io = new Server(server);
+const io = new Server(server, { pingInterval: 5000, pingTimeout: 8000 });
 
 // 解析 JSON / 表单 body（否则 DELETE/POST 的 req.body 可能为 undefined）
 app.use(express.json({ limit: '2mb' }));

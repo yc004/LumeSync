@@ -51,7 +51,7 @@ if errorlevel 1 (
 
 REM 打包学生端
 echo [INFO] 打包学生端安装包...
-call electron-builder --config electron-builder-student.json
+call npm run build:student
 if errorlevel 1 (
     echo [ERROR] 学生端打包失败
     pause

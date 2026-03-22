@@ -134,6 +134,7 @@ function ClassroomApp() {
     const socketRef = useRef(null);
     const courseCatalogRef = useRef([]);
     const settingsRef = useRef(settings);
+    const studentCountPollRef = useRef(null);
     useEffect(() => { settingsRef.current = settings; }, [settings]);
 
     useEffect(() => {
@@ -186,6 +187,20 @@ function ClassroomApp() {
             if (data.role === 'host') {
                 socketRef.current.emit('get-student-count');
                 socketRef.current.emit('host-settings', settingsRef.current);
+                if (!studentCountPollRef.current) {
+                    studentCountPollRef.current = setInterval(() => {
+                        try {
+                            if (socketRef.current && socketRef.current.connected) {
+                                socketRef.current.emit('get-student-count');
+                            }
+                        } catch (_) {}
+                    }, 3000);
+                }
+            } else {
+                if (studentCountPollRef.current) {
+                    clearInterval(studentCountPollRef.current);
+                    studentCountPollRef.current = null;
+                }
             }
         });
 
@@ -234,7 +249,13 @@ function ClassroomApp() {
             setSharedStudentLog(d.log || []);
         }).catch(() => {});
 
-        return () => { if (socketRef.current) socketRef.current.disconnect(); };
+        return () => {
+            if (studentCountPollRef.current) {
+                clearInterval(studentCountPollRef.current);
+                studentCountPollRef.current = null;
+            }
+            if (socketRef.current) socketRef.current.disconnect();
+        };
     }, []);
 
     const loadCourse = async (courseId, catalog) => {

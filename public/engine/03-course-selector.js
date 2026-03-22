@@ -9,6 +9,10 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
     const [showClassroomView, setShowClassroomView] = useState(false);
     const [showCourseManager, setShowCourseManager] = useState(false);
     const [courseList, setCourseList] = useState(courses);
+    
+    useEffect(() => {
+        setCourseList(courses);
+    }, [courses]);
 
     const handleSelect = (courseId) => { setSelectedId(courseId); };
 
@@ -30,6 +34,21 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
         const result = await window.electronAPI.importCourse();
         if (result && result.success && result.imported.length > 0) {
             onRefresh();
+        }
+    };
+
+    const handleExportCourse = async (courseFile) => {
+        if (!window.electronAPI?.exportCourse) return;
+        try {
+            const result = await window.electronAPI.exportCourse({ courseFile });
+            if (!result || result.canceled) return;
+            if (!result.success) {
+                alert('导出失败：' + (result.error || '未知错误'));
+                return;
+            }
+            alert(`已导出：${result.filename}`);
+        } catch (err) {
+            alert('导出失败：' + (err?.message || '未知错误'));
         }
     };
 
@@ -239,13 +258,24 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                                                 )}
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => handleDeleteCourse(course.id)}
-                                            className="flex items-center px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors text-sm font-medium"
-                                            title="删除此课件"
-                                        >
-                                            <i className="fas fa-trash mr-1.5"></i>删除
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            {window.electronAPI?.exportCourse && (
+                                                <button
+                                                    onClick={() => handleExportCourse(course.file)}
+                                                    className="flex items-center px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
+                                                    title="导出此课件"
+                                                >
+                                                    <i className="fas fa-file-export mr-1.5"></i>导出
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => handleDeleteCourse(course.id)}
+                                                className="flex items-center px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors text-sm font-medium"
+                                                title="删除此课件"
+                                            >
+                                                <i className="fas fa-trash mr-1.5"></i>删除
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                                 {courseList.length === 0 && (

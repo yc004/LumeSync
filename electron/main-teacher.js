@@ -292,7 +292,11 @@ ipcMain.handle('import-course', async () => {
     logger.info('IPC', 'Import course requested');
     const result = await dialog.showOpenDialog(mainWindow, {
         title: '导入课程文件',
-        filters: [{ name: '课程文件', extensions: ['tsx', 'js'] }],
+        filters: [
+            { name: '萤火课件文件', extensions: ['lume'] },
+            { name: '旧格式课件文件', extensions: ['tsx', 'ts', 'jsx', 'js'] },
+            { name: '所有文件', extensions: ['*'] },
+        ],
         properties: ['openFile', 'multiSelections'],
     });
     if (result.canceled || !result.filePaths.length) {
@@ -302,21 +306,80 @@ ipcMain.handle('import-course', async () => {
     if (!require('fs').existsSync(coursesDir)) {
         require('fs').mkdirSync(coursesDir, { recursive: true });
     }
+    const allowedExts = new Set(['.lume', '.tsx', '.ts', '.jsx', '.js']);
     const imported = [];
     const skipped = [];
     for (const srcPath of result.filePaths) {
-        const fileName = path.basename(srcPath);
-        const destPath = path.join(coursesDir, fileName);
+        const ext = path.extname(srcPath || '').toLowerCase();
+        if (!allowedExts.has(ext)) {
+            skipped.push(path.basename(srcPath));
+            continue;
+        }
+
+        const baseName = path.parse(srcPath).name;
+        let destName = ext === '.lume' ? `${baseName}.lume` : `${baseName}.lume`;
+        let destPath = path.join(coursesDir, destName);
+        let n = 1;
+        while (require('fs').existsSync(destPath)) {
+            destName = `${baseName}-${n}.lume`;
+            destPath = path.join(coursesDir, destName);
+            n += 1;
+        }
         try {
             require('fs').copyFileSync(srcPath, destPath);
-            imported.push(fileName);
-            logger.info('IMPORT', 'Course imported', { fileName });
+            imported.push(destName);
+            logger.info('IMPORT', 'Course imported', { fileName: destName });
         } catch (err) {
-            skipped.push(fileName);
-            logger.error('IMPORT', 'Failed to copy course', { fileName, error: err.message });
+            skipped.push(destName);
+            logger.error('IMPORT', 'Failed to copy course', { fileName: destName, error: err.message });
         }
     }
     return { success: true, imported, skipped };
+});
+
+// IPC: 导出课程文件（从 public/courses/ 复制到用户选择的位置）
+ipcMain.handle('export-course', async (event, { courseFile } = {}) => {
+    try {
+        const coursesDir = path.join(__dirname, '..', 'public', 'courses');
+        const resolvedCoursesDir = path.resolve(coursesDir);
+        const requested = String(courseFile || '').trim();
+        if (!requested) return { success: false, error: 'Missing courseFile' };
+
+        const sourcePath = path.resolve(coursesDir, requested);
+        if (!sourcePath.toLowerCase().startsWith((resolvedCoursesDir + path.sep).toLowerCase())) {
+            return { success: false, error: 'Invalid course path' };
+        }
+        if (!require('fs').existsSync(sourcePath)) {
+            return { success: false, error: 'Course file not found' };
+        }
+
+        const ensureLumeExt = (p) => {
+            const ext = path.extname(p || '');
+            if (!ext) return `${p}.lume`;
+            if (ext.toLowerCase() !== '.lume') return p.slice(0, -ext.length) + '.lume';
+            return p;
+        };
+
+        const suggestedName = ensureLumeExt(path.parse(requested).name);
+        const result = await dialog.showSaveDialog(mainWindow, {
+            title: '导出课件文件',
+            defaultPath: suggestedName,
+            filters: [
+                { name: '萤火课件文件', extensions: ['lume'] },
+                { name: '所有文件', extensions: ['*'] },
+            ],
+        });
+
+        if (result.canceled || !result.filePath) {
+            return { success: false, canceled: true };
+        }
+
+        const targetPath = ensureLumeExt(result.filePath);
+        require('fs').copyFileSync(sourcePath, targetPath);
+        return { success: true, filePath: targetPath, filename: path.basename(targetPath) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
 });
 
 app.on('window-all-closed', (e) => {

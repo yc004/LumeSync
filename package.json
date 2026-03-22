@@ -25,6 +25,7 @@
     "electron-builder": "^24.9.1",
     "node-windows": "^1.0.0-beta.8",
     "pkg": "^5.8.1",
-    "png-to-ico": "^3.0.1"
+    "png-to-ico": "^3.0.1",
+    "socket.io-client": "^4.8.3"
   }
 }

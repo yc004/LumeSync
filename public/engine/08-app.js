@@ -22,6 +22,7 @@ function ClassroomApp() {
     const DEFAULT_SETTINGS = {
         forceFullscreen: true,
         syncFollow: true,
+        renderScale: 0.96,
         alertJoin: true,
         alertLeave: true,
         alertFullscreenExit: true,
@@ -67,12 +68,17 @@ function ClassroomApp() {
             setCurrentCourseId(data.currentCourseId);
             setRoleAssigned(true);
 
+            if (data.role !== 'host' && data.hostSettings) {
+                setSettings(s => ({ ...s, ...data.hostSettings }));
+                const fs = data.hostSettings?.forceFullscreen ?? true;
+                window.electronAPI?.setFullscreen(fs);
+            }
+
             if (data.currentCourseId) {
                 setInitialSlideIndex(data.currentSlideIndex || 0);
                 loadCourse(data.currentCourseId, catalog);
                 if (data.role !== 'host') {
                     const fs = data.hostSettings?.forceFullscreen ?? true;
-                    if (data.hostSettings) setSettings(s => ({ ...s, ...data.hostSettings }));
                     window.electronAPI?.classStarted({ forceFullscreen: fs });
                 }
             }
@@ -86,8 +92,11 @@ function ClassroomApp() {
         socketRef.current.on('student-status', (data) => { setStudentCount(data.count); });
 
         socketRef.current.on('host-settings', (s) => {
-            setSettings(s);
-            window.electronAPI?.setFullscreen(s.forceFullscreen);
+            setSettings(prev => {
+                const next = { ...prev, ...s };
+                window.electronAPI?.setFullscreen(next.forceFullscreen);
+                return next;
+            });
         });
 
         socketRef.current.on('set-admin-password', (data) => {
@@ -170,7 +179,10 @@ function ClassroomApp() {
             let compiledCode;
             if (window.Babel) {
                 try {
-                    const result = window.Babel.transform(scriptContent, { presets: ['react', 'typescript'], filename: course.file });
+                    const babelFilename = String(course.file || '').toLowerCase().endsWith('.lume')
+                        ? String(course.file).replace(/\.lume$/i, '.tsx')
+                        : course.file;
+                    const result = window.Babel.transform(scriptContent, { presets: ['react', 'typescript'], filename: babelFilename });
                     compiledCode = result.code;
                 } catch (babelErr) {
                     console.error('[ClassroomApp] Babel compile error:', babelErr);

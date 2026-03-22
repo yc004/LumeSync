@@ -20,6 +20,14 @@
     "main": "electron/main-editor.js"
   },
   "asar": false,
+  "fileAssociations": [
+    {
+      "ext": "lume",
+      "name": "LumeSync 课件",
+      "description": "LumeSync 互动课件文件",
+      "icon": "build/icon-course.ico"
+    }
+  ],
   "win": {
     "target": [
       {

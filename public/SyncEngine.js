@@ -11,6 +11,7 @@ const { useState, useEffect, useRef } = React;
 function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = 'z-50' }) {
     const [newPwd, setNewPwd] = useState('');
     const [pwdStatus, setPwdStatus] = useState(null); // 'ok' | 'err' | null
+    const renderScaleValue = (typeof settings?.renderScale === 'number' && Number.isFinite(settings.renderScale)) ? settings.renderScale : 0.96;
 
     const handleSetPassword = () => {
         if (!newPwd.trim()) return;
@@ -65,6 +66,39 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
                             </button>
                         </div>
                     ))}
+                    
+                    <div className="border-t border-slate-200 pt-4">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center">
+                            <i className="fas fa-up-down-left-right w-4 mr-2 text-slate-400"></i>
+                            课件内容缩放
+                        </p>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-slate-700 font-medium">缩放比例</span>
+                            <span className="text-sm font-mono text-slate-600">{Math.round(renderScaleValue * 100)}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0.6"
+                            max="1.2"
+                            step="0.01"
+                            value={renderScaleValue}
+                            onChange={e => onSettingsChange('renderScale', Number(e.target.value))}
+                            className="w-full"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-slate-500">60%</span>
+                            <button
+                                onClick={() => onSettingsChange('renderScale', 0.96)}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-bold"
+                            >
+                                恢复默认
+                            </button>
+                            <span className="text-xs text-slate-500">120%</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                            仅缩放课件内部内容，不改变画布大小。调小可减少溢出风险。
+                        </p>
+                    </div>
 
                     {/* 分隔线 */}
                     <div className="border-t border-slate-200 pt-4">
@@ -945,6 +979,11 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     
     // 教师设置面板
     const [showSettings, setShowSettings] = useState(false);
+    const stageWrapRef = useRef(null);
+    const [stageScale, setStageScale] = useState(1);
+    const contentScale = (typeof settings?.renderScale === 'number' && Number.isFinite(settings.renderScale))
+        ? Math.min(Math.max(settings.renderScale, 0.6), 1.2)
+        : 0.96;
     
     const socketRef = useRef(socket);
 
@@ -975,6 +1014,26 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, [isHost]);
+
+    useEffect(() => {
+        const updateScale = () => {
+            if (!stageWrapRef.current) return;
+            const availableWidth = stageWrapRef.current.clientWidth - 24;
+            const availableHeight = stageWrapRef.current.clientHeight - 24;
+            const baseWidth = 1280;
+            const baseHeight = 720;
+            const scaleW = availableWidth / baseWidth;
+            const scaleH = availableHeight / baseHeight;
+            const nextScale = Math.max(Math.min(scaleW, scaleH, 0.96), 0.1);
+            setStageScale(nextScale);
+        };
+
+        const ro = new ResizeObserver(updateScale);
+        if (stageWrapRef.current) ro.observe(stageWrapRef.current);
+        updateScale();
+
+        return () => ro.disconnect();
+    }, []);
 
     // 弹窗管理：动态推入新提示，3秒后自动销毁
     const showToast = (message, type) => {
@@ -1139,35 +1198,28 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                             />
                         ))}
                     </div>
-                    <button 
-                        onClick={() => {
-                            if (!document.fullscreenElement) {
-                                document.documentElement.requestFullscreen().catch(err => console.log(err));
-                            } else {
-                                document.exitFullscreen().catch(err => console.log(err));
-                            }
-                        }} 
-                        className="text-slate-400 hover:text-blue-500 transition-colors cursor-pointer bg-slate-50 w-10 h-10 rounded-lg border border-slate-200 hover:shadow-sm flex items-center justify-center" 
-                        title="进入/退出全屏"
-                    >
-                        <i className="fas fa-expand text-lg md:text-xl"></i>
-                    </button>
                 </div>
             </div>
 
             {/* 16:9 课件展示区 (Canvas) */}
             <div className="flex-1 relative flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
-                <div 
-                    className="bg-white relative shadow-2xl flex flex-col rounded-2xl transition-all duration-500 ring-4 ring-white/10 overflow-y-auto no-scrollbar"
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        maxWidth: 'calc((100vh - 144px - 2rem) * 16 / 9)', 
-                        maxHeight: 'calc(100vw * 9 / 16)'
-                    }}
-                >
-                    {/* 渲染当前页的内容 */}
-                    {slides[currentSlide] && slides[currentSlide].component}
+                <div ref={stageWrapRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+                    <div
+                        className="bg-white text-slate-800 relative shadow-2xl flex flex-col rounded-2xl overflow-y-auto no-scrollbar shrink-0"
+                        style={{
+                            width: '1280px',
+                            height: '720px',
+                            transform: `scale(${stageScale})`,
+                            transformOrigin: 'center center',
+                            transition: 'transform 0.2s ease-out'
+                        }}
+                    >
+                        <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-full h-full" style={{ zoom: contentScale }}>
+                                {slides[currentSlide] && slides[currentSlide].component}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1498,6 +1550,7 @@ function ClassroomApp() {
     const DEFAULT_SETTINGS = {
         forceFullscreen: true,
         syncFollow: true,
+        renderScale: 0.96,
         alertJoin: true,
         alertLeave: true,
         alertFullscreenExit: true,
@@ -1548,13 +1601,18 @@ function ClassroomApp() {
             courseCatalogRef.current = catalog;
             setCurrentCourseId(data.currentCourseId);
             setRoleAssigned(true);
+
+            if (data.role !== 'host' && data.hostSettings) {
+                setSettings(s => ({ ...s, ...data.hostSettings }));
+                const fs = data.hostSettings?.forceFullscreen ?? true;
+                window.electronAPI?.setFullscreen(fs);
+            }
             
             if (data.currentCourseId) {
                 setInitialSlideIndex(data.currentSlideIndex || 0);
                 loadCourse(data.currentCourseId, catalog);
                 if (data.role !== 'host') {
                     const fs = data.hostSettings?.forceFullscreen ?? true;
-                    if (data.hostSettings) setSettings(s => ({ ...s, ...data.hostSettings }));
                     window.electronAPI?.classStarted({ forceFullscreen: fs });
                 }
             }
@@ -1574,8 +1632,11 @@ function ClassroomApp() {
 
         // 监听教师设置变更（学生端）
         socketRef.current.on('host-settings', (s) => {
-            setSettings(s);
-            window.electronAPI?.setFullscreen(s.forceFullscreen);
+            setSettings(prev => {
+                const next = { ...prev, ...s };
+                window.electronAPI?.setFullscreen(next.forceFullscreen);
+                return next;
+            });
         });
 
         // 监听教师推送的管理员密码变更（学生端）
@@ -1654,9 +1715,12 @@ function ClassroomApp() {
             let compiledCode;
             if (window.Babel) {
                 try {
+                    const babelFilename = String(course.file || '').toLowerCase().endsWith('.lume')
+                        ? String(course.file).replace(/\.lume$/i, '.tsx')
+                        : course.file;
                     const result = window.Babel.transform(scriptContent, {
                         presets: ['react', 'typescript'],
-                        filename: course.file
+                        filename: babelFilename
                     });
                     compiledCode = result.code;
                 } catch (babelErr) {

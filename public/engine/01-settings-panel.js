@@ -4,6 +4,7 @@
 function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = 'z-50' }) {
     const [newPwd, setNewPwd] = useState('');
     const [pwdStatus, setPwdStatus] = useState(null); // 'ok' | 'err' | null
+    const renderScaleValue = (typeof settings?.renderScale === 'number' && Number.isFinite(settings.renderScale)) ? settings.renderScale : 0.96;
 
     const handleSetPassword = () => {
         if (!newPwd.trim()) return;
@@ -66,6 +67,39 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
                             </button>
                         </div>
                     ))}
+                    
+                    <div className="border-t border-slate-200 pt-4">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center">
+                            <i className="fas fa-up-down-left-right w-4 mr-2 text-slate-400"></i>
+                            课件内容缩放
+                        </p>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-slate-700 font-medium">缩放比例</span>
+                            <span className="text-sm font-mono text-slate-600">{Math.round(renderScaleValue * 100)}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0.6"
+                            max="1.2"
+                            step="0.01"
+                            value={renderScaleValue}
+                            onChange={e => onSettingsChange('renderScale', Number(e.target.value))}
+                            className="w-full"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-slate-500">60%</span>
+                            <button
+                                onClick={() => onSettingsChange('renderScale', 0.96)}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-bold"
+                            >
+                                恢复默认
+                            </button>
+                            <span className="text-xs text-slate-500">120%</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                            仅缩放课件内部内容，不改变画布大小。调小可减少溢出风险。
+                        </p>
+                    </div>
 
                     <div className="border-t border-slate-200 pt-4">
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center">

@@ -18,6 +18,10 @@ const server = http.createServer(app);
 // 初始化 Socket.io
 const io = new Server(server);
 
+// 解析 JSON / 表单 body（否则 DELETE/POST 的 req.body 可能为 undefined）
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: false }));
+
 // ========================================================
 // 0. 课程状态管理
 // ========================================================
@@ -32,10 +36,13 @@ function scanCourses() {
     }
     
     const files = fs.readdirSync(coursesDir);
+    const allowedExts = ['.lume', '.tsx', '.ts', '.jsx', '.js'];
+    const extPriority = { '.lume': 5, '.tsx': 4, '.ts': 3, '.jsx': 2, '.js': 1 };
+
     const courses = files
-        .filter(f => f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.tsx'))
+        .filter(f => allowedExts.includes(path.extname(f).toLowerCase()))
         .map(f => {
-            const courseId = f.replace('.js', '');
+            const courseId = f.replace(/\.(lume|tsx|ts|jsx|js)$/i, '');
             const filePath = path.join(coursesDir, f);
             let content;
             try {
@@ -44,6 +51,11 @@ function scanCourses() {
                 console.warn(`[scanCourses] [SKIP] 跳过无法读取的文件: ${f} (${err.message})`);
                 return null;
             }
+
+            let mtimeMs = 0;
+            try {
+                mtimeMs = fs.statSync(filePath).mtimeMs || 0;
+            } catch (_) {}
             
             // 尝试从文件中提取课程元数据
             let title = courseId;
@@ -72,12 +84,29 @@ function scanCourses() {
                 title,
                 icon,
                 desc,
-                color
+                color,
+                _extPriority: extPriority[path.extname(f).toLowerCase()] || 0,
+                _mtimeMs: mtimeMs
             };
         })
         .filter(course => course !== null);
-    
-    return courses;
+
+    const byId = new Map();
+    for (const c of courses) {
+        const prev = byId.get(c.id);
+        if (!prev) {
+            byId.set(c.id, c);
+            continue;
+        }
+        const preferCurrent =
+            (c._extPriority > prev._extPriority) ||
+            (c._extPriority === prev._extPriority && (c._mtimeMs || 0) > (prev._mtimeMs || 0));
+        if (preferCurrent) byId.set(c.id, c);
+    }
+
+    const deduped = Array.from(byId.values());
+    deduped.sort((a, b) => (b._mtimeMs || 0) - (a._mtimeMs || 0));
+    return deduped.map(({ _mtimeMs, _extPriority, ...rest }) => rest);
 }
 
 // 当前选中的课程和课程状态
@@ -422,7 +451,7 @@ app.post('/api/refresh-courses', (req, res) => {
 
 // 删除指定课件
 app.delete('/api/delete-course', (req, res) => {
-    const { courseId } = req.body;
+    const courseId = req.body?.courseId || req.query?.courseId || null;
     if (!courseId) {
         return res.status(400).json({ success: false, error: '缺少 courseId 参数' });
     }
@@ -511,6 +540,7 @@ let studentIPs = new Map(); // IP -> socket数量，同一IP只计一个学生
 let currentHostSettings = {
     forceFullscreen: true,
     syncFollow: true,
+    renderScale: 0.96,
     alertJoin: true,
     alertLeave: true,
     alertFullscreenExit: true,
@@ -629,7 +659,7 @@ io.on('connection', (socket) => {
     socket.on('host-settings', (settings) => {
         if (role === 'host') {
             currentHostSettings = { ...currentHostSettings, ...settings };
-            socket.broadcast.emit('host-settings', settings);
+            socket.broadcast.emit('host-settings', currentHostSettings);
         }
     });
 

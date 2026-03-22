@@ -16,7 +16,8 @@ build\build.bat
 输出目录：
 - 教师端：`dist/teacher/LumeSync Teacher Setup 1.0.0.exe`
 - 学生端：`dist/student/LumeSync Student Setup 1.0.0.exe`
-- 编辑器端：`dist/editor/LumeSync Editor Setup 1.0.0.exe`
+
+课件文件默认使用 `.lume` 后缀（内容仍为可执行脚本文本），可通过编辑器或教师端导入导出。
 
 ## 分步打包
 

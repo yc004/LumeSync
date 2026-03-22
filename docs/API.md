@@ -40,6 +40,11 @@ window.CourseData = {
 };
 ```
 
+## 课件文件
+
+- 课件文件使用 `.lume` 后缀（内容仍是 TSX/JSX/TS/JS 脚本文本），放在 `public/courses/`
+- 引擎会按 TSX 语法编译 `.lume`（Babel presets: `react` + `typescript`），所以可直接写 JSX + TypeScript 类型注解
+
 ### window.CourseGlobalContext
 
 课件运行时上下文，提供核心 API：

@@ -6,7 +6,7 @@
 
 ## 课程文件结构
 
-课程文件是位于 `public/courses/` 目录下的 **TSX 文件**，使用 JSX + TypeScript 语法编写，由 Babel Standalone（`react` + `typescript` 预设）在浏览器中实时编译执行。
+课程文件位于 `public/courses/` 目录下，使用自有后缀 **`.lume`**（内容仍是 JSX + TypeScript 语法的纯文本脚本）。框架使用 Babel Standalone（`react` + `typescript` 预设）在浏览器中实时编译执行。
 
 ### 基本模板
 
@@ -64,6 +64,19 @@ window.CourseData = {
     slides: mySlides
 };
 ```
+
+## 渲染约定（重要）
+
+### 固定画布与缩放
+
+- 教师端/学生端使用固定 16:9 画布（1280×720），再按窗口尺寸自动缩放显示
+- 教师端“课堂设置”中提供“课件内容缩放”（60%～120%），用于在不改变画布大小的情况下缩放课件内部内容，降低溢出风险
+
+### 兼容性建议
+
+- 推荐使用 `w-full h-full`、`min-h-full` 作为布局基准，避免依赖 `vh/vw` 等视口单位
+- 如果需要绝对尺寸，优先使用 `px`（以 1280×720 画布为基准设计）
+- 尽量避免把内容渲染到画布外（如大面积 `translate`/绝对定位超出画布）
 
 ## 组件规范
 

@@ -15,6 +15,11 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     const [camActive, setCamActive] = useState(false);   // 是否有课件正在使用摄像头
     const [camSwitching, setCamSwitching] = useState(false);
     const [showCamPicker, setShowCamPicker] = useState(false);
+    const stageWrapRef = useRef(null);
+    const [stageScale, setStageScale] = useState(1);
+    const contentScale = (typeof settings?.renderScale === 'number' && Number.isFinite(settings.renderScale))
+        ? Math.min(Math.max(settings.renderScale, 0.6), 1.2)
+        : 0.96;
 
     // 注册全局回调，让 CourseGlobalContext.getCamera() 能触发此组件显示选择器
     useEffect(() => {
@@ -48,6 +53,26 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, [isHost]);
+
+    useEffect(() => {
+        const updateScale = () => {
+            if (!stageWrapRef.current) return;
+            const availableWidth = stageWrapRef.current.clientWidth - 24;
+            const availableHeight = stageWrapRef.current.clientHeight - 24;
+            const baseWidth = 1280;
+            const baseHeight = 720;
+            const scaleW = availableWidth / baseWidth;
+            const scaleH = availableHeight / baseHeight;
+            const nextScale = Math.max(Math.min(scaleW, scaleH, 0.96), 0.1);
+            setStageScale(nextScale);
+        };
+
+        const ro = new ResizeObserver(updateScale);
+        if (stageWrapRef.current) ro.observe(stageWrapRef.current);
+        updateScale();
+
+        return () => ro.disconnect();
+    }, []);
 
     const showToast = (message, type) => {
         const id = Date.now() + Math.random();
@@ -160,20 +185,6 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                             <div key={idx} className={`h-2.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'w-8 md:w-10 bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'w-2 md:w-3 bg-slate-200'}`} />
                         ))}
                     </div>
-                    <button
-                        onClick={() => {
-                            if (window.electronAPI?.toggleFullscreen) {
-                                window.electronAPI.toggleFullscreen();
-                            } else {
-                                if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => console.log(err));
-                                else document.exitFullscreen().catch(err => console.log(err));
-                            }
-                        }}
-                        className="text-slate-400 hover:text-blue-500 transition-colors cursor-pointer bg-slate-50 w-10 h-10 rounded-lg border border-slate-200 hover:shadow-sm flex items-center justify-center"
-                        title="进入/退出全屏"
-                    >
-                        <i className="fas fa-expand text-lg md:text-xl"></i>
-                    </button>
                     {!isHost && (
                         <WindowControls forceFullscreen={settings.forceFullscreen} />
                     )}
@@ -185,75 +196,85 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
 
             {/* 课件展示区 */}
             <div className="flex-1 relative flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
-                <div
-                    className="bg-white relative shadow-2xl flex flex-col rounded-2xl transition-all duration-500 ring-4 ring-white/10 overflow-y-auto no-scrollbar"
-                    style={{ width: '100%', height: '100%', maxWidth: 'calc((100vh - 144px - 2rem) * 16 / 9)', maxHeight: 'calc(100vw * 9 / 16)' }}
-                >
-                    {slides[currentSlide] && slides[currentSlide].component}
-
-                    {/* 摄像头选择器浮层 — 仅当课件激活摄像头时显示 */}
-                    {camActive && (
-                        <div className="absolute bottom-4 right-4 z-50 flex flex-col items-end gap-2">
-                            {showCamPicker && (
-                                <div className="bg-slate-900/95 backdrop-blur-sm border border-slate-600 rounded-xl shadow-2xl p-2 flex flex-col gap-1 min-w-[220px] max-w-[340px]">
-                                    <div className="text-xs text-slate-400 font-bold px-2 py-1 border-b border-slate-700 mb-1">选择摄像头</div>
-                                    {camDevices.length === 0 && (
-                                        <div className="text-xs text-slate-500 px-2 py-1">未检测到设备</div>
-                                    )}
-                                    <div className="overflow-y-auto max-h-48 flex flex-col gap-1">
-                                    {camDevices.map((d, i) => {
-                                        const isCurrent = d.deviceId === window.CameraManager.getCurrentDeviceId()
-                                            || (!window.CameraManager.getCurrentDeviceId() && i === 0);
-                                        return (
-                                            <button
-                                                key={d.deviceId}
-                                                disabled={camSwitching}
-                                                onClick={async () => {
-                                                    setShowCamPicker(false);
-                                                    setCamSwitching(true);
-                                                    try {
-                                                        await window.CameraManager.switchDevice(d.deviceId);
-                                                        setCamDevices([...window.CameraManager.getDevices()]);
-                                                    } catch(e) {
-                                                        console.error('[CamPicker] switch failed:', e);
-                                                    } finally {
-                                                        setCamSwitching(false);
-                                                    }
-                                                }}
-                                                className={`text-left text-xs px-3 py-2 rounded-lg transition-colors break-all ${
-                                                    isCurrent
-                                                        ? 'bg-blue-600 text-white font-bold'
-                                                        : 'text-slate-200 hover:bg-slate-700'
-                                                }`}
-                                            >
-                                                {d.label || ('摄像头 ' + (i + 1))}
-                                            </button>
-                                        );
-                                    })}
-                                    </div>
-                                </div>
-                            )}
-                            <button
-                                onClick={async () => {
-                                    // 每次打开时重新枚举，确保获取到带标签的设备列表
-                                    await navigator.mediaDevices.enumerateDevices().then(all => {
-                                        const vids = all.filter(d => d.kind === 'videoinput');
-                                        setCamDevices(vids);
-                                    }).catch(() => {});
-                                    setShowCamPicker(v => !v);
-                                }}
-                                title="切换摄像头"
-                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-lg border transition-all ${
-                                    camSwitching
-                                        ? 'bg-slate-700 border-slate-600 text-slate-400 cursor-wait'
-                                        : 'bg-slate-900/90 border-slate-600 text-white hover:bg-slate-700 backdrop-blur-sm'
-                                }`}
-                            >
-                                <i className={`fas ${camSwitching ? 'fa-spinner fa-spin' : 'fa-camera'}`}></i>
-                                {camSwitching ? '切换中...' : '摄像头'}
-                            </button>
+                <div ref={stageWrapRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+                    <div
+                        className="bg-white text-slate-800 relative shadow-2xl flex flex-col rounded-2xl overflow-y-auto no-scrollbar shrink-0"
+                        style={{
+                            width: '1280px',
+                            height: '720px',
+                            transform: `scale(${stageScale})`,
+                            transformOrigin: 'center center',
+                            transition: 'transform 0.2s ease-out'
+                        }}
+                    >
+                        <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-full h-full" style={{ zoom: contentScale }}>
+                                {slides[currentSlide] && slides[currentSlide].component}
+                            </div>
                         </div>
-                    )}
+
+                        {camActive && (
+                            <div className="absolute bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+                                {showCamPicker && (
+                                    <div className="bg-slate-900/95 backdrop-blur-sm border border-slate-600 rounded-xl shadow-2xl p-2 flex flex-col gap-1 min-w-[220px] max-w-[340px]">
+                                        <div className="text-xs text-slate-400 font-bold px-2 py-1 border-b border-slate-700 mb-1">选择摄像头</div>
+                                        {camDevices.length === 0 && (
+                                            <div className="text-xs text-slate-500 px-2 py-1">未检测到设备</div>
+                                        )}
+                                        <div className="overflow-y-auto max-h-48 flex flex-col gap-1">
+                                        {camDevices.map((d, i) => {
+                                            const isCurrent = d.deviceId === window.CameraManager.getCurrentDeviceId()
+                                                || (!window.CameraManager.getCurrentDeviceId() && i === 0);
+                                            return (
+                                                <button
+                                                    key={d.deviceId}
+                                                    disabled={camSwitching}
+                                                    onClick={async () => {
+                                                        setShowCamPicker(false);
+                                                        setCamSwitching(true);
+                                                        try {
+                                                            await window.CameraManager.switchDevice(d.deviceId);
+                                                            setCamDevices([...window.CameraManager.getDevices()]);
+                                                        } catch(e) {
+                                                            console.error('[CamPicker] switch failed:', e);
+                                                        } finally {
+                                                            setCamSwitching(false);
+                                                        }
+                                                    }}
+                                                    className={`text-left text-xs px-3 py-2 rounded-lg transition-colors break-all ${
+                                                        isCurrent
+                                                            ? 'bg-blue-600 text-white font-bold'
+                                                            : 'text-slate-200 hover:bg-slate-700'
+                                                    }`}
+                                                >
+                                                    {d.label || ('摄像头 ' + (i + 1))}
+                                                </button>
+                                            );
+                                        })}
+                                        </div>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={async () => {
+                                        await navigator.mediaDevices.enumerateDevices().then(all => {
+                                            const vids = all.filter(d => d.kind === 'videoinput');
+                                            setCamDevices(vids);
+                                        }).catch(() => {});
+                                        setShowCamPicker(v => !v);
+                                    }}
+                                    title="切换摄像头"
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-lg border transition-all ${
+                                        camSwitching
+                                            ? 'bg-slate-700 border-slate-600 text-slate-400 cursor-wait'
+                                            : 'bg-slate-900/90 border-slate-600 text-white hover:bg-slate-700 backdrop-blur-sm'
+                                    }`}
+                                >
+                                    <i className={`fas ${camSwitching ? 'fa-spinner fa-spin' : 'fa-camera'}`}></i>
+                                    {camSwitching ? '切换中...' : '摄像头'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 

@@ -3,7 +3,7 @@
 // ========================================================
 
 // 简化的预览组件，用于编辑器中预览课件
-function SimplePreview({ title, slides }) {
+function SimplePreview({ title, slides, contentScale = 0.96 }) {
     const [currentSlide, setCurrentSlide] = useState(0);
     const containerRef = useRef(null);
     const [scale, setScale] = useState(1);
@@ -75,9 +75,13 @@ function SimplePreview({ title, slides }) {
                         transformOrigin: 'center center',
                         transition: 'transform 0.2s ease-out'
                     }}
-                    className="bg-white relative shadow-2xl flex flex-col rounded-xl overflow-hidden shrink-0"
+                    className="bg-white text-slate-800 relative shadow-2xl flex flex-col rounded-xl overflow-y-auto no-scrollbar shrink-0"
                 >
-                    {slides[currentSlide] && slides[currentSlide].component}
+                    <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-full h-full" style={{ zoom: contentScale }}>
+                            {slides[currentSlide] && slides[currentSlide].component}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -116,13 +120,22 @@ function SimpleLoading() {
 }
 
 // 错误提示组件
-function ErrorBoundary({ error }) {
+function ErrorBoundary({ error, onAutoFix }) {
     if (!error) return null;
     return (
         <div className="flex flex-col items-center justify-center h-full p-8 text-red-400 bg-red-950/20">
             <i className="fas fa-exclamation-triangle text-4xl mb-4"></i>
             <h3 className="font-bold text-lg mb-2">编译或执行失败</h3>
-            <pre className="bg-red-900/40 p-4 rounded-xl w-full max-w-2xl overflow-x-auto text-sm font-mono whitespace-pre-wrap show-scrollbar">{error.toString()}</pre>
+            <pre className="bg-red-900/40 p-4 rounded-xl w-full max-w-2xl overflow-x-auto text-sm font-mono whitespace-pre-wrap show-scrollbar mb-6">{error.toString()}</pre>
+            
+            {onAutoFix && (
+                <button 
+                    onClick={onAutoFix}
+                    className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white rounded-full font-bold flex items-center shadow-lg transition-all active:scale-95"
+                >
+                    <i className="fas fa-magic mr-2"></i> 一键修复代码
+                </button>
+            )}
         </div>
     );
 }
@@ -180,27 +193,89 @@ window.CourseData = {
     const [compiledCourseData, setCompiledCourseData] = useState(null);
     const [compileError, setCompileError] = useState(null);
     const [isCompiling, setIsCompiling] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('');
+    const [toasts, setToasts] = useState([]);
     const [currentFilePath, setCurrentFilePath] = useState('');
     const [currentFileName, setCurrentFileName] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [renderScale, setRenderScale] = useState(0.96);
+    const [showScalePanel, setShowScalePanel] = useState(false);
     const fileInputRef = useRef(null);
     const textareaRef = useRef(null);
     const lineNumbersRef = useRef(null);
+    const aiChatRef = useRef(null);
+    const autoScrollRef = useRef(true);
+
+    const showToast = (message, type = 'info') => {
+        const id = Date.now() + Math.random();
+        setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => {
+            setToasts(prev => prev.filter(t => t.id !== id));
+        }, 2500);
+    };
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('lumesync.editor.renderScale');
+            const value = Number(raw);
+            if (Number.isFinite(value)) {
+                setRenderScale(Math.min(Math.max(value, 0.6), 1.2));
+            }
+        } catch (_) {}
+    }, []);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('lumesync.editor.renderScale', String(renderScale));
+        } catch (_) {}
+    }, [renderScale]);
+
+    const handleAutoFix = () => {
+        if (aiChatRef.current) {
+            aiChatRef.current.handleAutoFix();
+        }
+    };
 
     const handleScroll = () => {
         if (textareaRef.current && lineNumbersRef.current) {
             lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
         }
+        if (textareaRef.current) {
+            const el = textareaRef.current;
+            const distanceToBottom = (el.scrollHeight - el.scrollTop - el.clientHeight);
+            autoScrollRef.current = distanceToBottom < 60;
+        }
     };
+
+    useEffect(() => {
+        if (isAIGenerating) {
+            autoScrollRef.current = true;
+        }
+    }, [isAIGenerating]);
+
+    useEffect(() => {
+        if (!isAIGenerating) return;
+        if (viewMode !== 'code') return;
+        if (!autoScrollRef.current) return;
+        if (!textareaRef.current) return;
+
+        requestAnimationFrame(() => {
+            const el = textareaRef.current;
+            if (!el) return;
+            el.scrollTop = el.scrollHeight;
+            if (lineNumbersRef.current) {
+                lineNumbersRef.current.scrollTop = el.scrollTop;
+            }
+        });
+    }, [code, viewMode, isAIGenerating]);
 
     const lineCount = code.split('\n').length;
     const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
     const getDefaultFilename = () => {
-        let defaultFilename = 'untitled.tsx';
+        let defaultFilename = 'untitled.lume';
         const idMatch = code.match(/id:\s*['"]([^'"]+)['"]/);
         if (idMatch && idMatch[1]) {
-            defaultFilename = `${idMatch[1]}.tsx`;
+            defaultFilename = `${idMatch[1]}.lume`;
         }
         return defaultFilename;
     };
@@ -230,7 +305,6 @@ window.CourseData = {
                 setCompileError(new Error("代码执行成功，但没有找到 window.CourseData 导出"));
             }
         } catch (err) {
-            console.error("编译/执行错误:", err);
             setCompileError(err);
             setCompiledCourseData(null);
         } finally {
@@ -276,8 +350,7 @@ window.CourseData = {
             setCurrentFilePath('');
             setCurrentFileName(file.name);
             runCode(content); // 立即编译预览
-            setSaveStatus(`已导入: ${file.name}`);
-            setTimeout(() => setSaveStatus(''), 3000);
+            showToast(`已导入: ${file.name}`, 'success');
         };
         reader.readAsText(file, 'utf-8');
         // 重置 input 以便可以重复导入同一文件
@@ -286,13 +359,12 @@ window.CourseData = {
 
     const handleExport = async () => {
         // 尝试从代码中提取 id 作为文件名
-        let defaultFilename = 'untitled.tsx';
+        let defaultFilename = 'untitled.lume';
         const idMatch = code.match(/id:\s*['"]([^'"]+)['"]/);
         if (idMatch && idMatch[1]) {
-            defaultFilename = `${idMatch[1]}.tsx`;
+            defaultFilename = `${idMatch[1]}.lume`;
         }
 
-        setSaveStatus('导出中...');
         try {
             // 创建文件内容
             const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
@@ -307,12 +379,10 @@ window.CourseData = {
             // 清理
             URL.revokeObjectURL(url);
 
-            setSaveStatus('导出成功: ' + defaultFilename);
-            setTimeout(() => setSaveStatus(''), 3000);
+            showToast('导出成功: ' + defaultFilename, 'success');
         } catch (e) {
             console.error('导出失败:', e);
-            setSaveStatus('导出失败');
-            setTimeout(() => setSaveStatus(''), 3000);
+            showToast('导出失败', 'error');
         }
     };
 
@@ -321,8 +391,7 @@ window.CourseData = {
             const result = await window.electronAPI.openCourseFile();
             if (!result || result.canceled) return;
             if (!result.success) {
-                setSaveStatus(`打开失败: ${result.error || '未知错误'}`);
-                setTimeout(() => setSaveStatus(''), 3000);
+                showToast(`打开失败: ${result.error || '未知错误'}`, 'error');
                 return;
             }
 
@@ -332,8 +401,7 @@ window.CourseData = {
             setCurrentFilePath(result.filePath || '');
             setCurrentFileName(result.filename || '');
             runCode(openedContent);
-            setSaveStatus(`已打开: ${result.filename}`);
-            setTimeout(() => setSaveStatus(''), 3000);
+            showToast(`已打开: ${result.filename}`, 'success');
             return;
         }
 
@@ -344,31 +412,32 @@ window.CourseData = {
 
     const handleSaveCourse = async () => {
         if (window.electronAPI?.saveCourseFile) {
-            setSaveStatus('保存中...');
-            const result = await window.electronAPI.saveCourseFile({
-                content: code,
-                filePath: currentFilePath || '',
-                suggestedName: currentFileName || getDefaultFilename(),
-            });
-            if (!result || result.canceled) {
-                setSaveStatus('');
-                return;
-            }
-            if (!result.success) {
-                setSaveStatus(`保存失败: ${result.error || '未知错误'}`);
-                setTimeout(() => setSaveStatus(''), 3000);
-                return;
-            }
+            setIsSaving(true);
+            try {
+                const result = await window.electronAPI.saveCourseFile({
+                    content: code,
+                    filePath: currentFilePath || '',
+                    suggestedName: currentFileName || getDefaultFilename(),
+                });
+                if (!result || result.canceled) return;
+                if (!result.success) {
+                    showToast(`保存失败: ${result.error || '未知错误'}`, 'error');
+                    return;
+                }
 
-            setCurrentFilePath(result.filePath || '');
-            setCurrentFileName(result.filename || '');
-            setSaveStatus(`已保存: ${result.filename}`);
-            setTimeout(() => setSaveStatus(''), 3000);
-            return;
+                setCurrentFilePath(result.filePath || '');
+                setCurrentFileName(result.filename || '');
+                showToast(`已保存: ${result.filename}`, 'success');
+                return;
+            } finally {
+                setIsSaving(false);
+            }
         }
 
         await handleExport();
     };
+
+    const clampedRenderScale = Math.min(Math.max(renderScale, 0.6), 1.2);
 
     return (
         <div className="flex h-screen w-full bg-slate-900 text-slate-200 overflow-hidden font-sans">
@@ -400,14 +469,67 @@ window.CourseData = {
                             </button>
                         </div>
 
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowScalePanel(v => !v)}
+                                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-bold flex items-center shadow-md"
+                                title="课件内容缩放"
+                            >
+                                <i className="fas fa-up-down-left-right mr-2"></i>
+                                {Math.round(clampedRenderScale * 100)}%
+                            </button>
+                            {showScalePanel && (
+                                <div className="absolute right-0 mt-2 w-72 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-4 z-50">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-sm font-bold text-white">课件内容缩放</span>
+                                        <button
+                                            onClick={() => setShowScalePanel(false)}
+                                            className="text-slate-400 hover:text-slate-200"
+                                            title="关闭"
+                                        >
+                                            <i className="fas fa-xmark"></i>
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs text-slate-400">60%</span>
+                                        <span className="text-sm font-mono text-slate-200">{Math.round(clampedRenderScale * 100)}%</span>
+                                        <span className="text-xs text-slate-400">120%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0.6"
+                                        max="1.2"
+                                        step="0.01"
+                                        value={clampedRenderScale}
+                                        onChange={e => setRenderScale(Number(e.target.value))}
+                                        className="w-full"
+                                    />
+                                    <div className="flex justify-end mt-3">
+                                        <button
+                                            onClick={() => setRenderScale(0.96)}
+                                            className="text-xs text-blue-400 hover:text-blue-300 font-bold"
+                                        >
+                                            恢复默认
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         {/* 导出按钮 */}
                         <div className="flex items-center">
-                            <span className="text-sm text-green-400 mr-4 font-bold">{saveStatus}</span>
                             <button onClick={handleOpenCourse} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-bold flex items-center shadow-md mr-2">
                                 <i className="fas fa-folder-open mr-2"></i>打开课件
                             </button>
-                            <button onClick={handleSaveCourse} className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors text-sm font-bold flex items-center shadow-md">
-                                <i className="fas fa-floppy-disk mr-2"></i>保存课件
+                            <button
+                                onClick={handleSaveCourse}
+                                disabled={isSaving}
+                                className={`px-4 py-2 rounded-lg transition-colors text-sm font-bold flex items-center shadow-md ${
+                                    isSaving ? 'bg-slate-600 text-slate-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'
+                                }`}
+                            >
+                                <i className={`fas ${isSaving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'} mr-2`}></i>
+                                {isSaving ? '保存中...' : '保存课件'}
                             </button>
                         </div>
 
@@ -418,6 +540,22 @@ window.CourseData = {
 
                 {/* 内容区域 */}
                 <div className="flex-1 relative overflow-hidden bg-slate-950">
+                    <div className="absolute top-4 left-4 z-50 flex flex-col gap-2 pointer-events-none">
+                        {toasts.map(t => (
+                            <div
+                                key={t.id}
+                                className={`px-4 py-2 rounded-xl shadow-xl border backdrop-blur-md font-bold text-sm pointer-events-none ${
+                                    t.type === 'success'
+                                        ? 'bg-emerald-600/90 border-emerald-400 text-white'
+                                        : t.type === 'error'
+                                            ? 'bg-red-600/90 border-red-400 text-white'
+                                            : 'bg-slate-800/90 border-slate-600 text-slate-100'
+                                }`}
+                            >
+                                {t.message}
+                            </div>
+                        ))}
+                    </div>
                     {/* 代码编辑器模式 */}
                     <div className={`absolute inset-0 transition-opacity duration-300 ${viewMode === 'code' ? 'opacity-100 z-10 flex' : 'opacity-0 z-0 pointer-events-none flex'}`}>
                         {/* 行号列 */}
@@ -449,12 +587,13 @@ window.CourseData = {
                         ) : isCompiling ? (
                             <SimpleLoading />
                         ) : compileError ? (
-                            <ErrorBoundary error={compileError} />
+                            <ErrorBoundary error={compileError} onAutoFix={handleAutoFix} />
                         ) : compiledCourseData ? (
                             // 使用简化的预览组件，避免 SyncClassroom 的复杂依赖
                             <SimplePreview 
                                 title={compiledCourseData.title}
                                 slides={compiledCourseData.slides}
+                                contentScale={clampedRenderScale}
                             />
                         ) : (
                             <div className="flex items-center justify-center h-full text-slate-500">无课件数据</div>
@@ -466,16 +605,18 @@ window.CourseData = {
             {/* 右侧 AI 聊天面板 */}
             <div className="w-96 shrink-0 h-full flex flex-col border-l border-slate-700 bg-slate-800 shadow-xl relative z-20">
                 <AIChat 
+                    ref={aiChatRef}
                     onCodeGenerated={handleAIGeneratedCode} 
                     onGeneratingStatusChange={setIsAIGenerating}
                     currentCode={code}
+                    compileError={compileError}
                 />
             </div>
 
             <input
                 ref={fileInputRef}
                 type="file"
-                accept=".tsx,.ts,.jsx,.js"
+                accept=".lume,.tsx,.ts,.jsx,.js"
                 className="hidden"
                 onChange={handleImport}
             />

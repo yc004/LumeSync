@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
     // 教师端：导入课程文件（弹出文件选择对话框，复制到 courses 目录）
     importCourse: () => ipcRenderer.invoke('import-course'),
+    // 教师端：导出课程文件（从 courses 目录导出到本地）
+    exportCourse: (payload) => ipcRenderer.invoke('export-course', payload),
     // 教师端：切换全屏
     toggleFullscreen: () => ipcRenderer.send('toggle-fullscreen'),
     // 学生端：读取/设置开机自启动

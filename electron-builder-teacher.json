@@ -23,6 +23,14 @@
     "main": "electron/main-teacher.js"
   },
   "asar": false,
+  "fileAssociations": [
+    {
+      "ext": "lume",
+      "name": "LumeSync 课件",
+      "description": "LumeSync 互动课件文件",
+      "icon": "build/icon-course.ico"
+    }
+  ],
   "asarUnpack": [
     "node_modules/node-windows/**"
   ],

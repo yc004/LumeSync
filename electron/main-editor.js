@@ -309,7 +309,9 @@ ipcMain.handle('save-course', async (event, { filename, content }) => {
         if (!fs.existsSync(coursesDir)) {
             fs.mkdirSync(coursesDir, { recursive: true });
         }
-        const filepath = path.join(coursesDir, filename);
+        const ext = path.extname(filename || '');
+        const safeName = !ext ? `${filename}.lume` : (ext.toLowerCase() === '.lume' ? filename : filename.slice(0, -ext.length) + '.lume');
+        const filepath = path.join(coursesDir, safeName);
         fs.writeFileSync(filepath, content, 'utf-8');
         return { success: true, filepath };
     } catch (error) {
@@ -346,7 +348,8 @@ ipcMain.handle('open-course-file', async () => {
             title: '打开课件文件',
             properties: ['openFile'],
             filters: [
-                { name: '课件文件', extensions: ['tsx', 'ts', 'jsx', 'js'] },
+                { name: '萤火课件文件', extensions: ['lume'] },
+                { name: '旧格式课件文件', extensions: ['tsx', 'ts', 'jsx', 'js'] },
                 { name: '所有文件', extensions: ['*'] },
             ],
         });
@@ -370,17 +373,21 @@ ipcMain.handle('open-course-file', async () => {
 
 ipcMain.handle('save-course-file', async (event, { content, filePath, suggestedName }) => {
     try {
+        const ensureLumeExt = (p) => {
+            const ext = path.extname(p || '');
+            if (!ext) return `${p}.lume`;
+            if (ext.toLowerCase() !== '.lume') return p.slice(0, -ext.length) + '.lume';
+            return p;
+        };
+
         let targetPath = filePath;
 
         if (!targetPath) {
             const result = await dialog.showSaveDialog(mainWindow, {
                 title: '保存课件文件',
-                defaultPath: suggestedName || 'untitled.tsx',
+                defaultPath: ensureLumeExt(suggestedName || 'untitled.lume'),
                 filters: [
-                    { name: 'TypeScript React', extensions: ['tsx'] },
-                    { name: 'TypeScript', extensions: ['ts'] },
-                    { name: 'JavaScript React', extensions: ['jsx'] },
-                    { name: 'JavaScript', extensions: ['js'] },
+                    { name: '萤火课件文件', extensions: ['lume'] },
                     { name: '所有文件', extensions: ['*'] },
                 ],
             });
@@ -391,6 +398,7 @@ ipcMain.handle('save-course-file', async (event, { content, filePath, suggestedN
             targetPath = result.filePath;
         }
 
+        targetPath = ensureLumeExt(targetPath);
         fs.writeFileSync(targetPath, content, 'utf-8');
         return {
             success: true,

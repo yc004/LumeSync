@@ -2,56 +2,12 @@
 // 萤火课件编辑器 - AI 聊天与生成核心
 // ========================================================
 
-const AI_PROMPT = `
-你是一个专业的互动课件开发专家，负责为"萤火课堂"平台编写互动课件。该平台使用基于 React 18、TypeScript 和 TailwindCSS 的自定义引擎。
+const AI_PROMPT = (typeof window.__LUMESYNC_AI_PROMPT__ === 'string' && window.__LUMESYNC_AI_PROMPT__.trim())
+    ? window.__LUMESYNC_AI_PROMPT__
+    : '';
 
-**你的工作流程：**
-1. **需求确认**：在开始编写代码前，你必须确保已知晓课件的**主题**、**授课年级**、**课程时长**。如果用户信息不全，请以专业的语气询问用户。
-2. **制定策略**：根据年级调整课件制作策略：
-   - **低年级（1-3年级）**：重点在于吸引注意力。增加大量有趣的动画、大尺寸按钮、丰富的色彩，以及多个可以由学生自主操作的互动页面（如拖拽、点击反馈、简单的游戏化练习）。避免长篇大论的文字。
-   - **中年级（4-6年级）**：增加探索性。提供实验模拟、逻辑连线等中等难度的互动，文字与互动并重。
-   - **高年级（7年级及以上）**：侧重于知识深度和逻辑。提供动态图表、公式推导演示、复杂的模拟系统，交互应服务于对抽象概念的理解。
-3. **代码实现**：编写完整、可运行、无错误的 TypeScript (TSX) 代码。
-
-**引擎核心架构和规则：**
-- \`window.CourseData\` : 用于注册课程的全局变量，必须暴露此对象。
-- **布局优化**：所有内容必须针对 **16:9** 比例进行优化（标准分辨率为 1280x720）。
-- **防止溢出**：确保组件内容在 16:9 容器内自适应，禁止出现内容被裁切或超出容器的情况。
-- 使用 Tailwind CSS 控制样式，严禁内联样式。
-- 所有 React Hook 均需通过 \`React.useState\`、\`React.useEffect\` 获取。
-- 组件不要做 \`export\` 或 \`import\`，这些是纯客户端运行脚本。
-- 使用 TypeScript 类型注解。
-
-**标准模板参考：**
-\`\`\`typescript
-// 课程 definition 必须赋值给 window.CourseData
-window.CourseData = {
-    id: 'ai-generated-course',
-    title: '主题名称',
-    icon: '📝',
-    desc: '课程简介',
-    color: 'from-blue-500 to-indigo-600',
-    slides: [
-        {
-            title: '页面标题',
-            component: <MyComponent />
-        }
-    ]
-};
-
-function MyComponent(): JSX.Element {
-    return (
-        <div className="flex flex-col items-center justify-center h-full w-full bg-slate-50">
-            <h1 className="text-4xl font-bold text-blue-600">内容</h1>
-        </div>
-    );
-}
-\`\`\`
-
-请确保你的回答既有专业的解释，也有符合要求的代码块。在信息不足时，优先引导用户提供背景信息。
-`;
-
-function AIChat({ onCodeGenerated, onGeneratingStatusChange, currentCode }) {
+const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, currentCode, compileError }, ref) => {
+    const { useState, useEffect, useRef, useImperativeHandle } = React;
     const [messages, setMessages] = useState([{ 
         role: 'assistant', 
         content: '你好！我是萤火课件 AI 助手。为了帮你生成最合适的互动课件，请告诉我课件的**主题**、**授课年级**（如低年级、高年级）以及**课程时长**。' 
@@ -62,8 +18,27 @@ function AIChat({ onCodeGenerated, onGeneratingStatusChange, currentCode }) {
     const [showConfig, setShowConfig] = useState(false);
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState({ type: '', message: '' });
+    const [attachments, setAttachments] = useState([]);
+    const [attachmentNotice, setAttachmentNotice] = useState(null);
     const chatEndRef = useRef(null);
+    const fileInputRef = useRef(null);
     const REQUEST_TIMEOUT_MS = 30000;
+    const MAX_FILES = 6;
+    const MAX_TOTAL_BYTES = 6 * 1024 * 1024;
+    const MAX_TEXT_BYTES = 500 * 1024;
+    const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
+    const handleAutoFix = () => {
+        if (!compileError) return;
+        const errorMsg = compileError instanceof Error ? compileError.message : String(compileError);
+        const fixPrompt = `我在运行你生成的代码时遇到了以下语法/编译错误：\n\n\`\`\`\n${errorMsg}\n\`\`\`\n\n请分析并修复这段代码。确保返回完整的、修复后的代码块。`;
+        handleSend(fixPrompt);
+    };
+
+    // 暴露给父组件的方法
+    useImperativeHandle(ref, () => ({
+        handleAutoFix
+    }));
 
     const safeEditorLog = async (level, category, message, data = null) => {
         try {
@@ -141,51 +116,219 @@ function AIChat({ onCodeGenerated, onGeneratingStatusChange, currentCode }) {
 
     const applyGeneratedCode = (text) => {
         if (!text) return;
-        
-        // 1. 尝试从 markdown 格式中提取代码块
-        let extractedCode = '';
-        const codeMatch = text.match(/```(?:typescript|ts|tsx|javascript|js|jsx)?\n([\s\S]*?)(?:\n```|$)/);
-        
-        if (codeMatch) {
-            extractedCode = codeMatch[1].trim();
-        } else if (text.includes('window.CourseData')) {
-            extractedCode = text.trim();
+
+        const blocks = [];
+        const re = /```(?:typescript|ts|tsx|javascript|js|jsx)?\s*\n([\s\S]*?)(?:\n```|```|$)/g;
+        let m;
+        while ((m = re.exec(text)) !== null) {
+            const code = String(m[1] || '').trim();
+            if (code) blocks.push(code);
+            if (blocks.length > 10) break;
         }
 
-        // 2. 检查并同步代码
-        if (extractedCode.includes('window.CourseData')) {
-            onCodeGenerated(extractedCode);
-        }
-    };
+        const preferred = blocks
+            .filter(b => b.includes('window.CourseData'))
+            .sort((a, b) => b.length - a.length)[0];
 
-    const handleSend = async () => {
-        if (!input.trim() || loading || !config.apiKey) {
-            if (!config.apiKey) setShowConfig(true);
+        if (preferred) {
+            onCodeGenerated(preferred);
             return;
         }
 
-        const userMsg = { role: 'user', content: input };
+        const fallback = blocks.sort((a, b) => b.length - a.length)[0];
+        if (fallback && fallback.length >= 80) {
+            onCodeGenerated(fallback);
+            return;
+        }
+
+        if (text.includes('window.CourseData')) {
+            const fenceStart = text.lastIndexOf('```', text.indexOf('window.CourseData'));
+            if (fenceStart >= 0) {
+                const afterFence = text.slice(fenceStart + 3);
+                const firstLineBreak = afterFence.indexOf('\n');
+                const bodyStart = firstLineBreak >= 0 ? afterFence.slice(firstLineBreak + 1) : afterFence;
+                const fenceEnd = bodyStart.indexOf('```');
+                const body = (fenceEnd >= 0 ? bodyStart.slice(0, fenceEnd) : bodyStart).trim();
+                if (body.includes('window.CourseData')) {
+                    onCodeGenerated(body);
+                    return;
+                }
+            }
+            onCodeGenerated(text.trim());
+        }
+    };
+
+    const getExt = (name) => {
+        const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
+        return m ? m[1] : '';
+    };
+
+    const isTextLikeExt = (ext) => {
+        return ['lume', 'js', 'jsx', 'ts', 'tsx', 'json', 'md', 'txt', 'log', 'css', 'html', 'yml', 'yaml'].includes(ext);
+    };
+
+    const readAsDataURL = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error || new Error('readAsDataURL failed'));
+        reader.readAsDataURL(file);
+    });
+
+    const summarizeAttachmentsForChat = (list) => {
+        if (!list.length) return '';
+        const lines = list.map(a => {
+            const kb = Math.max(1, Math.round((a.size || 0) / 1024));
+            return `- ${a.name} (${kb}KB)`;
+        });
+        return `\n\n[附件]\n${lines.join('\n')}`;
+    };
+
+    const buildUserContentForApi = ({ messageText, currentCodeText, files }) => {
+        const textParts = [];
+        if (currentCodeText) {
+            textParts.push(`当前课件代码如下：\n\`\`\`javascript\n${currentCodeText}\n\`\`\``);
+        }
+        textParts.push(`用户的新请求：${messageText}`);
+
+        const textFiles = files.filter(f => f.kind === 'text' && f.text);
+        for (const f of textFiles) {
+            const ext = getExt(f.name);
+            const fence = ext && ['js', 'jsx', 'ts', 'tsx', 'json', 'css', 'html', 'md'].includes(ext) ? ext : '';
+            const truncatedHint = f.truncated ? '\n\n[提示] 文件内容过大，已截断用于调试。' : '';
+            textParts.push(
+                `\n附件文件：${f.name}\n\`\`\`${fence}\n${f.text}\n\`\`\`${truncatedHint}`
+            );
+        }
+
+        const baseText = textParts.join('\n\n');
+        const images = files.filter(f => f.kind === 'image' && f.dataUrl);
+        if (!images.length) return baseText;
+
+        return [
+            { type: 'text', text: baseText },
+            ...images.map(img => ({ type: 'image_url', image_url: { url: img.dataUrl } }))
+        ];
+    };
+
+    const ingestFiles = async (fileList) => {
+        const incoming = Array.from(fileList || []);
+        if (!incoming.length) return;
+
+        const kept = [];
+        const rejected = [];
+        let totalBytes = 0;
+        for (const a of attachments) totalBytes += a.size || 0;
+
+        for (const file of incoming) {
+            if (attachments.length + kept.length >= MAX_FILES) break;
+            if (!file || !file.name) continue;
+
+            const size = Number(file.size) || 0;
+            if (totalBytes + size > MAX_TOTAL_BYTES) {
+                rejected.push(`${file.name} 超出总大小限制`);
+                continue;
+            }
+
+            const ext = getExt(file.name);
+            const isImage = String(file.type || '').startsWith('image/');
+            const isText = isTextLikeExt(ext) || String(file.type || '').startsWith('text/');
+
+            if (isImage) {
+                if (size > MAX_IMAGE_BYTES) {
+                    rejected.push(`${file.name} 图片过大`);
+                    continue;
+                }
+                const dataUrl = await readAsDataURL(file);
+                kept.push({
+                    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+                    name: file.name,
+                    size,
+                    kind: 'image',
+                    dataUrl
+                });
+                totalBytes += size;
+                continue;
+            }
+
+            if (isText) {
+                const text = await file.text();
+                let finalText = text;
+                let truncated = false;
+                if (size > MAX_TEXT_BYTES) {
+                    truncated = true;
+                    const head = text.slice(0, 180000);
+                    const tail = text.slice(Math.max(0, text.length - 40000));
+                    finalText = `${head}\n\n/* ...(truncated)... */\n\n${tail}`;
+                }
+                kept.push({
+                    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+                    name: file.name,
+                    size,
+                    kind: 'text',
+                    truncated,
+                    text: finalText
+                });
+                totalBytes += size;
+                continue;
+            }
+
+            rejected.push(`${file.name} 不支持的文件类型`);
+        }
+
+        if (kept.length) {
+            setAttachments(prev => [...prev, ...kept]);
+        }
+        if (rejected.length) {
+            setAttachmentNotice({ type: 'error', message: rejected.slice(0, 2).join('；') + (rejected.length > 2 ? '…' : '') });
+            setTimeout(() => setAttachmentNotice(null), 2500);
+        }
+    };
+
+    const handleSend = async (overrideInput = null) => {
+        const messageText = overrideInput || input;
+        const hasAttachmentOnly = !overrideInput && attachments.length > 0 && !String(messageText || '').trim();
+        if ((!messageText.trim() && !hasAttachmentOnly) || loading || !config.apiKey) {
+            if (!config.apiKey) setShowConfig(true);
+            return;
+        }
+        if (!AI_PROMPT) {
+            setAttachmentNotice({ type: 'error', message: '提示词未加载：请检查 editor/ai-prompt.js' });
+            setTimeout(() => setAttachmentNotice(null), 2500);
+            return;
+        }
+
+        const sendingAttachments = overrideInput ? [] : attachments;
+        const userDisplayContent = messageText + summarizeAttachmentsForChat(sendingAttachments);
+        const userMsg = { role: 'user', content: userDisplayContent };
         const newMessages = [...messages, userMsg];
         const assistantIndex = newMessages.length;
         
         setMessages([...newMessages, { role: 'assistant', content: '正在思考...' }]);
-        setInput('');
+        if (!overrideInput) {
+            setInput('');
+            setAttachments([]);
+        }
         setLoading(true);
         if (onGeneratingStatusChange) onGeneratingStatusChange(true);
 
         const requestId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
         let currentFullText = '';
+        let lastAppliedLen = 0;
 
         const apiMessagesToSend = [
             { role: 'system', content: AI_PROMPT },
             ...newMessages.filter(m => m.role !== 'system').map(m => {
-                 if (m.role === 'user' && currentCode && m === userMsg) {
-                     return { 
-                         role: 'user', 
-                         content: `当前课件代码如下：\n\`\`\`javascript\n${currentCode}\n\`\`\`\n\n用户的新请求：${m.content}` 
-                     };
-                 }
-                 return { role: m.role, content: m.content };
+                if (m.role === 'user' && m === userMsg) {
+                    const includeCurrentCode = !!currentCode;
+                    const normalizedMessageText = String(messageText || '').trim() ? messageText : '（无文本，见附件）';
+                    const apiContent = buildUserContentForApi({
+                        messageText: normalizedMessageText,
+                        currentCodeText: includeCurrentCode ? currentCode : '',
+                        files: sendingAttachments
+                    });
+                    return { role: 'user', content: apiContent };
+                }
+                return { role: m.role, content: m.content };
             })
         ];
 
@@ -218,8 +361,12 @@ function AIChat({ onCodeGenerated, onGeneratingStatusChange, currentCode }) {
                         });
 
                         // 流式更新代码
-                        if (currentFullText.includes('window.CourseData') && currentFullText.length % 20 === 0) {
-                             applyGeneratedCode(currentFullText);
+                        const shouldTryApply =
+                            (currentFullText.includes('window.CourseData') || currentFullText.includes('```')) &&
+                            (currentFullText.length - lastAppliedLen >= 120);
+                        if (shouldTryApply) {
+                            lastAppliedLen = currentFullText.length;
+                            applyGeneratedCode(currentFullText);
                         }
                     }
                 });
@@ -319,7 +466,7 @@ function AIChat({ onCodeGenerated, onGeneratingStatusChange, currentCode }) {
                 {messages.map((msg, i) => {
                     // 处理助手消息，提取文本和代码标识
                     let displayText = msg.content;
-                    let hasCode = msg.role === 'assistant' && msg.content.includes('window.CourseData');
+                    const hasCode = msg.role === 'assistant' && (msg.content.includes('```') || msg.content.includes('window.CourseData'));
                     
                     if (hasCode) {
                         // 移除代码块部分，只显示文字说明
@@ -359,28 +506,125 @@ function AIChat({ onCodeGenerated, onGeneratingStatusChange, currentCode }) {
                         </div>
                     </div>
                 )}
+                {/* 错误修复提示 */}
+                {compileError && !loading && (
+                    <div className="flex flex-col items-center p-4 bg-red-900/20 rounded-xl border border-red-900/50 mx-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        <div className="flex items-center text-red-400 text-xs font-bold mb-3">
+                            <i className="fas fa-bug mr-2"></i> 课件代码存在语法错误
+                        </div>
+                        <button 
+                            onClick={handleAutoFix}
+                            className="w-full py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-bold flex items-center justify-center transition-all shadow-lg active:scale-95"
+                        >
+                            <i className="fas fa-magic mr-2"></i> 一键修复
+                        </button>
+                    </div>
+                )}
                 <div ref={chatEndRef} />
             </div>
 
             {/* Input Area */}
             <div className="p-4 bg-slate-800 border-t border-slate-700">
-                <div className="relative">
+                {attachmentNotice?.message && (
+                    <div className={`mb-3 text-xs font-bold rounded-lg px-3 py-2 ${
+                        attachmentNotice.type === 'success'
+                            ? 'text-emerald-200 bg-emerald-900/30 border border-emerald-900/40'
+                            : 'text-red-300 bg-red-900/30 border border-red-900/40'
+                    }`}>
+                        {attachmentNotice.message}
+                    </div>
+                )}
+                {!!attachments.length && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                        {attachments.map(a => (
+                            <div key={a.id} className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                                {a.kind === 'image' ? (
+                                    <img src={a.dataUrl} alt={a.name} className="w-7 h-7 rounded object-cover border border-slate-700" />
+                                ) : (
+                                    <i className="fas fa-file-lines text-slate-400"></i>
+                                )}
+                                <span className="max-w-[180px] truncate">{a.name}</span>
+                                <button
+                                    onClick={() => setAttachments(prev => prev.filter(x => x.id !== a.id))}
+                                    className="text-slate-400 hover:text-slate-200"
+                                    title="移除"
+                                    type="button"
+                                >
+                                    <i className="fas fa-xmark"></i>
+                                </button>
+                            </div>
+                        ))}
+                        <button
+                            onClick={() => setAttachments([])}
+                            className="text-xs text-slate-400 hover:text-slate-200 px-2"
+                            type="button"
+                        >
+                            清空附件
+                        </button>
+                    </div>
+                )}
+
+                <div
+                    className="relative"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                        e.preventDefault();
+                        if (e.dataTransfer?.files?.length) ingestFiles(e.dataTransfer.files);
+                    }}
+                >
                     <textarea 
                         value={input}
                         onChange={e => setInput(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                        onPaste={e => {
+                            const items = e.clipboardData?.items ? Array.from(e.clipboardData.items) : [];
+                            const files = items
+                                .filter(it => String(it.type || '').startsWith('image/'))
+                                .map(it => it.getAsFile())
+                                .filter(Boolean);
+                            if (files.length) {
+                                ingestFiles(files);
+                                setAttachmentNotice({ type: 'success', message: `已添加 ${files.length} 张图片` });
+                                setTimeout(() => setAttachmentNotice(null), 2000);
+                            }
+                        }}
                         placeholder="描述你想要的课件内容或修改要求 (Shift+Enter 换行)..."
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white focus:outline-none focus:border-blue-500 resize-none h-24 show-scrollbar"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-12 pr-12 py-3 text-sm text-white focus:outline-none focus:border-blue-500 resize-none h-24 show-scrollbar"
                     />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={loading}
+                        className={`absolute bottom-3 left-3 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                            loading ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                        }`}
+                        title="上传图片/文件"
+                        type="button"
+                    >
+                        <i className="fas fa-paperclip text-xs"></i>
+                    </button>
                     <button 
                         onClick={handleSend}
-                        disabled={loading || !input.trim()}
-                        className={`absolute bottom-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${loading || !input.trim() ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                        disabled={loading || (!input.trim() && !attachments.length)}
+                        className={`absolute bottom-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                            loading || (!input.trim() && !attachments.length) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-500'
+                        }`}
                     >
                         <i className="fas fa-paper-plane text-xs"></i>
                     </button>
                 </div>
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.lume,.js,.jsx,.ts,.tsx,.json,.md,.txt,.log"
+                    className="hidden"
+                    onChange={async (e) => {
+                        const files = e.target.files;
+                        if (files?.length) await ingestFiles(files);
+                        e.target.value = '';
+                    }}
+                />
             </div>
         </div>
     );
-}
+});

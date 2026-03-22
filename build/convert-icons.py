@@ -12,9 +12,11 @@ from PIL import Image
 
 src_teacher = os.path.join(os.path.dirname(__file__), '..', 'assets', 'tray-icon.png')
 src_editor  = os.path.join(os.path.dirname(__file__), '..', 'assets', 'editor-icon.png')
+src_course  = os.path.join(os.path.dirname(__file__), '..', 'assets', 'file-icon.png')
 out_teacher = os.path.join(os.path.dirname(__file__), 'icon-teacher.ico')
 out_student = os.path.join(os.path.dirname(__file__), 'icon-student.ico')
 out_editor  = os.path.join(os.path.dirname(__file__), 'icon-editor.ico')
+out_course  = os.path.join(os.path.dirname(__file__), 'icon-course.ico')
 
 if not os.path.exists(src_teacher):
     print('[icons] ERROR: source teacher icon not found: ' + src_teacher)
@@ -93,5 +95,9 @@ generate_ico(src_teacher, out_student, SIZES)
 # Generate Editor icon (prefer editor-icon.png, fallback to tray-icon.png)
 if not generate_ico(src_editor, out_editor, SIZES):
     generate_ico(src_teacher, out_editor, SIZES)
+
+# Generate Course file icon (prefer file-icon.png, fallback to tray-icon.png)
+if not generate_ico(src_course, out_course, SIZES):
+    generate_ico(src_teacher, out_course, SIZES)
 
 print('[icons] All icons processed.')

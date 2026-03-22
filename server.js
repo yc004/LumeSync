@@ -442,11 +442,21 @@ app.get('/api/download-skill', (req, res) => {
 // 获取课件教程内容（course-template.md）
 app.get('/api/course-guide', (req, res) => {
     const guidePath = path.join(__dirname, 'course-template.md');
+    console.log('[api/course-guide] Guide path:', guidePath);
+    console.log('[api/course-guide] Exists:', fs.existsSync(guidePath));
+
     if (!fs.existsSync(guidePath)) {
+        console.error('[api/course-guide] Guide file not found at:', guidePath);
         return res.status(404).send('guide file not found');
     }
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.sendFile(guidePath);
+    try {
+        const content = fs.readFileSync(guidePath, 'utf-8');
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.send(content);
+    } catch (err) {
+        console.error('[api/course-guide] Error reading guide:', err);
+        res.status(500).send('Error reading guide file');
+    }
 });
 
 // ========================================================

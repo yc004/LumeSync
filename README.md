@@ -59,8 +59,8 @@ node server.js
 
 | 文件 | 说明 |
 |------|------|
-| `萤火课堂-教师端-Setup-*.exe` | 教师端，正常安装卸载 |
-| `萤火课堂-学生端-Setup-*.exe` | 学生端，卸载需管理员密码（默认 `admin123`） |
+| `LumeSync Teacher Setup *.exe` | 教师端，正常安装卸载 |
+| `LumeSync Student Setup *.exe` | 学生端，卸载需管理员密码（默认 `admin123`） |
 
 ### 本地打包
 
@@ -82,6 +82,7 @@ npm run build:student               # 学生端安装包 -> dist/student/
 - 安装需要管理员权限
 - 自动注册为 Windows 服务（`LumeSyncStudent`），开机自启
 - 普通用户无法关闭服务
+- 卸载时弹出密码验证（默认密码 `admin123`）
 - 卸载时弹出密码验证（默认密码 `admin123`）
 - 管理员密码可在教师端"课堂设置"中修改并实时推送到所有在线学生端
 

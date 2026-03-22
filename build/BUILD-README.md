@@ -13,8 +13,8 @@ build\build.bat
 ```
 
 输出目录：
-- 教师端：`dist/teacher/萤火课堂 教师端 Setup 1.0.0.exe`
-- 学生端：`dist/student/萤火课堂 学生端 Setup 1.0.0.exe`
+- 教师端：`dist/teacher/LumeSync Teacher Setup 1.0.0.exe`
+- 学生端：`dist/student/LumeSync Student Setup 1.0.0.exe`
 
 ## 分步打包
 

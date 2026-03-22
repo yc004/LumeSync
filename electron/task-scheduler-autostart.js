@@ -69,7 +69,7 @@ function getAutostartTask() {
 // 测试运行
 if (require.main === module) {
     const action = process.argv[2];
-    const appName = '萤火课堂 学生端';
+    const appName = 'LumeSync Student';
     const exePath = process.execPath;
 
     const launcher = new AutoLauncher(appName, exePath);

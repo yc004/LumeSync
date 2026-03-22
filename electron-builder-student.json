@@ -1,6 +1,6 @@
 {
   "appId": "com.lumesync.student",
-  "productName": "萤火课堂 学生端",
+  "productName": "LumeSync Student",
   "copyright": "Copyright © 2024",
   "directories": {
     "output": "dist/student",

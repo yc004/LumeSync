@@ -13,7 +13,7 @@ const { loadConfig, saveConfig, getAdminPasswordHash } = require('./config.js');
 const { Logger } = require('./logger.js');
 
 // 初始化日志系统
-const logger = new Logger('萤火课堂-学生端');
+const logger = new Logger('LumeSync-Student');
 
 // 切换 Windows 控制台代码页为 UTF-8，解决中文乱码
 if (process.platform === 'win32') {
@@ -28,9 +28,9 @@ if (process.argv.includes('--register-service')) {
         'create', 'LumeSyncStudent',
         'binPath=', `"${exePath}"`,
         'start=', 'auto',
-        'DisplayName=', '萤火课堂 学生端守护服务',
+        'DisplayName=', 'LumeSync Student Guard Service',
     ], { shell: false, stdio: 'ignore' });
-    spawnSync('sc', ['description', 'LumeSyncStudent', '萤火课堂 学生端守护服务'], { shell: false, stdio: 'ignore' });
+    spawnSync('sc', ['description', 'LumeSyncStudent', 'LumeSync Student Guard Service'], { shell: false, stdio: 'ignore' });
     spawnSync('sc', ['start', 'LumeSyncStudent'], { shell: false, stdio: 'ignore' });
     process.exit(0);
 }

@@ -8,7 +8,7 @@
 ; ── Install: register Windows service only ──
 !macro customInstall
     DetailPrint "Registering student daemon service..."
-    nsExec::ExecToLog '"$INSTDIR\萤火课堂 学生端.exe" --register-service'
+    nsExec::ExecToLog '"$INSTDIR\LumeSync Student.exe" --register-service'
     DetailPrint "Cleaning up old autostart entries..."
     ; 清理旧的注册表启动项（如果有）
     DeleteRegValue HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Run" "SyncClassroomStudent"
@@ -23,7 +23,7 @@
     ; Write VBScript to temp file to show InputBox
     FileOpen $R8 "$TEMP\sc_getpwd.vbs" w
     FileWrite $R8 'Dim pwd$\r$\n'
-    FileWrite $R8 'pwd = InputBox("Enter admin password to uninstall 萤火课堂 学生端:", "萤火课堂 学生端")$\r$\n'
+    FileWrite $R8 'pwd = InputBox("Enter admin password to uninstall LumeSync Student:", "LumeSync Student")$\r$\n'
     FileWrite $R8 'If pwd = "" Then WScript.Quit 1$\r$\n'
     FileWrite $R8 'Set fso = CreateObject("Scripting.FileSystemObject")$\r$\n'
     FileWrite $R8 'Set f = fso.OpenTextFile("$TEMP\sc_pwd.tmp", 2, True)$\r$\n'
@@ -43,7 +43,7 @@
     ; Verify password
     StrCpy $R6 "1"
     ${If} ${FileExists} "$INSTDIR\resources\verify-password.exe"
-        ExecWait '"$INSTDIR\resources\verify-password.exe" --file "$TEMP\sc_pwd.tmp" --config "$APPDATA\萤火课堂 学生端\config.json"' $R6
+        ExecWait '"$INSTDIR\resources\verify-password.exe" --file "$TEMP\sc_pwd.tmp" --config "$APPDATA\LumeSync Student\config.json"' $R6
     ${Else}
         FileOpen $R5 "$TEMP\sc_pwd.tmp" r
         FileRead $R5 $R0

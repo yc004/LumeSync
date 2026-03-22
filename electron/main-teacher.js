@@ -33,6 +33,35 @@ let tray = null;
 let serverProcess = null;
 const PORT = 3000;
 
+function isPortAvailable(port) {
+    return new Promise((resolve) => {
+        const net = require('net');
+        const tester = net.createServer();
+        tester.once('error', () => resolve(false));
+        tester.once('listening', () => {
+            tester.close(() => resolve(true));
+        });
+        tester.listen(port, '127.0.0.1');
+    });
+}
+
+function checkLocalHealth(port) {
+    return new Promise((resolve) => {
+        const http = require('http');
+        const req = http.request(
+            { hostname: '127.0.0.1', port, path: '/api/health', method: 'GET', timeout: 800 },
+            (res) => {
+                const ok = res.statusCode >= 200 && res.statusCode < 500;
+                res.resume();
+                resolve(ok);
+            }
+        );
+        req.on('timeout', () => req.destroy(new Error('timeout')));
+        req.on('error', () => resolve(false));
+        req.end();
+    });
+}
+
 // 捕获未处理的异常和未捕获的 Promise 拒绝
 process.on('uncaughtException', (err) => {
     logger.error('UNCAUGHT', 'Uncaught Exception', err);
@@ -92,6 +121,29 @@ function startServer() {
     }
 }
 
+async function ensureServer() {
+    const available = await isPortAvailable(PORT);
+    if (available) {
+        startServer();
+        return true;
+    }
+
+    const healthy = await checkLocalHealth(PORT);
+    if (healthy) {
+        logger.warn('SERVER', 'Port already in use, reusing existing local server', { port: PORT });
+        return true;
+    }
+
+    dialog.showErrorBox(
+        '端口被占用',
+        `端口 ${PORT} 已被其他程序占用，且不是 LumeSync 本地服务器。\n\n` +
+        `请关闭占用端口的程序，或重启电脑后再启动。\n\n` +
+        `日志目录: ${logger.getLogDir()}`
+    );
+    app.quit();
+    return false;
+}
+
 // ── 创建主窗口 ──────────────────────────────────────────
 function createWindow() {
     logger.info('WINDOW', 'Creating main window');
@@ -127,16 +179,18 @@ function createWindow() {
     // 等服务器就绪后加载页面
     const tryLoad = (retries = 20) => {
         const http = require('http');
+        const timeoutMs = 5000;
         const options = {
             hostname: 'localhost',
             port: PORT,
-            path: '/',
+            path: '/api/health',
             method: 'GET',
-            timeout: 2000
+            timeout: timeoutMs
         };
 
         const req = http.request(options, (res) => {
             logger.info('WINDOW', 'Server responded', { statusCode: res.statusCode });
+            res.resume();
             mainWindow.loadURL(`http://localhost:${PORT}`).catch(err => {
                 logger.error('WINDOW', 'Failed to load URL', err);
                 dialog.showErrorBox('页面加载失败',
@@ -161,9 +215,21 @@ function createWindow() {
             }
         });
 
-        req.setTimeout(2000, () => {
-            req.destroy();
-            logger.error('WINDOW', 'Connection timeout');
+        req.setTimeout(timeoutMs, () => {
+            req.destroy(new Error('Connection timeout'));
+            logger.error('WINDOW', 'Connection timeout', { retries: retries, timeoutMs });
+            if (retries > 0) {
+                setTimeout(() => tryLoad(retries - 1), 500);
+            } else {
+                const errorMsg = `无法连接到本地服务器 (http://localhost:${PORT})\n\n` +
+                    `可能的原因：\n` +
+                    `1. 端口 3000 被其他程序占用\n` +
+                    `2. server.js 启动失败（请查看日志）\n` +
+                    `3. 防火墙阻止了本地连接\n\n` +
+                    `错误详情: Connection timeout\n\n` +
+                    `日志目录: ${logger.getLogDir()}`;
+                dialog.showErrorBox('连接失败', errorMsg);
+            }
         });
 
         req.end();
@@ -232,7 +298,7 @@ function createTray() {
 }
 
 // ── 应用生命周期 ─────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     logger.info('APP', 'Application ready');
 
     // Allow camera/microphone access for course interactions
@@ -245,7 +311,8 @@ app.whenReady().then(() => {
         return allowed.includes(permission);
     });
 
-    startServer();
+    const ok = await ensureServer();
+    if (!ok) return;
     createWindow();
     createTray();
 });

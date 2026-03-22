@@ -4,7 +4,7 @@
 // ========================================================
 const {
     app, BrowserWindow, Tray, Menu, nativeImage,
-    ipcMain, shell, dialog, session
+    ipcMain, shell, dialog, session, globalShortcut
 } = require('electron');
 const path = require('path');
 const crypto = require('crypto');
@@ -51,9 +51,6 @@ app.commandLine.appendSwitch('disable-http-cache');
 // 跳过 Windows 系统摄像头权限弹窗，避免首次 getUserMedia 等待 5 秒超时
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 
-// 在无桌面环境（如开机启动）下避免使用 GPU 加速
-app.commandLine.appendSwitch('disable-software-rasterizer');
-
 // 设置代理为系统代理，避免网络问题
 app.commandLine.appendSwitch('no-proxy-server');
 
@@ -75,6 +72,10 @@ let forceFullscreen = true; // 跟踪教师端的强制全屏设置
 let config = loadConfig();
 let retryTimer = null; // 后台重连定时器
 const RETRY_INTERVAL_MS = 5000; // 每 5 秒重试一次
+let fullscreenApplyToken = 0;
+let allowExitFullscreen = true;
+let lastFullscreenToggleAt = 0;
+let lastFullscreenToggleEnable = null;
 
 // getUserMedia requires a secure origin. http:// is not considered secure by Chromium,
 // so mark the teacher server origin as trusted. Must be set before app.ready.
@@ -151,7 +152,7 @@ function startRetrying() {
     retryTimer = setInterval(() => {
         const url = `http://${config.teacherIp}:${config.port || 3000}`;
         const http = require('http');
-        http.get(url, (res) => {
+        const req = http.get(url, (res) => {
             res.resume(); // 消费响应体
             if (res.statusCode < 500) {
                 // 服务器已就绪，停止重试并加载页面
@@ -160,7 +161,9 @@ function startRetrying() {
                     mainWindow.loadURL(url).catch(() => {});
                 }
             }
-        }).on('error', () => {
+        });
+        req.setTimeout(2500, () => req.destroy(new Error('timeout')));
+        req.on('error', () => {
             // 仍然无法连接，继续等待
         });
     }, RETRY_INTERVAL_MS);
@@ -190,6 +193,28 @@ function createMainWindow() {
         show: false, // 静默启动，课堂开始后才显示
     });
     mainWindow.setMenu(null);
+    mainWindow.setSkipTaskbar(true);
+    mainWindow.webContents.on('render-process-gone', (_, details) => {
+        logger.error('WINDOW', 'Render process gone', details);
+        const recentlyToggled = (Date.now() - lastFullscreenToggleAt) < 3000;
+        if (recentlyToggled && lastFullscreenToggleEnable === false) {
+            allowExitFullscreen = false;
+            logger.warn('WINDOW', 'Disable exit fullscreen due to render crash after leaving fullscreen');
+        }
+        if (isClassActive) {
+            try {
+                setTimeout(() => {
+                    try { mainWindow && mainWindow.reload(); } catch (_) {}
+                }, 500);
+            } catch (_) {}
+        }
+    });
+    mainWindow.webContents.on('unresponsive', () => {
+        logger.warn('WINDOW', 'WebContents unresponsive');
+    });
+    mainWindow.webContents.on('responsive', () => {
+        logger.info('WINDOW', 'WebContents responsive');
+    });
 
     mainWindow.loadURL(url).catch(() => {
         // 连接失败时显示离线提示页，并开始后台重连
@@ -208,6 +233,11 @@ function createMainWindow() {
     mainWindow.on('close', (e) => {
         e.preventDefault();
         if (isClassActive) {
+            if (forceFullscreen) {
+                mainWindow.show();
+                mainWindow.setSkipTaskbar(true);
+                applyFullscreenState(true);
+            }
             return;
         }
         mainWindow.hide();
@@ -218,9 +248,7 @@ function createMainWindow() {
         if (isClassActive && forceFullscreen) {
             setImmediate(() => {
                 mainWindow.restore();
-                mainWindow.setFullScreen(true);
-                mainWindow.setAlwaysOnTop(true, 'screen-saver');
-                mainWindow.focus();
+                applyFullscreenState(true);
             });
         }
     });
@@ -257,24 +285,43 @@ function createMainWindow() {
     });
 }
 
+function applyFullscreenState(enable) {
+    if (!mainWindow) return;
+    const token = ++fullscreenApplyToken;
+    lastFullscreenToggleAt = Date.now();
+    lastFullscreenToggleEnable = !!enable;
+    try {
+        mainWindow.setSkipTaskbar(true);
+        mainWindow.show();
+        if (enable) {
+            try { mainWindow.setFullScreen(true); } catch (_) {}
+            try { mainWindow.setAlwaysOnTop(true, 'screen-saver'); } catch (_) {}
+        } else {
+            try { mainWindow.setAlwaysOnTop(false); } catch (_) {}
+            if (allowExitFullscreen) {
+                setTimeout(() => {
+                    if (!mainWindow) return;
+                    if (!isClassActive) return;
+                    if (token !== fullscreenApplyToken) return;
+                    try { mainWindow.setFullScreen(false); } catch (_) {}
+                }, 180);
+            }
+        }
+        mainWindow.focus();
+    } catch (err) {
+        logger.error('WINDOW', 'applyFullscreenState failed', { enable, error: err?.message || String(err) });
+    }
+}
+
 // ── 课堂开始：按设置决定是否全屏置顶 ───────────────────
 function enterClassMode() {
     isClassActive = true;
     if (!mainWindow) return;
     mainWindow.show();
-    mainWindow.setSkipTaskbar(false);
+    mainWindow.setSkipTaskbar(true);
     mainWindow.focus();
     if (forceFullscreen) {
-        mainWindow.setAlwaysOnTop(true, 'screen-saver');
-        mainWindow.setFullScreen(true);
-        // 延迟再次强制，防止系统动画完成后被抢走
-        setTimeout(() => {
-            if (isClassActive && forceFullscreen && mainWindow) {
-                mainWindow.setFullScreen(true);
-                mainWindow.setAlwaysOnTop(true, 'screen-saver');
-                mainWindow.focus();
-            }
-        }, 500);
+        applyFullscreenState(true);
     }
 }
 
@@ -351,13 +398,7 @@ ipcMain.on('class-ended', () => exitClassMode());
 ipcMain.on('set-fullscreen', (_, enable) => {
     forceFullscreen = enable; // 始终更新标志，供 enterClassMode 使用
     if (!mainWindow || !isClassActive) return;
-    if (enable) {
-        mainWindow.setFullScreen(true);
-        mainWindow.setAlwaysOnTop(true, 'screen-saver');
-    } else {
-        mainWindow.setFullScreen(false);
-        mainWindow.setAlwaysOnTop(false);
-    }
+    applyFullscreenState(!!enable);
 });
 
 ipcMain.handle('get-config', () => ({ ...config, adminPasswordHash: undefined }));
@@ -512,6 +553,21 @@ app.whenReady().then(async () => {
     logger.info('APP', 'Creating system tray');
     createTray();
 
+    if (globalShortcut) {
+        const accelerator = 'CommandOrControl+Shift+D';
+        const ok = globalShortcut.register(accelerator, () => {
+            if (!mainWindow) return;
+            try {
+                if (mainWindow.webContents.isDevToolsOpened()) {
+                    mainWindow.webContents.closeDevTools();
+                } else {
+                    mainWindow.webContents.openDevTools({ mode: 'detach' });
+                }
+            } catch (_) {}
+        });
+        logger.info('APP', 'Debug shortcut registered', { accelerator, ok: !!ok });
+    }
+
     logger.info('APP', 'App initialization complete');
 
     // 检查自启动状态
@@ -529,6 +585,10 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', (e) => {
     logger.info('APP', 'window-all-closed event, preventing exit');
     e.preventDefault();
+});
+
+app.on('will-quit', () => {
+    try { globalShortcut && globalShortcut.unregisterAll(); } catch (_) {}
 });
 
 // 阻止系统级退出（如注销时）——普通用户无法通过任务管理器结束 Electron 进程

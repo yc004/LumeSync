@@ -426,6 +426,10 @@ app.use('/weights/:fileName', (req, res) => {
 // 🛠️ API 路由
 // ========================================================
 
+app.get('/api/health', (req, res) => {
+    res.json({ ok: true, app: 'LumeSync', port: Number(process.env.PORT || 3000) });
+});
+
 // 获取课程列表
 app.get('/api/courses', (req, res) => {
     res.json({
@@ -699,6 +703,12 @@ io.on('connection', (socket) => {
 // 4. 启动服务器
 // ========================================================
 const PORT = process.env.PORT || 3000;
+server.on('error', (err) => {
+    const code = err && err.code ? String(err.code) : 'UNKNOWN';
+    const msg = err && err.message ? String(err.message) : String(err);
+    console.error(`[server] listen error (${code}): ${msg}`);
+    process.exit(1);
+});
 server.listen(PORT, () => {
     console.log(`\n=========================================`);
     console.log(`[server] SyncClassroom started on port ${PORT}`);
@@ -706,3 +716,38 @@ server.listen(PORT, () => {
     console.log(`[server] Student (viewer): http://<LAN-IP>:${PORT}`);
     console.log(`=========================================\n`);
 });
+
+// ========================================================
+// 5. 局域网发现：UDP 广播探测（学生端自动寻找教师端）
+// ========================================================
+try {
+    const dgram = require('dgram');
+    const DISCOVERY_PORT = Number(process.env.DISCOVERY_PORT || 31999);
+    const discovery = dgram.createSocket('udp4');
+
+    discovery.on('error', (err) => {
+        console.error(`[discovery] udp error: ${err.message}`);
+    });
+
+    discovery.on('message', (msg, rinfo) => {
+        const text = String(msg || '').trim();
+        if (text !== 'LUMESYNC_DISCOVER') return;
+
+        const payload = JSON.stringify({
+            app: 'LumeSync',
+            httpPort: Number(PORT),
+            ts: Date.now(),
+        });
+        const buf = Buffer.from('LUMESYNC_HERE ' + payload);
+        discovery.send(buf, rinfo.port, rinfo.address, () => {});
+    });
+
+    discovery.bind(DISCOVERY_PORT, () => {
+        try {
+            discovery.setBroadcast(true);
+        } catch (_) {}
+        console.log(`[discovery] udp listening on ${DISCOVERY_PORT}`);
+    });
+} catch (err) {
+    console.error(`[discovery] disabled: ${err?.message || String(err)}`);
+}

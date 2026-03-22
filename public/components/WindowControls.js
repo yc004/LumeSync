@@ -4,12 +4,11 @@
 function WindowControls({ forceFullscreen = false }) {
     const [isMaximized, setIsMaximized] = useState(false);
 
-    // 当强制全屏时，不显示窗口控制按钮
-    if (forceFullscreen) {
-        return null;
-    }
-
     useEffect(() => {
+        if (forceFullscreen) {
+            return;
+        }
+
         // 监听窗口最大化/还原状态变化
         const handleMaximize = () => setIsMaximized(true);
         const handleUnmaximize = () => setIsMaximized(false);
@@ -25,7 +24,12 @@ function WindowControls({ forceFullscreen = false }) {
                 window.electronAPI.removeWindowUnmaximizedListener(handleUnmaximize);
             }
         };
-    }, []);
+    }, [forceFullscreen]);
+
+    // 当强制全屏时，不显示窗口控制按钮
+    if (forceFullscreen) {
+        return null;
+    }
 
     const handleMinimize = () => {
         if (window.electronAPI?.minimizeWindow) {

@@ -90,9 +90,9 @@ jobs:
 
             | File | Description |
             |------|-------------|
-            | `SyncClassroom-Teacher-Setup-*.exe` | Teacher installer, normal uninstall |
-            | `SyncClassroom-Student-Setup-*.exe` | Student installer, requires admin password to uninstall (default: `admin123`) |
-            | `SyncClassroom-Editor-Setup-*.exe` | AI Courseware Editor installer, integrated AI assistant |
+            | `LumeSync-Teacher-Setup-*.exe` | Teacher installer, normal uninstall |
+            | `LumeSync-Student-Setup-*.exe` | Student installer, requires admin password to uninstall (default: `admin123`) |
+            | `LumeSync-Editor-Setup-*.exe` | AI Courseware Editor installer, integrated AI assistant |
 
             ### Offline Install
             Both installers are fully self-contained. No internet connection required after installation.
@@ -102,8 +102,8 @@ jobs:
             - Automatically registers as a Windows service (auto-start on boot)
             - Uninstall requires admin password
           files: |
-            dist/teacher/SyncClassroom-Teacher-Setup-*.exe
-            dist/student/SyncClassroom-Student-Setup-*.exe
-            dist/editor/SyncClassroom-Editor-Setup-*.exe
+            dist/teacher/LumeSync-Teacher-Setup-*.exe
+            dist/student/LumeSync-Student-Setup-*.exe
+            dist/editor/LumeSync-Editor-Setup-*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

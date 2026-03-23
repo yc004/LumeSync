@@ -41,8 +41,21 @@ window.__LUMESYNC_AI_PROMPT__ = `
   - \`dependencies\`: array（可选，外部库声明：\`{ name, localSrc, publicSrc }\`）
   - \`modelsUrls\`: object（可选，AI 模型路径：\`{ local: "/weights", public: "https://..." }\`）
   - \`slides\`: array（必须，元素形如 \`{ id: string, component: JSX.Element }\`）
-- 摄像头（可选）：通过 \`window.CourseGlobalContext.getCamera(onStream)\` 获取视频流；组件卸载时调用 \`window.CourseGlobalContext.unregisterCamera(onStream)\`；通常不需要手动调用 \`releaseCamera()\`。
-- 摄像头注意事项：不要直接操作 \`window.CameraManager\`（只通过 \`window.CourseGlobalContext\`）。
+- 摄像头（可选）：通过 \`window.CourseGlobalContext.getCamera(onStream)\` 获取视频流；组件卸载时调用 \`window.CourseGlobalContext.unregisterCamera(onStream)\`。
+- Canvas 坐标与缩放（重要）：因为页面可能被 \`transform: scale()\` 缩放，不要使用 \`getBoundingClientRect\` + 手动计算比例，**必须**使用引擎提供的 API 来处理点击坐标：
+  \`\`\`tsx
+  const p = window.CourseGlobalContext?.canvas?.getCanvasPoint(e, canvasElement);
+  if (p) {
+      console.log("真实逻辑坐标:", p.x, p.y); 
+  }
+  \`\`\`
+- Canvas HiDPI 与 Resize（可选）：
+  \`\`\`tsx
+  // 1. Hook获取自适应尺寸
+  const { wrapRef, dims } = window.CourseGlobalContext.canvas.useCanvasDims(padL, padR, padT, padB);
+  // 2. 在 useEffect 里获取支持高清屏的 ctx
+  const ctx = window.CourseGlobalContext.canvas.getHiDpiContext2d(canvasElement, dims.cw, dims.ch);
+  \`\`\`
 
 **输出格式（非常重要）：**
 - 最终必须输出 **一个完整的代码块**（\`\`\`tsx ... \`\`\`），代码中必须包含 \`window.CourseData\`。

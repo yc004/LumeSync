@@ -23,6 +23,7 @@ function ClassroomApp() {
         forceFullscreen: true,
         syncFollow: true,
         renderScale: 0.96,
+        uiScale: 1.0,
         alertJoin: true,
         alertLeave: true,
         alertFullscreenExit: true,
@@ -260,6 +261,7 @@ function ClassroomApp() {
                     const bestModelUrl = await checkModelUrlValidity(window.CourseData.modelsUrls);
                     window.CourseGlobalContext = {
                         modelUrl: bestModelUrl,
+                        canvas: window.__LumeSyncCanvas,
                         getCamera: (onStream) => {
                             if (window._onCamActive) {
                                 window._onCamActive(true);
@@ -275,6 +277,7 @@ function ClassroomApp() {
                     };
                 } else {
                     window.CourseGlobalContext = {
+                        canvas: window.__LumeSyncCanvas,
                         getCamera: (onStream) => {
                             if (window._onCamActive) {
                                 window._onCamActive(true);

@@ -398,7 +398,55 @@ function InteractiveSlide() {
 
 ## 工具函数
 
-### window.CourseGlobalContext.log
+### Canvas 交互与缩放 API
+
+由于课件可能被引擎通过 `transform: scale()` 进行缩放显示，传统的 `getBoundingClientRect()` 或直接使用 `offsetX/Y` 会导致鼠标点击坐标计算错误。请使用引擎提供的专用 API：
+
+#### 获取准确的点击坐标
+```tsx
+const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // getCanvasPoint 会自动处理 CSS transform 缩放和 Canvas border 的影响
+    const p = window.CourseGlobalContext?.canvas?.getCanvasPoint?.(e, e.currentTarget);
+    if (!p) return;
+    
+    // p.x 和 p.y 即为映射到 Canvas 逻辑布局尺寸上的精确坐标
+    console.log('点击逻辑坐标:', p.x, p.y);
+    
+    // 也可以使用相对比例 (0~1)
+    console.log('相对坐标:', p.nx, p.ny);
+};
+```
+
+#### Canvas 响应式尺寸 Hook
+```tsx
+function SlideWithCanvas() {
+    // 传入 padding (左,右,上,下)，返回 wrapper ref 和计算好的逻辑尺寸
+    const { wrapRef, dims } = window.CourseGlobalContext.canvas.useCanvasDims(20, 20, 10, 10);
+    
+    // ...
+    return (
+        <div ref={wrapRef} className="flex-1 w-full h-full">
+            <canvas width={dims.cw} height={dims.ch} />
+        </div>
+    );
+}
+```
+
+#### 获取支持 HiDPI 的 Context
+```tsx
+useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    // 自动根据 devicePixelRatio 设置实际分辨率，并返回已经 scale 好的 context
+    // 绘制时直接使用 dims.cw / dims.ch 的逻辑坐标即可，无需再乘 dpr
+    const ctx = window.CourseGlobalContext.canvas.getHiDpiContext2d(canvas, dims.cw, dims.ch);
+    // ...
+}, [dims]);
+```
+
+### 日志函数
+
+#### window.CourseGlobalContext.log
 
 记录日志：
 

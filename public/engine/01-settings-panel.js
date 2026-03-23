@@ -5,6 +5,7 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
     const [newPwd, setNewPwd] = useState('');
     const [pwdStatus, setPwdStatus] = useState(null); // 'ok' | 'err' | null
     const renderScaleValue = (typeof settings?.renderScale === 'number' && Number.isFinite(settings.renderScale)) ? settings.renderScale : 0.96;
+    const uiScaleValue = (typeof settings?.uiScale === 'number' && Number.isFinite(settings.uiScale)) ? settings.uiScale : 1.0;
 
     const handleSetPassword = () => {
         if (!newPwd.trim()) return;
@@ -68,6 +69,39 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
                         </div>
                     ))}
                     
+                    <div className="border-t border-slate-200 pt-4">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center">
+                            <i className="fas fa-up-down w-4 mr-2 text-slate-400"></i>
+                            课件页面缩放
+                        </p>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-slate-700 font-medium">缩放比例</span>
+                            <span className="text-sm font-mono text-slate-600">{Math.round(uiScaleValue * 100)}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0.8"
+                            max="1.2"
+                            step="0.01"
+                            value={uiScaleValue}
+                            onChange={e => onSettingsChange('uiScale', Number(e.target.value))}
+                            className="w-full"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-slate-500">80%</span>
+                            <button
+                                onClick={() => onSettingsChange('uiScale', 1.0)}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-bold"
+                            >
+                                恢复默认
+                            </button>
+                            <span className="text-xs text-slate-500">120%</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                            缩放 1280×720 课件画布显示大小，不影响顶栏/控件；学生端会跟随。
+                        </p>
+                    </div>
+
                     <div className="border-t border-slate-200 pt-4">
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center">
                             <i className="fas fa-up-down-left-right w-4 mr-2 text-slate-400"></i>

@@ -23,7 +23,7 @@
 | `React` | 全局 | React 18 |
 | `useState`, `useEffect`, `useRef`, `useCallback`, `useMemo` 等 | 需从 React 解构 | 见下方写法 |
 | `window.CourseData` | 全局赋值 | 课程数据出口，必须赋值 |
-| `window.CourseGlobalContext` | 引擎提供 | 摄像头 API（见摄像头章节） |
+| `window.CourseGlobalContext` | 引擎提供 | 摄像头 API、Canvas缩放换算 API（见下方） |
 | `window.Chart` | 加载后可用 | Chart.js（需在 dependencies 中声明） |
 | `window.katex` | 加载后可用 | KaTeX（需在 dependencies 中声明） |
 | `window._` | 加载后可用 | Lodash（需在 dependencies 中声明） |
@@ -152,6 +152,25 @@ const chart = new Chart(ctx, {...});   // ReferenceError
 - 课程画布基准为 1280×720（16:9），教师/学生端会按窗口缩放显示
 - 教师端可在“课堂设置”中调整“课件内容缩放”（60%～120%），用于缩放课件内部内容以减少溢出
 - 尽量使用 `w-full h-full`/`min-h-full` 做布局，不要依赖 `vw/vh` 作为关键尺寸
+
+### Canvas 与坐标处理（防止缩放错位）
+
+由于课件画布可能被教师端通过 `transform: scale()` 进行整体缩放，如果使用常规的 `getBoundingClientRect` 或 `offsetX` 会导致点击坐标偏移。如果需要写交互式的 Canvas，**必须**使用引擎提供的 API：
+
+```tsx
+// 1. 获取 Canvas 点击坐标
+const p = window.CourseGlobalContext?.canvas?.getCanvasPoint(e, canvasElement);
+if (p) {
+    console.log("真实逻辑坐标:", p.x, p.y);
+    console.log("相对坐标(0-1):", p.nx, p.ny);
+}
+
+// 2. Canvas 响应式尺寸 Hook
+const { wrapRef, dims } = window.CourseGlobalContext.canvas.useCanvasDims(20, 20, 10, 10); // 上右下左 padding
+
+// 3. 获取 HiDPI context (自动处理设备像素比)
+const ctx = window.CourseGlobalContext.canvas.getHiDpiContext2d(canvasElement, dims.cw, dims.ch);
+```
 
 ---
 

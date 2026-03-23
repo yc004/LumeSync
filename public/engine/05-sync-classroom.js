@@ -20,6 +20,9 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     const contentScale = (typeof settings?.renderScale === 'number' && Number.isFinite(settings.renderScale))
         ? Math.min(Math.max(settings.renderScale, 0.6), 1.2)
         : 0.96;
+    const uiScale = (typeof settings?.uiScale === 'number' && Number.isFinite(settings.uiScale))
+        ? Math.min(Math.max(settings.uiScale, 0.8), 1.2)
+        : 1.0;
 
     // 注册全局回调，让 CourseGlobalContext.getCamera() 能触发此组件显示选择器
     useEffect(() => {
@@ -202,13 +205,21 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                         style={{
                             width: '1280px',
                             height: '720px',
-                            transform: `scale(${stageScale})`,
+                            transform: `scale(${stageScale * uiScale})`,
                             transformOrigin: 'center center',
                             transition: 'transform 0.2s ease-out'
                         }}
                     >
-                        <div className="w-full h-full flex items-center justify-center">
-                            <div className="w-full h-full" style={{ zoom: contentScale }}>
+                        <div className="w-full h-full relative overflow-hidden">
+                            <div
+                                className="absolute top-0 left-0"
+                                style={{
+                                    transform: `scale(${contentScale})`,
+                                    transformOrigin: 'top left',
+                                    width: `${100 / (contentScale || 1)}%`,
+                                    height: `${100 / (contentScale || 1)}%`,
+                                }}
+                            >
                                 {slides[currentSlide] && slides[currentSlide].component}
                             </div>
                         </div>

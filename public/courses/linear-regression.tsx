@@ -187,7 +187,8 @@ function useCanvasDims(padL: number, padR: number, padT: number, padB: number) {
     const el = wrapRef.current;
     if (!el) return;
     const update = () => {
-      const { width, height } = el.getBoundingClientRect();
+      const width = el.clientWidth;
+      const height = el.clientHeight;
       if (width > 20 && height > 20)
         setDims({ cw: Math.floor(width), ch: Math.floor(height), padL, padR, padT, padB });
     };
@@ -763,11 +764,10 @@ function Slide互动实验() {
   const isOriginal = (p: [number, number]) => EV_DATA.some(d => d[0] === p[0] && d[1] === p[1]);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
     const utils = makePlotUtils(dims);
-    const cx = (e.clientX - rect.left) * (dims.cw / rect.width);
-    const cy = (e.clientY - rect.top) * (dims.ch / rect.height);
-    const [x, y] = utils.toData(cx, cy);
+    const p = (window as any).CourseGlobalContext?.canvas?.getCanvasPoint?.(e, e.currentTarget);
+    if (!p) return;
+    const [x, y] = utils.toData(p.x, p.y);
     if (x >= 5 && x <= 105 && y >= 0.5 && y <= 21.5) {
       setPoints(ps => [...ps, [x, y]]);
     }

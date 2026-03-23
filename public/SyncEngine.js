@@ -146,8 +146,9 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
 // 功能：显示所有学生座位，支持命名、拖拽排列、在线状态
 // 布局和命名持久化到 localStorage
 // ========================================================
-function ClassroomView({ onClose, socket, studentLog }) {
+function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTopChange }) {
     const STORAGE_KEY = 'classroom-layout-v1';
+    const podiumOnTop = typeof podiumAtTop === 'boolean' ? podiumAtTop : true;
 
     // seats: { id, ip, name, row, col }[]
     // onlineIPs: Set<string>
@@ -171,7 +172,19 @@ function ClassroomView({ onClose, socket, studentLog }) {
     const [autoImporting, setAutoImporting] = useState(false);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
     const [importError, setImportError] = useState(null);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
     const fileInputRef = useRef(null);
+    const moreMenuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+                setShowMoreMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // 计算网格尺寸
     const maxRow = seats.reduce((m, s) => Math.max(m, s.row), 0);
@@ -287,6 +300,41 @@ function ClassroomView({ onClose, socket, studentLog }) {
         a.download = 'classroom-seats-template.csv';
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+    const getStamp = () => {
+        const d = new Date();
+        const p2 = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+    };
+    const handleExportJson = () => {
+        const payload = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            podiumAtTop: podiumOnTop,
+            seats: seats.map(s => ({ ip: s.ip, name: s.name || '', row: s.row, col: s.col }))
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+        downloadBlob(blob, `classroom-layout-${getStamp()}.json`);
+    };
+    const handleExportCsv = () => {
+        const content = [
+            '# 机房座位列表',
+            '# 格式：ip,名称,行,列',
+            ...[...seats]
+                .sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col)
+                .map(s => `${s.ip},${String(s.name || '').replace(/,/g, ' ')},${s.row},${s.col}`)
+        ].join('\n');
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        downloadBlob(blob, `classroom-seats-${getStamp()}.csv`);
     };
 
     // 从文件导入座位列表
@@ -521,14 +569,17 @@ function ClassroomView({ onClose, socket, studentLog }) {
     // 构建网格
     const renderGrid = () => {
         const rows = [];
-        for (let r = 1; r <= gridRows + 1; r++) {
+        const rowCount = gridRows + 1;
+        const colCount = gridCols + 1;
+        for (let vr = 1; vr <= rowCount; vr++) {
+            const r = podiumOnTop ? vr : (rowCount - vr + 1);
             const cols = [];
-            for (let c = 1; c <= gridCols + 1; c++) {
+            for (let c = 1; c <= colCount; c++) {
                 const seat = seats.find(s => s.row === r && s.col === c);
                 const isOver = dragOver && dragOver.row === r && dragOver.col === c;
                 cols.push(
                     <div
-                        key={`${r}-${c}`}
+                        key={`${vr}-${c}`}
                         onDragOver={e => handleDragOverCell(e, r, c)}
                         onDrop={e => handleDropCell(e, r, c)}
                         className={`min-w-[100px] min-h-[90px] rounded-xl transition-all duration-150
@@ -541,7 +592,7 @@ function ClassroomView({ onClose, socket, studentLog }) {
                 );
             }
             rows.push(
-                <div key={r} className="flex gap-3">
+                <div key={vr} className="flex gap-3">
                     <div className="w-6 flex items-center justify-center text-xs text-slate-600 font-mono shrink-0">{r}</div>
                     {cols}
                 </div>
@@ -588,6 +639,13 @@ function ClassroomView({ onClose, socket, studentLog }) {
                             </button>
                         </div>
                         <button
+                            onClick={() => typeof onPodiumAtTopChange === 'function' && onPodiumAtTopChange(!podiumOnTop)}
+                            className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium transition-colors border border-slate-600"
+                            title={podiumOnTop ? '讲台在上（点击切换为下）' : '讲台在下（点击切换为上）'}
+                        >
+                            <i className="fas fa-chalkboard mr-1.5"></i>{podiumOnTop ? '讲台在上' : '讲台在下'}
+                        </button>
+                        <button
                             onClick={handleAutoImport}
                             disabled={autoImporting}
                             className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -596,30 +654,32 @@ function ClassroomView({ onClose, socket, studentLog }) {
                             <i className={`fas ${autoImporting ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'} mr-1.5`}></i>
                             自动导入
                         </button>
-                        {/* 导入文件 */}
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".csv,.txt"
-                            className="hidden"
-                            onChange={handleImportFile}
-                        />
-                        <button
-                            onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                            className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600"
-                            title="从 CSV 文件导入座位列表"
-                        >
-                            <i className="fas fa-file-import mr-1.5"></i>
-                            导入列表
-                        </button>
-                        <button
-                            onClick={handleDownloadTemplate}
-                            className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600"
-                            title="下载座位列表模板文件"
-                        >
-                            <i className="fas fa-download mr-1.5"></i>
-                            模板
-                        </button>
+                        <div className="relative" ref={moreMenuRef}>
+                            <button 
+                                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-slate-600 ${showMoreMenu ? 'bg-slate-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
+                            >
+                                <i className="fas fa-ellipsis-vertical mr-1.5"></i>更多
+                            </button>
+                            {showMoreMenu && (
+                                <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-xl shadow-xl border border-slate-700 py-2 z-50">
+                                    <input ref={fileInputRef} type="file" accept=".csv,.txt,.json" className="hidden" onChange={(e) => { handleImportFile(e); setShowMoreMenu(false); }} />
+                                    <button onClick={() => { fileInputRef.current && fileInputRef.current.click(); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
+                                        <i className="fas fa-file-import w-5 mr-2 text-center"></i>导入列表 (CSV/JSON)
+                                    </button>
+                                    <button onClick={() => { handleExportCsv(); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
+                                        <i className="fas fa-table-list w-5 mr-2 text-center"></i>导出列表 (CSV)
+                                    </button>
+                                    <button onClick={() => { handleExportJson(); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
+                                        <i className="fas fa-file-export w-5 mr-2 text-center"></i>导出布局 (JSON)
+                                    </button>
+                                    <div className="h-px bg-slate-700 my-1 mx-2"></div>
+                                    <button onClick={() => { handleDownloadTemplate(); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
+                                        <i className="fas fa-download w-5 mr-2 text-center"></i>下载 CSV 模板
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <button
                             onClick={() => setShowAddForm(v => !v)}
                             className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600"
@@ -668,13 +728,13 @@ function ClassroomView({ onClose, socket, studentLog }) {
                 </div>
 
                 {/* 讲台 */}
-                <div className="px-6 pt-4 shrink-0">
-                    <div className="flex justify-center">
-                        <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">
-                            讲台
+                {viewMode === 'grid' && podiumOnTop && (
+                    <div className="px-6 pt-4 shrink-0">
+                        <div className="flex justify-center">
+                            <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">讲台</div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* 内容区：网格 or 列表 */}
                 {viewMode === 'list' ? renderList() : (
@@ -688,6 +748,14 @@ function ClassroomView({ onClose, socket, studentLog }) {
                                 ))}
                             </div>
                             {renderGrid()}
+                        </div>
+                    </div>
+                )}
+
+                {viewMode === 'grid' && !podiumOnTop && (
+                    <div className="px-6 pb-5 shrink-0">
+                        <div className="flex justify-center">
+                            <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">讲台</div>
                         </div>
                     </div>
                 )}
@@ -937,6 +1005,8 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                     onClose={() => setShowClassroomView(false)}
                     socket={socket}
                     studentLog={studentLog}
+                    podiumAtTop={settings?.podiumAtTop}
+                    onPodiumAtTopChange={(v) => onSettingsChange && onSettingsChange('podiumAtTop', !!v)}
                 />
             )}
         </div>
@@ -1367,6 +1437,8 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                     onClose={() => setShowClassroomView(false)}
                     socket={socketRef.current}
                     studentLog={studentLog}
+                    podiumAtTop={settings?.podiumAtTop}
+                    onPodiumAtTopChange={(v) => onSettingsChange && onSettingsChange('podiumAtTop', !!v)}
                 />
             )}
 
@@ -1551,6 +1623,7 @@ function ClassroomApp() {
         forceFullscreen: true,
         syncFollow: true,
         renderScale: 0.96,
+        podiumAtTop: true,
         alertJoin: true,
         alertLeave: true,
         alertFullscreenExit: true,

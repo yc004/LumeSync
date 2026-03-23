@@ -26,7 +26,19 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     const [autoImporting, setAutoImporting] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
     const [importError, setImportError] = useState(null);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
     const fileInputRef = useRef(null);
+    const moreMenuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+                setShowMoreMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const maxRow = seats.reduce((m, s) => Math.max(m, s.row), 0);
     const maxCol = seats.reduce((m, s) => Math.max(m, s.col), 0);
@@ -467,19 +479,32 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                         <button onClick={handleAutoImport} disabled={autoImporting} className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors" title="将当前在线学生自动添加为座位">
                             <i className={`fas ${autoImporting ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'} mr-1.5`}></i>自动导入
                         </button>
-                        <button onClick={handleExportJson} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600" title="导出当前座位布局（JSON）">
-                            <i className="fas fa-file-export mr-1.5"></i>导出
-                        </button>
-                        <button onClick={handleExportCsv} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600" title="导出当前座位列表（CSV）">
-                            <i className="fas fa-table-list mr-1.5"></i>导出CSV
-                        </button>
-                        <input ref={fileInputRef} type="file" accept=".csv,.txt,.json" className="hidden" onChange={handleImportFile} />
-                        <button onClick={() => fileInputRef.current && fileInputRef.current.click()} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600" title="从 CSV 文件导入座位列表">
-                            <i className="fas fa-file-import mr-1.5"></i>导入列表
-                        </button>
-                        <button onClick={handleDownloadTemplate} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600" title="下载座位列表模板文件">
-                            <i className="fas fa-download mr-1.5"></i>模板
-                        </button>
+                        <div className="relative" ref={moreMenuRef}>
+                            <button 
+                                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-slate-600 ${showMoreMenu ? 'bg-slate-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
+                            >
+                                <i className="fas fa-ellipsis-vertical mr-1.5"></i>更多
+                            </button>
+                            {showMoreMenu && (
+                                <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-xl shadow-xl border border-slate-700 py-2 z-50">
+                                    <input ref={fileInputRef} type="file" accept=".csv,.txt,.json" className="hidden" onChange={(e) => { handleImportFile(e); setShowMoreMenu(false); }} />
+                                    <button onClick={() => { fileInputRef.current && fileInputRef.current.click(); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
+                                        <i className="fas fa-file-import w-5 mr-2 text-center"></i>导入列表 (CSV/JSON)
+                                    </button>
+                                    <button onClick={() => { handleExportCsv(); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
+                                        <i className="fas fa-table-list w-5 mr-2 text-center"></i>导出列表 (CSV)
+                                    </button>
+                                    <button onClick={() => { handleExportJson(); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
+                                        <i className="fas fa-file-export w-5 mr-2 text-center"></i>导出布局 (JSON)
+                                    </button>
+                                    <div className="h-px bg-slate-700 my-1 mx-2"></div>
+                                    <button onClick={() => { handleDownloadTemplate(); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
+                                        <i className="fas fa-download w-5 mr-2 text-center"></i>下载 CSV 模板
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <button onClick={() => setShowAddForm(v => !v)} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600">
                             <i className="fas fa-plus mr-1.5"></i>手动添加
                         </button>

@@ -227,7 +227,13 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
             )}
 
             {showClassroomView && (
-                <ClassroomView onClose={() => setShowClassroomView(false)} socket={socket} studentLog={studentLog} />
+                <ClassroomView
+                    onClose={() => setShowClassroomView(false)}
+                    socket={socket}
+                    studentLog={studentLog}
+                    podiumAtTop={settings?.podiumAtTop}
+                    onPodiumAtTopChange={(v) => onSettingsChange && onSettingsChange('podiumAtTop', !!v)}
+                />
             )}
 
             {showCourseManager && (

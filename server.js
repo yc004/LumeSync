@@ -723,6 +723,12 @@ let currentHostSettings = {
     alertTabHidden: true,
 };
 
+// 标注数据（内存缓存）：key = `${courseId}:${slideIndex}` -> segments[]
+// segment: { tool, color, width, alpha, points: [[xNorm,yNorm], ...] }
+const annotationStore = new Map();
+const ANNOTATION_MAX_SEGMENTS_PER_SLIDE = 5000;
+const getAnnoKey = (courseId, slideIndex) => `${String(courseId || '')}:${Number(slideIndex || 0)}`;
+
 // 学生操作日志（内存，最多保留 500 条）
 const studentLog = [];
 const LOG_MAX = 500;
@@ -782,11 +788,69 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 标注：拉取某页的标注数据
+    socket.on('annotation:get', (data) => {
+        const courseId = data && data.courseId ? String(data.courseId) : '';
+        const slideIndex = data && Number.isFinite(Number(data.slideIndex)) ? Number(data.slideIndex) : 0;
+        if (!courseId) return;
+        const key = getAnnoKey(courseId, slideIndex);
+        const segments = annotationStore.get(key) || [];
+        socket.emit('annotation:state', { courseId, slideIndex, segments });
+    });
+
+    // 标注：实时线段（仅老师端可发，不落库）
+    socket.on('annotation:segment', (data) => {
+        if (role !== 'host') return;
+        const courseId = data && data.courseId ? String(data.courseId) : '';
+        const slideIndex = data && Number.isFinite(Number(data.slideIndex)) ? Number(data.slideIndex) : 0;
+        const tool = data && typeof data.tool === 'string' ? data.tool : 'pen';
+        const color = data && typeof data.color === 'string' ? data.color : '#ef4444';
+        const width = data && Number.isFinite(Number(data.width)) ? Number(data.width) : 4;
+        const alpha = data && Number.isFinite(Number(data.alpha)) ? Number(data.alpha) : 1;
+        const points = data && Array.isArray(data.points) ? data.points : null;
+        if (!courseId || !points || points.length < 2) return;
+        socket.broadcast.emit('annotation:segment', { courseId, slideIndex, tool, color, width, alpha, points });
+    });
+
+    // 标注：新增一笔（仅老师端可发，落库用于翻页/重连后恢复）
+    socket.on('annotation:stroke', (data) => {
+        if (role !== 'host') return;
+        const courseId = data && data.courseId ? String(data.courseId) : '';
+        const slideIndex = data && Number.isFinite(Number(data.slideIndex)) ? Number(data.slideIndex) : 0;
+        const tool = data && typeof data.tool === 'string' ? data.tool : 'pen';
+        const color = data && typeof data.color === 'string' ? data.color : '#ef4444';
+        const width = data && Number.isFinite(Number(data.width)) ? Number(data.width) : 4;
+        const alpha = data && Number.isFinite(Number(data.alpha)) ? Number(data.alpha) : 1;
+        const points = data && Array.isArray(data.points) ? data.points : null;
+        if (!courseId || !points || points.length < 2) return;
+
+        const key = getAnnoKey(courseId, slideIndex);
+        const next = annotationStore.get(key) || [];
+        next.push({ tool, color, width, alpha, points });
+        if (next.length > ANNOTATION_MAX_SEGMENTS_PER_SLIDE) {
+            next.splice(0, next.length - ANNOTATION_MAX_SEGMENTS_PER_SLIDE);
+        }
+        annotationStore.set(key, next);
+
+        socket.broadcast.emit('annotation:stroke', { courseId, slideIndex, tool, color, width, alpha, points });
+    });
+
+    // 标注：清空某页（仅老师端可发）
+    socket.on('annotation:clear', (data) => {
+        if (role !== 'host') return;
+        const courseId = data && data.courseId ? String(data.courseId) : '';
+        const slideIndex = data && Number.isFinite(Number(data.slideIndex)) ? Number(data.slideIndex) : 0;
+        if (!courseId) return;
+        annotationStore.delete(getAnnoKey(courseId, slideIndex));
+        io.emit('annotation:clear', { courseId, slideIndex });
+    });
+
     // 课程切换（仅老师端可操作）
     socket.on('select-course', (data) => {
         if (role === 'host') {
             const course = courseCatalog.find(c => c.id === data.courseId);
             if (course) {
+                annotationStore.clear();
                 currentCourseId = data.courseId;
                 currentSlideIndex = 0;
                 console.log(`[course] switched to: ${course.title} (${course.id})`);
@@ -804,6 +868,7 @@ io.on('connection', (socket) => {
     // 结束课程（返回课程选择界面）
     socket.on('end-course', () => {
         if (role === 'host') {
+            annotationStore.clear();
             currentCourseId = null;
             currentSlideIndex = 0;
             console.log(`[course] ended, back to selector`);

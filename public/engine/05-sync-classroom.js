@@ -1,7 +1,7 @@
 // ========================================================
 // 课堂主界面组件（教师端 + 学生端共用）
 // ========================================================
-function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHost, initialSlide, settings, onSettingsChange, studentCount, studentLog }) {
+function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: initialIsHost, initialSlide, settings, onSettingsChange, studentCount, studentLog }) {
     const [currentSlide, setCurrentSlide] = useState(initialSlide || 0);
     const [isHost, setIsHost] = useState(initialIsHost || false);
     const [roleAssigned, setRoleAssigned] = useState(true);
@@ -9,6 +9,11 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     const [showLog, setShowLog] = useState(false);
     const [showClassroomView, setShowClassroomView] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [annotateEnabled, setAnnotateEnabled] = useState(false);
+    const [annotateMenuOpen, setAnnotateMenuOpen] = useState(false);
+    const [annoTool, setAnnoTool] = useState('pen'); // pen | marker | highlighter | eraser
+    const [annoWidth, setAnnoWidth] = useState(4);
+    const [annoColor, setAnnoColor] = useState('#ef4444');
 
     // 摄像头选择器状态
     const [camDevices, setCamDevices] = useState([]);
@@ -24,6 +29,14 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
         ? Math.min(Math.max(settings.uiScale, 0.8), 1.2)
         : 1.0;
 
+    const annoCanvasRef = useRef(null);
+    const annoIsDrawingRef = useRef(false);
+    const annoLastPointRef = useRef(null);
+    const annoLastSendAtRef = useRef(0);
+    const annoSegmentsRef = useRef(new Map());
+    const annoPenRef = useRef({ tool: 'pen', color: '#ef4444', width: 4, alpha: 1 });
+    const annoStrokePointsRef = useRef([]);
+
     // 注册全局回调，让 CourseGlobalContext.getCamera() 能触发此组件显示选择器
     useEffect(() => {
         window._onCamActive = (active) => {
@@ -36,6 +49,78 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     const socketRef = useRef(socket);
     const settingsRef = useRef(settings);
     useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+    const annoKey = (cid, slideIdx) => `${String(cid || '')}:${Number(slideIdx || 0)}`;
+    const colorPresets = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#0f172a', '#ffffff'];
+
+    const getAnnoBaseSize = () => {
+        const canvas = annoCanvasRef.current;
+        if (!canvas) return { w: 1280, h: 720 };
+        const rect = canvas.getBoundingClientRect();
+        const w = Math.max(1, Math.round(rect.width || 0));
+        const h = Math.max(1, Math.round(rect.height || 0));
+        if (w <= 1 || h <= 1) return { w: 1280, h: 720 };
+        return { w, h };
+    };
+
+    const prepareAnnoCanvas = () => {
+        const canvas = annoCanvasRef.current;
+        if (!canvas) return null;
+        const { w: baseW, h: baseH } = getAnnoBaseSize();
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.max(1, Math.floor(baseW * dpr));
+        const h = Math.max(1, Math.floor(baseH * dpr));
+        if (canvas.width !== w) canvas.width = w;
+        if (canvas.height !== h) canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        return ctx;
+    };
+
+    const clearAnnoCanvas = () => {
+        const ctx = prepareAnnoCanvas();
+        if (!ctx) return;
+        const { w: baseW, h: baseH } = getAnnoBaseSize();
+        ctx.clearRect(0, 0, baseW, baseH);
+    };
+
+    const drawAnnoSegment = (segment) => {
+        const ctx = prepareAnnoCanvas();
+        if (!ctx || !segment || !Array.isArray(segment.points) || segment.points.length < 2) return;
+        const { w: baseW, h: baseH } = getAnnoBaseSize();
+        const tool = segment.tool || 'pen';
+        const alpha = Number.isFinite(Number(segment.alpha)) ? Number(segment.alpha) : 1;
+        ctx.globalAlpha = alpha;
+        ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+        ctx.strokeStyle = segment.color || '#ef4444';
+        ctx.lineWidth = Number(segment.width) || 4;
+        const [p0, ...rest] = segment.points;
+        const x0 = (p0[0] || 0) * baseW;
+        const y0 = (p0[1] || 0) * baseH;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        for (const p of rest) {
+            const x = (p[0] || 0) * baseW;
+            const y = (p[1] || 0) * baseH;
+            ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+    };
+
+    const renderAnnoForCurrent = () => {
+        clearAnnoCanvas();
+        const key = annoKey(courseId, currentSlide);
+        const segments = annoSegmentsRef.current.get(key) || [];
+        for (const seg of segments) drawAnnoSegment(seg);
+    };
 
     useEffect(() => {
         if (isHost) return;
@@ -103,15 +188,82 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
             if (data.type === 'fullscreen-exit' && settingsRef.current.alertFullscreenExit) showToast(`学生退出全屏 (IP: ${ip})`, 'warning');
             else if (data.type === 'tab-hidden' && settingsRef.current.alertTabHidden) showToast(`学生切换页面 (IP: ${ip})`, 'warning');
         });
+
+        const onAnnoState = (data) => {
+            if (!data || !data.courseId) return;
+            const key = annoKey(data.courseId, data.slideIndex);
+            annoSegmentsRef.current.set(key, Array.isArray(data.segments) ? data.segments : []);
+            if (key === annoKey(courseId, currentSlide)) {
+                renderAnnoForCurrent();
+            }
+        };
+
+        const onAnnoStroke = (data) => {
+            if (!data || !data.courseId) return;
+            const key = annoKey(data.courseId, data.slideIndex);
+            const arr = annoSegmentsRef.current.get(key) || [];
+            const seg = { tool: data.tool, color: data.color, width: data.width, alpha: data.alpha, points: data.points };
+            arr.push(seg);
+            if (arr.length > 5000) arr.splice(0, arr.length - 5000);
+            annoSegmentsRef.current.set(key, arr);
+            if (key === annoKey(courseId, currentSlide)) {
+                drawAnnoSegment(seg);
+            }
+        };
+
+        const onAnnoSegment = (data) => {
+            if (!data || !data.courseId) return;
+            const key = annoKey(data.courseId, data.slideIndex);
+            if (key !== annoKey(courseId, currentSlide)) return;
+            drawAnnoSegment({ tool: data.tool, color: data.color, width: data.width, alpha: data.alpha, points: data.points });
+        };
+
+        const onAnnoClear = (data) => {
+            if (!data || !data.courseId) return;
+            const key = annoKey(data.courseId, data.slideIndex);
+            annoSegmentsRef.current.set(key, []);
+            if (key === annoKey(courseId, currentSlide)) {
+                clearAnnoCanvas();
+            }
+        };
+
+        socket.on('annotation:state', onAnnoState);
+        socket.on('annotation:segment', onAnnoSegment);
+        socket.on('annotation:stroke', onAnnoStroke);
+        socket.on('annotation:clear', onAnnoClear);
+
         return () => {
             socket.off('sync-slide');
             socket.off('student-status');
             socket.off('student-alert');
+            socket.off('annotation:state', onAnnoState);
+            socket.off('annotation:segment', onAnnoSegment);
+            socket.off('annotation:stroke', onAnnoStroke);
+            socket.off('annotation:clear', onAnnoClear);
         };
-    }, [socket, isHost]);
+    }, [socket, isHost, courseId, currentSlide]);
+
+    useEffect(() => {
+        const clampWidth = (n) => Math.min(Math.max(Number(n) || 4, 1), 30);
+        const tool = annoTool || 'pen';
+        const alpha =
+            tool === 'highlighter' ? 0.25 :
+            tool === 'marker' ? 0.6 :
+            1;
+        annoPenRef.current = { tool, color: annoColor, width: clampWidth(annoWidth), alpha };
+    }, [annoTool, annoColor, annoWidth]);
+
+    useEffect(() => {
+        prepareAnnoCanvas();
+        if (socketRef.current && courseId) {
+            socketRef.current.emit('annotation:get', { courseId, slideIndex: currentSlide });
+        }
+        renderAnnoForCurrent();
+    }, [courseId, currentSlide]);
 
     const goToSlide = (index) => {
         if (index >= 0 && index < slides.length) {
+            stopAnnoDrawing();
             // 切换页面时释放摄像头，新页面组件 mount 后会自行重新申请
             if (window.CameraManager && window.CameraManager.isActive()) {
                 window.CameraManager.release();
@@ -123,6 +275,159 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
     };
     const nextSlide = () => goToSlide(currentSlide + 1);
     const prevSlide = () => goToSlide(currentSlide - 1);
+
+    const getAnnoPoint = (evt) => {
+        const canvas = annoCanvasRef.current;
+        if (!canvas) return null;
+        const rect = canvas.getBoundingClientRect();
+        const vw = Math.max(1, rect.width || 0);
+        const vh = Math.max(1, rect.height || 0);
+        const { w: baseW, h: baseH } = getAnnoBaseSize();
+        const nx = (evt.clientX - rect.left) / vw;
+        const ny = (evt.clientY - rect.top) / vh;
+        const xn = Math.max(0, Math.min(1, nx));
+        const yn = Math.max(0, Math.min(1, ny));
+        const cx = xn * baseW;
+        const cy = yn * baseH;
+        return {
+            x: cx,
+            y: cy,
+            xn,
+            yn,
+        };
+    };
+
+    const emitAnnoSegment = (p0, p1) => {
+        if (!courseId || !socketRef.current || !isHost) return;
+        socketRef.current.emit('annotation:segment', {
+            courseId,
+            slideIndex: currentSlide,
+            tool: annoPenRef.current.tool,
+            color: annoPenRef.current.color,
+            width: annoPenRef.current.width,
+            alpha: annoPenRef.current.alpha,
+            points: [
+                [p0.xn, p0.yn],
+                [p1.xn, p1.yn],
+            ],
+        });
+    };
+
+    const handleAnnoPointerDown = (e) => {
+        if (!isHost || !annotateEnabled) return;
+        const p = getAnnoPoint(e);
+        if (!p) return;
+        annoIsDrawingRef.current = true;
+        annoLastPointRef.current = p;
+        annoLastSendAtRef.current = 0;
+        annoStrokePointsRef.current = [[p.xn, p.yn]];
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+
+        const ctx = prepareAnnoCanvas();
+        if (ctx) {
+            const tool = annoPenRef.current.tool;
+            ctx.globalAlpha = annoPenRef.current.alpha;
+            ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+            ctx.fillStyle = tool === 'eraser' ? '#000000' : annoPenRef.current.color;
+            const r = Math.max(1, (annoPenRef.current.width || 4) / 2);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+        }
+    };
+
+    const handleAnnoPointerMove = (e) => {
+        if (!annoIsDrawingRef.current) return;
+        const p = getAnnoPoint(e);
+        const last = annoLastPointRef.current;
+        if (!p || !last) return;
+
+        const ctx = prepareAnnoCanvas();
+        if (ctx) {
+            const tool = annoPenRef.current.tool;
+            ctx.globalAlpha = annoPenRef.current.alpha;
+            ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+            ctx.strokeStyle = tool === 'eraser' ? '#000000' : annoPenRef.current.color;
+            ctx.lineWidth = annoPenRef.current.width;
+            ctx.beginPath();
+            ctx.moveTo(last.x, last.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        annoStrokePointsRef.current.push([p.xn, p.yn]);
+        annoLastPointRef.current = p;
+        const now = Date.now();
+        if (now - (annoLastSendAtRef.current || 0) >= 20) {
+            annoLastSendAtRef.current = now;
+            emitAnnoSegment(last, p);
+        }
+    };
+
+    const finalizeAnnoStroke = () => {
+        if (!courseId) return;
+        const pts = annoStrokePointsRef.current || [];
+        if (pts.length < 2) return;
+        const seg = {
+            tool: annoPenRef.current.tool,
+            color: annoPenRef.current.color,
+            width: annoPenRef.current.width,
+            alpha: annoPenRef.current.alpha,
+            points: pts,
+        };
+        const key = annoKey(courseId, currentSlide);
+        const arr = annoSegmentsRef.current.get(key) || [];
+        arr.push(seg);
+        if (arr.length > 5000) arr.splice(0, arr.length - 5000);
+        annoSegmentsRef.current.set(key, arr);
+        if (socketRef.current && isHost) {
+            socketRef.current.emit('annotation:stroke', { courseId, slideIndex: currentSlide, ...seg });
+        }
+    };
+
+    const stopAnnoDrawing = () => {
+        if (annoIsDrawingRef.current) finalizeAnnoStroke();
+        annoIsDrawingRef.current = false;
+        annoLastPointRef.current = null;
+        annoStrokePointsRef.current = [];
+    };
+
+    const handleAnnoPointerUp = () => stopAnnoDrawing();
+    const handleAnnoPointerCancel = () => stopAnnoDrawing();
+
+    const toggleAnnotate = () => {
+        if (!isHost) return;
+        if (!annotateEnabled) {
+            setAnnotateEnabled(true);
+            setAnnotateMenuOpen(true);
+            return;
+        }
+        setAnnotateMenuOpen(v => !v);
+    };
+
+    useEffect(() => {
+        if (!annotateMenuOpen) return;
+        const onPointerDown = (e) => {
+            const el = e && e.target && (e.target.closest ? e.target.closest('[data-anno-menu]') : null);
+            if (!el) setAnnotateMenuOpen(false);
+        };
+        document.addEventListener('pointerdown', onPointerDown);
+        return () => document.removeEventListener('pointerdown', onPointerDown);
+    }, [annotateMenuOpen]);
+
+    const handleClearAnno = () => {
+        if (!courseId) return;
+        const key = annoKey(courseId, currentSlide);
+        annoSegmentsRef.current.set(key, []);
+        clearAnnoCanvas();
+        if (socketRef.current && isHost) {
+            socketRef.current.emit('annotation:clear', { courseId, slideIndex: currentSlide });
+        }
+    };
 
     if (!roleAssigned) {
         return (
@@ -218,10 +523,36 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                                     transformOrigin: 'top left',
                                     width: `${100 / (contentScale || 1)}%`,
                                     height: `${100 / (contentScale || 1)}%`,
+                                    position: 'relative'
                                 }}
                             >
-                                {slides[currentSlide] && slides[currentSlide].component}
+                                {/* 课件内容（基于 1280x720 设计尺寸渲染） */}
+                                <div className="absolute top-0 left-0 w-full h-full">
+                                    {slides[currentSlide] && slides[currentSlide].component}
+                                </div>
+                                {/* 标注画布：与课件内容处于同一缩放容器中，保证坐标一致 */}
+                                <canvas
+                                    ref={annoCanvasRef}
+                                    className="absolute inset-0 z-40"
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        pointerEvents: (isHost && annotateEnabled) ? 'auto' : 'none',
+                                        touchAction: 'none',
+                                        cursor: (isHost && annotateEnabled) ? (annoTool === 'eraser' ? 'cell' : 'crosshair') : 'default'
+                                    }}
+                                    onPointerDown={handleAnnoPointerDown}
+                                    onPointerMove={handleAnnoPointerMove}
+                                    onPointerUp={handleAnnoPointerUp}
+                                    onPointerCancel={handleAnnoPointerCancel}
+                                    onPointerLeave={handleAnnoPointerUp}
+                                />
                             </div>
+                            {isHost && annotateEnabled && (
+                                <div className="absolute top-3 left-3 z-50 px-3 py-1.5 rounded-xl bg-blue-600/90 text-white text-xs font-bold border border-blue-300 shadow-lg backdrop-blur-sm">
+                                    标注模式：拖动绘制
+                                </div>
+                            )}
                         </div>
 
                         {camActive && (
@@ -296,9 +627,124 @@ function SyncClassroom({ title, slides, onEndCourse, socket, isHost: initialIsHo
                         <button onClick={prevSlide} disabled={currentSlide === 0} className={`flex items-center px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all ${currentSlide === 0 ? 'text-slate-400 bg-slate-100 cursor-not-allowed' : 'text-white bg-blue-500 hover:bg-blue-600 shadow-md hover:-translate-x-1'}`}>
                             <i className="fas fa-chevron-left mr-2"></i>上一页
                         </button>
-                        <span className="text-slate-500 font-bold text-base md:text-lg tracking-widest bg-slate-100 px-4 md:px-6 py-1 md:py-2 rounded-full shadow-inner border border-slate-200">
-                            {currentSlide + 1} / {slides.length}
-                        </span>
+                        <div className="flex items-center gap-3 relative" data-anno-menu>
+                            <span className="text-slate-500 font-bold text-base md:text-lg tracking-widest bg-slate-100 px-4 md:px-6 py-1 md:py-2 rounded-full shadow-inner border border-slate-200">
+                                {currentSlide + 1} / {slides.length}
+                            </span>
+                            <button
+                                onClick={toggleAnnotate}
+                                className={`flex items-center px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all border ${
+                                    annotateEnabled ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                                title="绘制"
+                            >
+                                <i className="fas fa-pen mr-2"></i>绘制
+                            </button>
+
+                            {annotateMenuOpen && (
+                                <div className="absolute bottom-[64px] left-1/2 -translate-x-1/2 w-[360px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-[9999]">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="font-bold text-slate-800 flex items-center">
+                                            <i className="fas fa-swatchbook mr-2 text-blue-600"></i>绘制工具
+                                        </div>
+                                        <button
+                                            onClick={() => setAnnotateMenuOpen(false)}
+                                            className="text-slate-400 hover:text-slate-600"
+                                            title="关闭"
+                                        >
+                                            <i className="fas fa-xmark text-lg"></i>
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-4 gap-2 mb-4">
+                                        {[
+                                            { key: 'pen', label: '钢笔', icon: 'fa-pen' },
+                                            { key: 'marker', label: '记号笔', icon: 'fa-marker' },
+                                            { key: 'highlighter', label: '荧光笔', icon: 'fa-highlighter' },
+                                            { key: 'eraser', label: '橡皮', icon: 'fa-eraser' },
+                                        ].map(t => (
+                                            <button
+                                                key={t.key}
+                                                onClick={() => { setAnnoTool(t.key); if (!annotateEnabled) setAnnotateEnabled(true); }}
+                                                className={`px-2 py-2 rounded-xl border font-bold text-sm transition-colors flex flex-col items-center justify-center ${
+                                                    annoTool === t.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                                }`}
+                                                title={t.label}
+                                            >
+                                                <i className={`fas ${t.icon} mb-1`}></i>
+                                                <span className="text-[11px]">{t.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="mb-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-slate-600 font-bold text-sm">粗细</span>
+                                            <span className="text-slate-500 font-mono text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg">{annoWidth}px</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="2"
+                                            max="20"
+                                            value={annoWidth}
+                                            onChange={(e) => setAnnoWidth(Number(e.target.value))}
+                                            className="w-full"
+                                        />
+                                    </div>
+
+                                    <div className="mb-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-slate-600 font-bold text-sm">颜色</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-5 h-5 rounded-full border border-slate-200" style={{ background: annoColor }} />
+                                                <input
+                                                    type="color"
+                                                    value={annoColor}
+                                                    disabled={annoTool === 'eraser'}
+                                                    onChange={(e) => setAnnoColor(e.target.value)}
+                                                    className={`w-10 h-7 p-0 border-0 bg-transparent ${annoTool === 'eraser' ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                                    title="选择颜色"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {colorPresets.map(c => (
+                                                <button
+                                                    key={c}
+                                                    onClick={() => setAnnoColor(c)}
+                                                    disabled={annoTool === 'eraser'}
+                                                    className={`w-7 h-7 rounded-full border transition-all ${
+                                                        annoTool === 'eraser'
+                                                            ? 'opacity-40 cursor-not-allowed border-slate-200'
+                                                            : (annoColor.toLowerCase() === c.toLowerCase() ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-200 hover:border-slate-300')
+                                                    }`}
+                                                    style={{ background: c }}
+                                                    title={c}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={handleClearAnno}
+                                            disabled={!courseId}
+                                            className={`flex-1 px-4 py-2 rounded-xl font-bold border transition-colors ${
+                                                !courseId ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                            }`}
+                                        >
+                                            <i className="fas fa-trash-can mr-2"></i>清空本页
+                                        </button>
+                                        <button
+                                            onClick={() => { stopAnnoDrawing(); setAnnotateEnabled(false); setAnnotateMenuOpen(false); }}
+                                            className="px-4 py-2 rounded-xl font-bold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
+                                        >
+                                            退出
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         <button onClick={nextSlide} disabled={currentSlide === slides.length - 1} className={`flex items-center px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all ${currentSlide === slides.length - 1 ? 'text-slate-400 bg-slate-100 cursor-not-allowed' : 'text-white bg-blue-500 hover:bg-blue-600 shadow-md hover:translate-x-1'}`}>
                             下一页<i className="fas fa-chevron-right ml-2"></i>
                         </button>

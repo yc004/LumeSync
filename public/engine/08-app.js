@@ -636,6 +636,7 @@ function ClassroomApp() {
 
     return (
         <SyncClassroom
+            courseId={currentCourseId}
             title={currentCourseData.title}
             slides={currentCourseData.slides}
             onEndCourse={isHost ? handleEndCourse : null}

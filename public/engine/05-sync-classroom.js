@@ -586,6 +586,9 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                     onPointerCancel={handleAnnoPointerCancel}
                                     onPointerLeave={handleAnnoPointerUp}
                                 />
+                                {!isHost && settings && settings.allowInteract === false && (
+                                    <div className="absolute inset-0 z-50" style={{ pointerEvents: 'auto', background: 'transparent' }} title="老师已暂时关闭页面交互"></div>
+                                )}
                             </div>
                             {isHost && annotateEnabled && (
                                 <div className="absolute top-3 left-3 z-50 px-3 py-1.5 rounded-xl bg-blue-600/90 text-white text-xs font-bold border border-blue-300 shadow-lg backdrop-blur-sm">
@@ -678,6 +681,18 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 title="绘制"
                             >
                                 <i className="fas fa-pen mr-2"></i>绘制
+                            </button>
+                            <button
+                                onClick={() => onSettingsChange && onSettingsChange('allowInteract', !(settings && settings.allowInteract === false))}
+                                className={`flex items-center px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all border ${
+                                    (settings && settings.allowInteract === false)
+                                        ? 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                        : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-500'
+                                }`}
+                                title={(settings && settings.allowInteract === false) ? '学生交互已禁用（点击开启）' : '学生可交互（点击关闭）'}
+                            >
+                                <i className={`fas ${(settings && settings.allowInteract === false) ? 'fa-ban' : 'fa-hand-pointer'} mr-2`}></i>
+                                {(settings && settings.allowInteract === false) ? '禁止交互' : '允许交互'}
                             </button>
 
                             {annotateMenuOpen && (
@@ -860,7 +875,12 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             )}
 
             {isHost && showClassroomView && (
-                <ClassroomView onClose={() => setShowClassroomView(false)} socket={socketRef.current} studentLog={studentLog} />
+                <ClassroomView
+                    onClose={() => setShowClassroomView(false)}
+                    socket={socketRef.current}
+                    studentLog={studentLog}
+                    podiumAtTop={settings && settings.podiumAtTop}
+                />
             )}
 
             <div className="fixed top-24 right-6 z-50 flex flex-col space-y-3 pointer-events-none">

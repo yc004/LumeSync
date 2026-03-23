@@ -121,6 +121,8 @@ function ClassroomApp() {
     const DEFAULT_SETTINGS = {
         forceFullscreen: true,
         syncFollow: true,
+        allowInteract: true,
+        podiumAtTop: true,
         renderScale: 0.96,
         uiScale: 1.0,
         alertJoin: true,

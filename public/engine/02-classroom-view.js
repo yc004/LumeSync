@@ -3,8 +3,9 @@
 // 功能：显示所有学生座位，支持命名、拖拽排列、在线状态
 // 布局和命名持久化到 localStorage
 // ========================================================
-function ClassroomView({ onClose, socket, studentLog }) {
+function ClassroomView({ onClose, socket, studentLog, podiumAtTop }) {
     const STORAGE_KEY = 'classroom-layout-v1';
+    const podiumOnTop = typeof podiumAtTop === 'boolean' ? podiumAtTop : true;
 
     const [seats, setSeats] = useState(() => {
         try {
@@ -38,6 +39,13 @@ function ClassroomView({ onClose, socket, studentLog }) {
     };
 
     const normalizeIp = ip => ip && ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+    const handleClose = () => {
+        if (editingId) {
+            saveSeats(seats.map(s => s.id === editingId ? { ...s, name: editName } : s));
+            setEditingId(null);
+        }
+        if (onClose) onClose();
+    };
 
     const fetchOnline = () => {
         fetch('/api/students').then(r => r.json()).then(d => {
@@ -132,7 +140,37 @@ function ClassroomView({ onClose, socket, studentLog }) {
         setImportError(null);
         const reader = new FileReader();
         reader.onload = (ev) => {
-            const text = ev.target.result;
+            const text = String(ev.target.result || '');
+            const trimmedText = text.trim();
+            const isJson = String(file.name || '').toLowerCase().endsWith('.json')
+                || trimmedText.startsWith('{')
+                || trimmedText.startsWith('[');
+            if (isJson) {
+                try {
+                    const parsed = JSON.parse(trimmedText || '{}');
+                    const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.seats) ? parsed.seats : []);
+                    const normalized = list
+                        .map((s, idx) => {
+                            const ip = normalizeIp(s && s.ip ? String(s.ip).trim() : '');
+                            const name = s && s.name ? String(s.name) : '';
+                            const row = s && Number.isFinite(Number(s.row)) ? Math.max(1, Number(s.row)) : null;
+                            const col = s && Number.isFinite(Number(s.col)) ? Math.max(1, Number(s.col)) : null;
+                            if (!ip || !row || !col) return null;
+                            const id = s && s.id ? String(s.id) : `seat-${Date.now()}-${ip}-${idx}`;
+                            return { id, ip, name, row, col };
+                        })
+                        .filter(Boolean);
+                    if (normalized.length === 0) {
+                        setImportError('JSON 文件中未找到有效座位数据');
+                        return;
+                    }
+                    saveSeats(normalized);
+                    return;
+                } catch (_) {
+                    setImportError('JSON 解析失败，请确认文件格式正确');
+                    return;
+                }
+            }
             const lines = text.split(/\r?\n/);
             const imported = [];
             const errors = [];
@@ -175,6 +213,41 @@ function ClassroomView({ onClose, socket, studentLog }) {
         };
         reader.readAsText(file, 'utf-8');
         e.target.value = '';
+    };
+
+    const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+    const getStamp = () => {
+        const d = new Date();
+        const p2 = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+    };
+    const handleExportJson = () => {
+        const payload = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            podiumAtTop: podiumOnTop,
+            seats: seats.map(s => ({ ip: s.ip, name: s.name || '', row: s.row, col: s.col }))
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+        downloadBlob(blob, `classroom-layout-${getStamp()}.json`);
+    };
+    const handleExportCsv = () => {
+        const content = [
+            '# 机房座位列表',
+            '# 格式：ip,名称,行,列',
+            ...[...seats]
+                .sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col)
+                .map(s => `${s.ip},${String(s.name || '').replace(/,/g, ' ')},${s.row},${s.col}`)
+        ].join('\n');
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        downloadBlob(blob, `classroom-seats-${getStamp()}.csv`);
     };
 
     const handleAddSeat = () => {
@@ -330,14 +403,17 @@ function ClassroomView({ onClose, socket, studentLog }) {
 
     const renderGrid = () => {
         const rows = [];
-        for (let r = 1; r <= gridRows + 1; r++) {
+        const rowCount = gridRows + 1;
+        const colCount = gridCols + 1;
+        for (let vr = 1; vr <= rowCount; vr++) {
+            const r = podiumOnTop ? vr : (rowCount - vr + 1);
             const cols = [];
-            for (let c = 1; c <= gridCols + 1; c++) {
+            for (let c = 1; c <= colCount; c++) {
                 const seat = seats.find(s => s.row === r && s.col === c);
                 const isOver = dragOver && dragOver.row === r && dragOver.col === c;
                 cols.push(
                     <div
-                        key={`${r}-${c}`}
+                        key={`${vr}-${c}`}
                         onDragOver={e => handleDragOverCell(e, r, c)}
                         onDrop={e => handleDropCell(e, r, c)}
                         className={`min-w-[100px] min-h-[90px] rounded-xl transition-all duration-150
@@ -349,7 +425,7 @@ function ClassroomView({ onClose, socket, studentLog }) {
                 );
             }
             rows.push(
-                <div key={r} className="flex gap-3">
+                <div key={vr} className="flex gap-3">
                     <div className="w-6 flex items-center justify-center text-xs text-slate-600 font-mono shrink-0">{r}</div>
                     {cols}
                 </div>
@@ -359,7 +435,7 @@ function ClassroomView({ onClose, socket, studentLog }) {
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center" onClick={onClose}>
+        <div className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center" onClick={handleClose}>
             <div
                 className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col overflow-hidden"
                 style={{ width: '90vw', maxWidth: 1100, height: '85vh' }}
@@ -381,7 +457,13 @@ function ClassroomView({ onClose, socket, studentLog }) {
                         <button onClick={handleAutoImport} disabled={autoImporting} className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors" title="将当前在线学生自动添加为座位">
                             <i className={`fas ${autoImporting ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'} mr-1.5`}></i>自动导入
                         </button>
-                        <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportFile} />
+                        <button onClick={handleExportJson} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600" title="导出当前座位布局（JSON）">
+                            <i className="fas fa-file-export mr-1.5"></i>导出
+                        </button>
+                        <button onClick={handleExportCsv} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600" title="导出当前座位列表（CSV）">
+                            <i className="fas fa-table-list mr-1.5"></i>导出CSV
+                        </button>
+                        <input ref={fileInputRef} type="file" accept=".csv,.txt,.json" className="hidden" onChange={handleImportFile} />
                         <button onClick={() => fileInputRef.current && fileInputRef.current.click()} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600" title="从 CSV 文件导入座位列表">
                             <i className="fas fa-file-import mr-1.5"></i>导入列表
                         </button>
@@ -391,7 +473,7 @@ function ClassroomView({ onClose, socket, studentLog }) {
                         <button onClick={() => setShowAddForm(v => !v)} className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-600">
                             <i className="fas fa-plus mr-1.5"></i>手动添加
                         </button>
-                        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                        <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
                             <i className="fas fa-xmark text-lg"></i>
                         </button>
                     </div>
@@ -426,11 +508,13 @@ function ClassroomView({ onClose, socket, studentLog }) {
                     <span className="ml-auto text-slate-600">拖拽座位可调整位置 · 双击名称可编辑</span>
                 </div>
 
-                <div className="px-6 pt-4 shrink-0">
-                    <div className="flex justify-center">
-                        <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">讲台</div>
+                {viewMode === 'grid' && podiumOnTop && (
+                    <div className="px-6 pt-4 shrink-0">
+                        <div className="flex justify-center">
+                            <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">讲台</div>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {viewMode === 'list' ? renderList() : (
                     <div className="flex-1 overflow-auto p-6">
@@ -442,6 +526,14 @@ function ClassroomView({ onClose, socket, studentLog }) {
                                 ))}
                             </div>
                             {renderGrid()}
+                        </div>
+                    </div>
+                )}
+
+                {viewMode === 'grid' && !podiumOnTop && (
+                    <div className="px-6 pb-5 shrink-0">
+                        <div className="flex justify-center">
+                            <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">讲台</div>
                         </div>
                     </div>
                 )}

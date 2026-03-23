@@ -3,6 +3,19 @@
 // ========================================================
 const { useState, useEffect, useRef } = React;
 
+if (!window.__LumeSyncDevtoolsHotkeyBound) {
+    window.__LumeSyncDevtoolsHotkeyBound = true;
+    window.addEventListener('keydown', (e) => {
+        const key = String(e.key || '').toLowerCase();
+        if (key !== 'd') return;
+        const mod = e.ctrlKey || e.metaKey;
+        if (!mod || !e.shiftKey) return;
+        if (!window.electronAPI || typeof window.electronAPI.toggleDevTools !== 'function') return;
+        e.preventDefault();
+        try { window.electronAPI.toggleDevTools(); } catch (_) {}
+    }, true);
+}
+
 window.__LumeSyncCanvas = window.__LumeSyncCanvas || (() => {
     const n = (v) => {
         const x = parseFloat(String(v ?? '0'));
@@ -90,3 +103,7 @@ window.__LumeSyncCanvas = window.__LumeSyncCanvas || (() => {
 
     return { getCanvasPoint, getHiDpiContext2d, useCanvasDims };
 })();
+
+if (window.CourseGlobalContext) {
+    window.CourseGlobalContext.canvas = window.__LumeSyncCanvas;
+}

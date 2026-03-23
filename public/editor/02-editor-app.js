@@ -3,10 +3,10 @@
 // ========================================================
 
 // 简化的预览组件，用于编辑器中预览课件
-function SimplePreview({ title, slides, contentScale = 0.96 }) {
+function SimplePreview({ title, slides, contentScale = 0.96, uiScale = 1.0 }) {
     const [currentSlide, setCurrentSlide] = useState(0);
-    const containerRef = useRef(null);
-    const [scale, setScale] = useState(1);
+    const stageWrapRef = useRef(null);
+    const [stageScale, setStageScale] = useState(1);
 
     const nextSlide = () => {
         if (currentSlide < slides.length - 1) setCurrentSlide(currentSlide + 1);
@@ -19,29 +19,19 @@ function SimplePreview({ title, slides, contentScale = 0.96 }) {
     // 实现自适应缩放以保持 16:9
     useEffect(() => {
         const updateScale = () => {
-            if (!containerRef.current) return;
-            const parent = containerRef.current.parentElement;
-            if (!parent) return;
-
-            const padding = 32; // 容器内边距
-            const availableWidth = parent.clientWidth - padding;
-            const availableHeight = parent.clientHeight - padding;
-
-            // 16:9 的标准尺寸
+            if (!stageWrapRef.current) return;
+            const availableWidth = stageWrapRef.current.clientWidth - 24;
+            const availableHeight = stageWrapRef.current.clientHeight - 24;
             const baseWidth = 1280;
             const baseHeight = 720;
-
             const scaleW = availableWidth / baseWidth;
             const scaleH = availableHeight / baseHeight;
-            const newScale = Math.min(scaleW, scaleH, 1); // 不放大，只缩小
-
-            setScale(newScale);
+            const nextScale = Math.max(Math.min(scaleW, scaleH, 0.96), 0.1);
+            setStageScale(nextScale);
         };
 
         const resizeObserver = new ResizeObserver(updateScale);
-        if (containerRef.current?.parentElement) {
-            resizeObserver.observe(containerRef.current.parentElement);
-        }
+        if (stageWrapRef.current) resizeObserver.observe(stageWrapRef.current);
         updateScale();
 
         return () => resizeObserver.disconnect();
@@ -66,20 +56,29 @@ function SimplePreview({ title, slides, contentScale = 0.96 }) {
 
             {/* 课件展示区 - 强制 16:9 */}
             <div className="flex-1 relative flex items-center justify-center p-4 overflow-hidden bg-slate-950">
-                <div 
-                    ref={containerRef}
-                    style={{ 
-                        width: '1280px', 
-                        height: '720px', 
-                        transform: `scale(${scale})`,
-                        transformOrigin: 'center center',
-                        transition: 'transform 0.2s ease-out'
-                    }}
-                    className="bg-white text-slate-800 relative shadow-2xl flex flex-col rounded-xl overflow-y-auto no-scrollbar shrink-0"
-                >
-                    <div className="w-full h-full flex items-center justify-center">
-                        <div className="w-full h-full" style={{ zoom: contentScale }}>
-                            {slides[currentSlide] && slides[currentSlide].component}
+                <div ref={stageWrapRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+                    <div
+                        style={{
+                            width: '1280px',
+                            height: '720px',
+                            transform: `scale(${stageScale * uiScale})`,
+                            transformOrigin: 'center center',
+                            transition: 'transform 0.2s ease-out'
+                        }}
+                        className="bg-white text-slate-800 relative shadow-2xl flex flex-col rounded-xl overflow-y-auto no-scrollbar shrink-0"
+                    >
+                        <div className="w-full h-full relative overflow-hidden">
+                            <div
+                                className="absolute top-0 left-0"
+                                style={{
+                                    transform: `scale(${contentScale})`,
+                                    transformOrigin: 'top left',
+                                    width: `${100 / (contentScale || 1)}%`,
+                                    height: `${100 / (contentScale || 1)}%`,
+                                }}
+                            >
+                                {slides[currentSlide] && slides[currentSlide].component}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -197,6 +196,7 @@ window.CourseData = {
     const [currentFilePath, setCurrentFilePath] = useState('');
     const [currentFileName, setCurrentFileName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [uiScale, setUiScale] = useState(1.0);
     const [renderScale, setRenderScale] = useState(0.96);
     const [showScalePanel, setShowScalePanel] = useState(false);
     const fileInputRef = useRef(null);
@@ -204,6 +204,7 @@ window.CourseData = {
     const lineNumbersRef = useRef(null);
     const aiChatRef = useRef(null);
     const autoScrollRef = useRef(true);
+    const compileTokenRef = useRef(0);
 
     const showToast = (message, type = 'info') => {
         const id = Date.now() + Math.random();
@@ -228,6 +229,22 @@ window.CourseData = {
             localStorage.setItem('lumesync.editor.renderScale', String(renderScale));
         } catch (_) {}
     }, [renderScale]);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('lumesync.editor.uiScale');
+            const value = Number(raw);
+            if (Number.isFinite(value)) {
+                setUiScale(Math.min(Math.max(value, 0.8), 1.2));
+            }
+        } catch (_) {}
+    }, []);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('lumesync.editor.uiScale', String(uiScale));
+        } catch (_) {}
+    }, [uiScale]);
 
     const handleAutoFix = () => {
         if (aiChatRef.current) {
@@ -280,7 +297,84 @@ window.CourseData = {
         return defaultFilename;
     };
 
-    const runCode = (sourceCode) => {
+    const normalizeLocalUrl = (u) => {
+        const url = String(u || '').trim();
+        if (!url) return '';
+        if (location.protocol === 'file:' && url.startsWith('/')) return url.slice(1);
+        return url;
+    };
+
+    const loadScriptWithFallback = (localSrc, publicSrc) => {
+        const local = normalizeLocalUrl(localSrc);
+        const pub = String(publicSrc || '').trim();
+        if (local && document.querySelector(`script[src="${local}"]`)) return Promise.resolve(true);
+        if (pub && document.querySelector(`script[src="${pub}"]`)) return Promise.resolve(true);
+
+        return new Promise((resolve) => {
+            const tryPublic = () => {
+                if (!pub || document.querySelector(`script[src="${pub}"]`)) return resolve(!!pub);
+                const s2 = document.createElement('script');
+                s2.src = pub;
+                s2.onload = () => resolve(true);
+                s2.onerror = () => resolve(false);
+                document.head.appendChild(s2);
+            };
+
+            if (!local) return tryPublic();
+            const s1 = document.createElement('script');
+            s1.src = local;
+            s1.onload = () => resolve(true);
+            s1.onerror = () => tryPublic();
+            document.head.appendChild(s1);
+        });
+    };
+
+    const loadCssWithFallback = (id, localHref, publicHref) => {
+        const local = normalizeLocalUrl(localHref);
+        const pub = String(publicHref || '').trim();
+        if (id && document.getElementById(id)) return Promise.resolve(true);
+
+        return new Promise((resolve) => {
+            const tryPublic = () => {
+                if (!pub) return resolve(false);
+                const link2 = document.createElement('link');
+                if (id) link2.id = id;
+                link2.rel = 'stylesheet';
+                link2.href = pub;
+                link2.onload = () => resolve(true);
+                link2.onerror = () => resolve(false);
+                document.head.appendChild(link2);
+            };
+
+            if (!local) return tryPublic();
+            const link1 = document.createElement('link');
+            if (id) link1.id = id;
+            link1.rel = 'stylesheet';
+            link1.href = local;
+            link1.onload = () => resolve(true);
+            link1.onerror = () => tryPublic();
+            document.head.appendChild(link1);
+        });
+    };
+
+    const ensureDependencies = async (courseData) => {
+        const deps = Array.isArray(courseData?.dependencies) ? courseData.dependencies : [];
+        if (!deps.length) return;
+        const hasKatex = deps.some(d => String(d?.name || '').toLowerCase().includes('katex') || String(d?.localSrc || '').includes('katex.min.js') || String(d?.publicSrc || '').includes('katex.min.js'));
+        if (hasKatex) {
+            const katexDep = deps.find(d => String(d?.localSrc || '').includes('katex.min.js') || String(d?.publicSrc || '').includes('katex.min.js'));
+            const pubJs = String(katexDep?.publicSrc || '').trim();
+            const pubCssRaw = pubJs ? pubJs.replace(/katex\.min\.js(\?.*)?$/i, 'katex.min.css') : 'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
+            const pubCss = pubCssRaw.replace('cdn.jsdelivr.net', 'fastly.jsdelivr.net');
+            await loadCssWithFallback('lumesync-katex-css', '/lib/katex.min.css', pubCss);
+        }
+        for (const dep of deps) {
+            await loadScriptWithFallback(dep?.localSrc, dep?.publicSrc);
+        }
+    };
+
+    const runCode = async (sourceCode) => {
+        const token = ++compileTokenRef.current;
         setIsCompiling(true);
         setCompileError(null);
         
@@ -300,6 +394,8 @@ window.CourseData = {
 
             // 获取结果
             if (window.CourseData) {
+                await ensureDependencies(window.CourseData);
+                if (token !== compileTokenRef.current) return;
                 setCompiledCourseData(window.CourseData);
             } else {
                 setCompileError(new Error("代码执行成功，但没有找到 window.CourseData 导出"));
@@ -308,7 +404,7 @@ window.CourseData = {
             setCompileError(err);
             setCompiledCourseData(null);
         } finally {
-            setIsCompiling(false);
+            if (token === compileTokenRef.current) setIsCompiling(false);
         }
     };
 
@@ -437,6 +533,7 @@ window.CourseData = {
         await handleExport();
     };
 
+    const clampedUiScale = Math.min(Math.max(uiScale, 0.8), 1.2);
     const clampedRenderScale = Math.min(Math.max(renderScale, 0.6), 1.2);
 
     return (
@@ -473,15 +570,15 @@ window.CourseData = {
                             <button
                                 onClick={() => setShowScalePanel(v => !v)}
                                 className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-bold flex items-center shadow-md"
-                                title="课件内容缩放"
+                                title="缩放设置"
                             >
                                 <i className="fas fa-up-down-left-right mr-2"></i>
-                                {Math.round(clampedRenderScale * 100)}%
+                                {Math.round(clampedUiScale * 100)}% / {Math.round(clampedRenderScale * 100)}%
                             </button>
                             {showScalePanel && (
                                 <div className="absolute right-0 mt-2 w-72 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-4 z-50">
                                     <div className="flex items-center justify-between mb-3">
-                                        <span className="text-sm font-bold text-white">课件内容缩放</span>
+                                        <span className="text-sm font-bold text-white">缩放设置</span>
                                         <button
                                             onClick={() => setShowScalePanel(false)}
                                             className="text-slate-400 hover:text-slate-200"
@@ -490,9 +587,39 @@ window.CourseData = {
                                             <i className="fas fa-xmark"></i>
                                         </button>
                                     </div>
+                                    <div className="border border-slate-700 rounded-lg p-3 mb-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs text-slate-400 font-bold">课件页面缩放</span>
+                                            <span className="text-sm font-mono text-slate-200">{Math.round(clampedUiScale * 100)}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs text-slate-400">80%</span>
+                                            <span className="text-xs text-slate-400">120%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0.8"
+                                            max="1.2"
+                                            step="0.01"
+                                            value={clampedUiScale}
+                                            onChange={e => setUiScale(Number(e.target.value))}
+                                            className="w-full"
+                                        />
+                                        <div className="flex justify-end mt-3">
+                                            <button
+                                                onClick={() => setUiScale(1.0)}
+                                                className="text-xs text-blue-400 hover:text-blue-300 font-bold"
+                                            >
+                                                恢复默认
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs text-slate-400 font-bold">课件内容缩放</span>
+                                        <span className="text-sm font-mono text-slate-200">{Math.round(clampedRenderScale * 100)}%</span>
+                                    </div>
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-xs text-slate-400">60%</span>
-                                        <span className="text-sm font-mono text-slate-200">{Math.round(clampedRenderScale * 100)}%</span>
                                         <span className="text-xs text-slate-400">120%</span>
                                     </div>
                                     <input
@@ -510,6 +637,21 @@ window.CourseData = {
                                             className="text-xs text-blue-400 hover:text-blue-300 font-bold"
                                         >
                                             恢复默认
+                                        </button>
+                                    </div>
+                                    <div className="border-t border-slate-700 mt-4 pt-3">
+                                        <button
+                                            onClick={() => {
+                                                try {
+                                                    if (window.electronAPI && typeof window.electronAPI.toggleDevTools === 'function') {
+                                                        window.electronAPI.toggleDevTools();
+                                                    }
+                                                } catch (_) {}
+                                            }}
+                                            className="w-full py-2 px-3 text-sm font-bold text-slate-100 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <i className="fas fa-bug"></i>
+                                            打开调试面板
                                         </button>
                                     </div>
                                 </div>
@@ -593,6 +735,7 @@ window.CourseData = {
                             <SimplePreview 
                                 title={compiledCourseData.title}
                                 slides={compiledCourseData.slides}
+                                uiScale={clampedUiScale}
                                 contentScale={clampedRenderScale}
                             />
                         ) : (

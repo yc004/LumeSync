@@ -2,7 +2,7 @@
 // 教师端主进程
 // 职责：启动 server.js，打开教师端浏览器窗口
 // ========================================================
-const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain, session } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain, session, globalShortcut } = require('electron');
 const path = require('path');
 const { fork, spawnSync } = require('child_process');
 const { loadSettings, saveSettings } = require('./config.js');
@@ -301,6 +301,9 @@ function createTray() {
 app.whenReady().then(async () => {
     logger.info('APP', 'Application ready');
 
+    // 清除应用缓存，避免加载到以前下载失败/损坏的资源（如被缓存的 404 字体）
+    await session.defaultSession.clearCache();
+
     // Allow camera/microphone access for course interactions
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
         const allowed = ['media', 'camera', 'microphone', 'display-capture', 'videoCapture', 'audioCapture'];
@@ -315,6 +318,23 @@ app.whenReady().then(async () => {
     if (!ok) return;
     createWindow();
     createTray();
+
+    if (globalShortcut) {
+        const accelerator = 'CommandOrControl+Shift+D';
+        const ok = globalShortcut.register(accelerator, () => {
+            const win = BrowserWindow.getFocusedWindow() || mainWindow;
+            if (!win) return;
+            try {
+                if (win.webContents.isDevToolsOpened()) win.webContents.closeDevTools();
+                else win.webContents.openDevTools({ mode: 'detach' });
+            } catch (_) {}
+        });
+        logger.info('APP', 'Debug shortcut registered', { accelerator, ok: !!ok });
+    }
+});
+
+app.on('will-quit', () => {
+    try { globalShortcut && globalShortcut.unregisterAll(); } catch (_) {}
 });
 
 // IPC: 读取/保存教师端设置
@@ -332,6 +352,15 @@ ipcMain.handle('open-log-dir', () => {
 ipcMain.on('toggle-fullscreen', () => {
     if (!mainWindow) return;
     mainWindow.setFullScreen(!mainWindow.isFullScreen());
+});
+
+ipcMain.on('toggle-devtools', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (!win) return;
+    try {
+        if (win.webContents.isDevToolsOpened()) win.webContents.closeDevTools();
+        else win.webContents.openDevTools({ mode: 'detach' });
+    } catch (_) {}
 });
 
 // IPC: 窗口控制

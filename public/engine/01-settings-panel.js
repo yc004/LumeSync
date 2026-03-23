@@ -32,6 +32,18 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
         }
     };
 
+    const handleToggleDevTools = () => {
+        try {
+            if (window.electronAPI && typeof window.electronAPI.toggleDevTools === 'function') {
+                window.electronAPI.toggleDevTools();
+            } else {
+                alert('当前环境不支持打开调试面板');
+            }
+        } catch (_) {
+            alert('无法打开调试面板');
+        }
+    };
+
     return (
         <div className={`fixed inset-0 ${zIndex} flex justify-end`} onClick={onClose}>
             <div
@@ -175,6 +187,13 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
                             <i className="fas fa-file-alt w-4 mr-2 text-slate-400"></i>
                             系统日志
                         </p>
+                        <button
+                            onClick={handleToggleDevTools}
+                            className="w-full py-2 px-3 text-sm font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-2 mb-2"
+                        >
+                            <i className="fas fa-bug text-slate-500"></i>
+                            打开调试面板
+                        </button>
                         <button
                             onClick={handleOpenLogDir}
                             className="w-full py-2 px-3 text-sm font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-2"

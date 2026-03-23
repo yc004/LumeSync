@@ -13,6 +13,7 @@
     "build/icon-editor.ico",
     "assets/**",
     "public/**",
+    "server.js",
     "node_modules/**",
     "package.json"
   ],

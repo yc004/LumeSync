@@ -114,27 +114,56 @@ let currentCourseId = null;
 let currentSlideIndex = 0;
 let courseCatalog = scanCourses();
 
+const cacheRoot = process.env.LUMESYNC_CACHE_DIR
+    ? path.resolve(process.env.LUMESYNC_CACHE_DIR)
+    : path.join(__dirname, 'public');
+const libDir = process.env.LUMESYNC_LIB_DIR
+    ? path.resolve(process.env.LUMESYNC_LIB_DIR)
+    : path.join(cacheRoot, 'lib');
+const weightsDir = process.env.LUMESYNC_WEIGHTS_DIR
+    ? path.resolve(process.env.LUMESYNC_WEIGHTS_DIR)
+    : path.join(cacheRoot, 'weights');
+const imagesDir = process.env.LUMESYNC_IMAGES_DIR
+    ? path.resolve(process.env.LUMESYNC_IMAGES_DIR)
+    : path.join(cacheRoot, 'images');
+const webfontsDir = process.env.LUMESYNC_WEBFONTS_DIR
+    ? path.resolve(process.env.LUMESYNC_WEBFONTS_DIR)
+    : path.join(cacheRoot, 'webfonts');
+
 // ========================================================
 // 1. 静态文件托管 (如果在本地硬盘找到了，直接极速返回！)
 // ========================================================
-// 对 /lib/ 和 /weights/ 使用自定义处理，让不存在的文件进入缓存代理
-app.use('/lib', (req, res, next) => {
-    const filePath = path.join(__dirname, 'public', 'lib', req.path);
-    if (fs.existsSync(filePath)) {
-        // 文件存在，直接返回，添加缓存控制头防止浏览器缓存错误版本
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        return res.sendFile(filePath);
-    }
-    // 文件不存在，进入缓存代理
-    next();
-});
 
-app.use('/weights', (req, res, next) => {
-    const filePath = path.join(__dirname, 'public', 'weights', req.path);
-    if (fs.existsSync(filePath)) {
-        return res.sendFile(filePath);
+const isValidFontFile = (p) => {
+    try {
+        const st = fs.statSync(p);
+        if (!st.isFile() || st.size < 1024) return false;
+        const fd = fs.openSync(p, 'r');
+        const buf = Buffer.alloc(4);
+        fs.readSync(fd, buf, 0, 4, 0);
+        fs.closeSync(fd);
+        const sig = buf.toString('ascii');
+        if (sig === 'wOFF' || sig === 'wOF2' || sig === 'OTTO' || sig === 'ttcf') return true;
+        return buf[0] === 0x00 && buf[1] === 0x01 && buf[2] === 0x00 && buf[3] === 0x00;
+    } catch (_) {
+        return false;
+    }
+};
+
+// 拦截并清理损坏的字体缓存
+app.use((req, res, next) => {
+    if (req.path.match(/\.(woff2?|ttf|otf|ttc)$/i)) {
+        const checkPaths = [
+            path.join(libDir, req.path.replace('/lib', '')),
+            path.join(webfontsDir, path.basename(req.path)),
+            path.join(__dirname, 'public', req.path)
+        ];
+        
+        for (const p of checkPaths) {
+            if (fs.existsSync(p) && !isValidFontFile(p)) {
+                try { fs.unlinkSync(p); console.log(`[cache] deleted corrupted font: ${p}`); } catch (_) {}
+            }
+        }
     }
     next();
 });
@@ -148,8 +177,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ========================================================
 
 // 确保存储目录存在
-const libDir = path.join(__dirname, 'public', 'lib');
-const weightsDir = path.join(__dirname, 'public', 'weights');
 if (!fs.existsSync(libDir)) fs.mkdirSync(libDir, { recursive: true });
 if (!fs.existsSync(weightsDir)) fs.mkdirSync(weightsDir, { recursive: true });
 
@@ -200,12 +227,42 @@ const KNOWN_FILE_URLS = {
     'react.development.js':     'https://unpkg.com/react@18/umd/react.development.js',
     'react-dom.development.js': 'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
     'babel.min.js':             'https://unpkg.com/@babel/standalone/babel.min.js',
+    'babel.min.js.map':         'https://unpkg.com/@babel/standalone/babel.min.js.map',
     'face-api.min.js':          'https://fastly.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js',
+    'katex.min.css':            'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css',
+    'KaTeX_AMS-Regular.woff2':            'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_AMS-Regular.woff2',
+    'KaTeX_Caligraphic-Bold.woff2':       'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Caligraphic-Bold.woff2',
+    'KaTeX_Caligraphic-Regular.woff2':    'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Caligraphic-Regular.woff2',
+    'KaTeX_Fraktur-Bold.woff2':           'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Fraktur-Bold.woff2',
+    'KaTeX_Fraktur-Regular.woff2':        'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Fraktur-Regular.woff2',
+    'KaTeX_Main-Bold.woff2':              'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Main-Bold.woff2',
+    'KaTeX_Main-Italic.woff2':            'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Main-Italic.woff2',
+    'KaTeX_Main-Regular.woff2':           'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Main-Regular.woff2',
+    'KaTeX_Math-BoldItalic.woff2':        'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Math-BoldItalic.woff2',
+    'KaTeX_Math-Italic.woff2':            'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Math-Italic.woff2',
+    'KaTeX_Math-Regular.woff2':           'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Math-Regular.woff2',
+    'KaTeX_SansSerif-Bold.woff2':         'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_SansSerif-Bold.woff2',
+    'KaTeX_SansSerif-Italic.woff2':       'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_SansSerif-Italic.woff2',
+    'KaTeX_SansSerif-Regular.woff2':      'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_SansSerif-Regular.woff2',
+    'KaTeX_Script-Regular.woff2':         'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Script-Regular.woff2',
+    'KaTeX_Size1-Regular.woff2':          'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Size1-Regular.woff2',
+    'KaTeX_Size2-Regular.woff2':          'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Size2-Regular.woff2',
+    'KaTeX_Size3-Regular.woff2':          'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Size3-Regular.woff2',
+    'KaTeX_Size4-Regular.woff2':          'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Size4-Regular.woff2',
+    'KaTeX_Typewriter-Regular.woff2':     'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Typewriter-Regular.woff2',
 };
 
-app.use('/lib/:fileName', (req, res) => {
+app.get('/lib/fonts', (_req, res) => {
+    res.status(404).send('not found: fonts');
+});
+
+app.get('/lib/:fileName', (req, res) => {
     const fileName = req.params.fileName;
     const localPath = path.join(libDir, fileName);
+
+    if (!fileName.includes('.') || fileName === 'fonts') {
+        return res.status(404).send(`not found: ${fileName}`);
+    }
     
     // 优先级：固定映射表 > 课件注册的 publicSrc > npm 包名猜测
     let possibleUrls = [];
@@ -340,9 +397,8 @@ app.use('/lib/:fileName', (req, res) => {
 
 // 代理 1.5：字体文件路由 - FontAwesome CSS 内部引用 /webfonts/xxx，转发到 /lib/ 目录
 // （FontAwesome CSS 中字体路径是相对路径 ../webfonts/，浏览器解析后变成 /webfonts/）
-app.use('/webfonts/:fileName', (req, res) => {
+app.get('/webfonts/:fileName', (req, res) => {
     const fileName = req.params.fileName;
-    const webfontsDir = path.join(__dirname, 'public', 'webfonts');
     if (!fs.existsSync(webfontsDir)) fs.mkdirSync(webfontsDir, { recursive: true });
     
     const localPath = path.join(webfontsDir, fileName);
@@ -358,11 +414,108 @@ app.use('/webfonts/:fileName', (req, res) => {
     res.status(404).send('字体文件未找到');
 });
 
+app.get('/lib/fonts/:fileName', (req, res) => {
+    const fileName = req.params.fileName;
+    const fontsDir = path.join(libDir, 'fonts');
+    try {
+        if (fs.existsSync(fontsDir) && !fs.statSync(fontsDir).isDirectory()) {
+            fs.unlinkSync(fontsDir);
+        }
+        if (!fs.existsSync(fontsDir)) fs.mkdirSync(fontsDir, { recursive: true });
+    } catch (_) {}
+
+    const localPath = path.join(fontsDir, fileName);
+    const isValidFontFile = (p) => {
+        try {
+            const st = fs.statSync(p);
+            if (!st.isFile() || st.size < 1024) return false;
+            const fd = fs.openSync(p, 'r');
+            const buf = Buffer.alloc(4);
+            fs.readSync(fd, buf, 0, 4, 0);
+            fs.closeSync(fd);
+            const sig = buf.toString('ascii');
+            if (sig === 'wOFF' || sig === 'wOF2' || sig === 'OTTO' || sig === 'ttcf') return true;
+            return buf[0] === 0x00 && buf[1] === 0x01 && buf[2] === 0x00 && buf[3] === 0x00;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    if (fs.existsSync(localPath)) {
+        if (!isValidFontFile(localPath)) {
+            try { fs.unlinkSync(localPath); } catch (_) {}
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=31536000');
+            return res.sendFile(localPath);
+        }
+    }
+
+    const remoteUrl = (KNOWN_FILE_URLS[fileName] || `https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/${fileName}`)
+        .replace('cdn.jsdelivr.net', 'fastly.jsdelivr.net');
+    console.log(`[proxy] downloading katex font ${fileName}...`);
+
+    const downloadFontAtomic = (url) => {
+        const client = url.startsWith('https') ? require('https') : require('http');
+        const tempPath = localPath + '.part';
+        client.get(url, (response) => {
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                response.resume();
+                let redirectUrl = response.headers.location;
+                if (redirectUrl.startsWith('/')) {
+                    const urlObj = new URL(url);
+                    redirectUrl = `${urlObj.protocol}//${urlObj.host}${redirectUrl}`;
+                }
+                return downloadFontAtomic(redirectUrl);
+            }
+            if (response.statusCode !== 200) {
+                response.resume();
+                return res.status(response.statusCode).send('上游 CDN 下载失败');
+            }
+
+            try {
+                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+            } catch (_) {}
+
+            const fileStream = fs.createWriteStream(tempPath);
+            const fail = () => {
+                try { fileStream.destroy(); } catch (_) {}
+                try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch (_) {}
+                if (!res.headersSent) res.status(500).send('下载失败');
+            };
+
+            fileStream.on('error', fail);
+            response.on('error', fail);
+
+            res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+            res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+            response.pipe(fileStream);
+            response.pipe(res);
+
+            fileStream.on('finish', () => {
+                fileStream.close(() => {
+                    try {
+                        fs.renameSync(tempPath, localPath);
+                    } catch (_) {
+                        try {
+                            fs.copyFileSync(tempPath, localPath);
+                            fs.unlinkSync(tempPath);
+                        } catch (_) {}
+                    }
+                });
+            });
+        }).on('error', () => {
+            res.status(500).send('服务器代理下载出错');
+        });
+    };
+
+    return downloadFontAtomic(remoteUrl);
+});
+
 // 代理 2：图片资源代理 - 处理 /images/ 下的外部图片
-const imagesDir = path.join(__dirname, 'public', 'images');
 if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
 
-app.use('/images/proxy', (req, res) => {
+app.get('/images/proxy', (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) {
         return res.status(400).send('缺少 url 参数');
@@ -412,7 +565,7 @@ app.use('/images/proxy', (req, res) => {
 });
 
 // 代理 3：拦截所有的 AI 模型权重文件的请求
-app.use('/weights/:fileName', (req, res) => {
+app.get('/weights/:fileName', (req, res) => {
     if (req.method === 'HEAD') return res.status(200).end();
     
     const fileName = req.params.fileName;

@@ -1,13 +1,15 @@
 // ========================================================
 // 萤火课件编辑器 - 独立的 AI 课件创建平台
 // ========================================================
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Logger } = require('./logger.js');
 
 let mainWindow;
 const logger = new Logger('LumeSync-Editor');
+let serverProcess = null;
+const PORT = 3001;
 
 // 切换 Windows 控制台代码页为 UTF-8
 if (process.platform === 'win32') {
@@ -31,7 +33,7 @@ function createWindow() {
     });
 
     mainWindow.setMenu(null);
-    mainWindow.loadFile(path.join(__dirname, '..', 'public', 'editor.html'));
+    mainWindow.loadURL(`http://localhost:${PORT}/editor.html`);
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
         logger.error('WINDOW', 'Failed to load page', {
@@ -51,13 +53,105 @@ function createWindow() {
     mainWindow.on('maximize', () => mainWindow.webContents.send('window-maximized'));
     mainWindow.on('unmaximize', () => mainWindow.webContents.send('window-unmaximized'));
 
+    const toggleDevTools = () => {
+        try {
+            if (mainWindow.webContents.isDevToolsOpened()) mainWindow.webContents.closeDevTools();
+            else mainWindow.webContents.openDevTools({ mode: 'detach' });
+        } catch (_) {}
+    };
+
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+        if (input.type !== 'keyDown') return;
+        const key = String(input.key || '').toLowerCase();
+        if (key === 'd' && input.control && input.shift) {
+            event.preventDefault();
+            toggleDevTools();
+        }
+    });
+
     // 打开开发者工具 (如果需要调试)
     // mainWindow.webContents.openDevTools();
 }
 
-app.whenReady().then(() => {
+function isPortAvailable(port) {
+    return new Promise((resolve) => {
+        const net = require('net');
+        const tester = net.createServer();
+        tester.once('error', () => resolve(false));
+        tester.once('listening', () => {
+            tester.close(() => resolve(true));
+        });
+        tester.listen(port, '127.0.0.1');
+    });
+}
+
+function checkLocalHealth(port) {
+    return new Promise((resolve) => {
+        const http = require('http');
+        const req = http.request(
+            { hostname: '127.0.0.1', port, path: '/api/health', method: 'GET', timeout: 800 },
+            (res) => {
+                const ok = res.statusCode >= 200 && res.statusCode < 500;
+                res.resume();
+                resolve(ok);
+            }
+        );
+        req.on('timeout', () => req.destroy(new Error('timeout')));
+        req.on('error', () => resolve(false));
+        req.end();
+    });
+}
+
+function startServer() {
+    const { fork } = require('child_process');
+    const serverPath = path.join(__dirname, '..', 'server.js');
+    const cacheDir = path.join(app.getPath('userData'), 'cache');
+    serverProcess = fork(serverPath, [], {
+        env: { ...process.env, PORT: String(PORT), CHCP: '65001', LOG_DIR: logger.getLogDir(), LUMESYNC_CACHE_DIR: cacheDir },
+        execArgv: [],
+        silent: false,
+    });
+}
+
+async function ensureServer() {
+    const available = await isPortAvailable(PORT);
+    if (available) {
+        startServer();
+        return true;
+    }
+    const healthy = await checkLocalHealth(PORT);
+    return !!healthy;
+}
+
+app.whenReady().then(async () => {
     logger.info('APP', 'Editor app ready');
+    
+    // 清除应用缓存，避免加载到以前下载失败/损坏的资源（如被缓存的 404 字体）
+    const { session } = require('electron');
+    await session.defaultSession.clearCache();
+
+    app.commandLine.appendSwitch(
+        'unsafely-treat-insecure-origin-as-secure',
+        `http://localhost:${PORT},http://127.0.0.1:${PORT}`
+    );
+
+    const ok = await ensureServer();
+    if (!ok) return;
+
     createWindow();
+
+    if (globalShortcut) {
+        const accelerator = 'CommandOrControl+Shift+D';
+        const ok = globalShortcut.register(accelerator, () => {
+            const win = BrowserWindow.getFocusedWindow() || mainWindow;
+            if (!win) return;
+            try {
+                if (win.webContents.isDevToolsOpened()) win.webContents.closeDevTools();
+                else win.webContents.openDevTools({ mode: 'detach' });
+            } catch (_) {}
+        });
+        logger.info('APP', 'Debug shortcut registered', { accelerator, ok: !!ok });
+    }
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -67,6 +161,11 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
     logger.info('APP', 'All windows closed');
     if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('will-quit', () => {
+    try { globalShortcut && globalShortcut.unregisterAll(); } catch (_) {}
+    try { serverProcess && serverProcess.kill(); } catch (_) {}
 });
 
 process.on('uncaughtException', (err) => {
@@ -84,6 +183,15 @@ ipcMain.on('close-window', () => mainWindow?.close());
 ipcMain.on('toggle-fullscreen', () => {
     if (!mainWindow) return;
     mainWindow.setFullScreen(!mainWindow.isFullScreen());
+});
+
+ipcMain.on('toggle-devtools', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (!win) return;
+    try {
+        if (win.webContents.isDevToolsOpened()) win.webContents.closeDevTools();
+        else win.webContents.openDevTools({ mode: 'detach' });
+    } catch (_) {}
 });
 
 ipcMain.handle('editor-log', (event, payload) => {

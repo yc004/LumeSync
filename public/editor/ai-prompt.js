@@ -42,6 +42,12 @@ window.__LUMESYNC_AI_PROMPT__ = `
   - \`modelsUrls\`: object（可选，AI 模型路径：\`{ local: "/weights", public: "https://..." }\`）
   - \`slides\`: array（必须，元素形如 \`{ id: string, component: JSX.Element }\`）
 - 摄像头（可选）：通过 \`window.CourseGlobalContext.getCamera(onStream)\` 获取视频流；组件卸载时调用 \`window.CourseGlobalContext.unregisterCamera(onStream)\`。
+- 内置组件库（可选）：引擎提供 \`window.CourseComponents\`，课件可直接使用内置组件（无需 import）。常用：
+  - \`WebPageSlide\`：纯网页页（iframe 内嵌 + “刷新/打开”兜底）。用法：
+  \`\`\`tsx
+  { id: 'survey', component: <WebPageSlide title="课后问卷" url="https://v.wjx.cn/vm/YAYWWcG.aspx#" openLabel="打开问卷" /> }
+  \`\`\`
+  注意：部分网站会禁止 iframe 内嵌（X-Frame-Options / CSP），此时使用组件自带“打开”按钮即可。
 - Canvas 坐标与缩放（重要）：因为页面可能被 \`transform: scale()\` 缩放，不要使用 \`getBoundingClientRect\` + 手动计算比例，**必须**使用引擎提供的 API 来处理点击坐标：
   \`\`\`tsx
   const p = window.CourseGlobalContext?.canvas?.getCanvasPoint(e, canvasElement);

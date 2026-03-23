@@ -69,6 +69,23 @@ window.CourseGlobalContext = {
 };
 ```
 
+### window.CourseComponents（内置组件库）
+
+引擎会在全局注册一组可复用组件，供课件直接使用（无需 import）。当前可用组件：
+
+- `WebPageSlide`：将一个 URL 作为“纯网页页”嵌入到课件中，并提供“刷新 / 在新窗口打开”的兜底。
+
+**示例：添加一个纯网页页**
+
+```tsx
+const mySlides = [
+  { id: 'survey', component: <WebPageSlide title="课后问卷" url="https://v.wjx.cn/vm/YAYWWcG.aspx#" openLabel="打开问卷" /> },
+];
+```
+
+**注意：**
+- 不是所有网站都允许被 iframe 内嵌（可能有 `X-Frame-Options` / `CSP frame-ancestors` 限制）。遇到这种情况，可点击组件自带的“打开”按钮在新窗口打开。
+
 ---
 
 ## React Hooks

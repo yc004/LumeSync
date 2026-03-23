@@ -24,6 +24,7 @@
 | `useState`, `useEffect`, `useRef`, `useCallback`, `useMemo` 等 | 需从 React 解构 | 见下方写法 |
 | `window.CourseData` | 全局赋值 | 课程数据出口，必须赋值 |
 | `window.CourseGlobalContext` | 引擎提供 | 摄像头 API、Canvas缩放换算 API（见下方） |
+| `window.CourseComponents.WebPageSlide` / `WebPageSlide` | 引擎提供 | 纯网页页组件（iframe 内嵌 + 打开兜底） |
 | `window.Chart` | 加载后可用 | Chart.js（需在 dependencies 中声明） |
 | `window.katex` | 加载后可用 | KaTeX（需在 dependencies 中声明） |
 | `window._` | 加载后可用 | Lodash（需在 dependencies 中声明） |

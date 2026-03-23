@@ -1635,6 +1635,7 @@ function ClassroomApp() {
     const socketRef = useRef(null);
     const courseCatalogRef = useRef([]);
     const settingsRef = useRef(settings);
+    const studentCountPollRef = useRef(null);
     useEffect(() => { settingsRef.current = settings; }, [settings]);
 
     // 初始化时从 Electron 读取持久化设置（仅教师端有此 API）
@@ -1695,6 +1696,22 @@ function ClassroomApp() {
                 socketRef.current.emit('get-student-count');
                 // 把本地持久化的设置推给服务端，确保 course-changed 携带正确值
                 socketRef.current.emit('host-settings', settingsRef.current);
+                // 启动定时轮询学生人数，确保即使服务器推送失败也能获取最新人数
+                if (!studentCountPollRef.current) {
+                    studentCountPollRef.current = setInterval(() => {
+                        try {
+                            if (socketRef.current && socketRef.current.connected) {
+                                socketRef.current.emit('get-student-count');
+                            }
+                        } catch (_) {}
+                    }, 3000);
+                }
+            } else {
+                // 学生端：清除轮询定时器
+                if (studentCountPollRef.current) {
+                    clearInterval(studentCountPollRef.current);
+                    studentCountPollRef.current = null;
+                }
             }
         });
 
@@ -1754,6 +1771,11 @@ function ClassroomApp() {
 
         return () => {
             if (socketRef.current) socketRef.current.disconnect();
+            // 清除学生人数轮询定时器
+            if (studentCountPollRef.current) {
+                clearInterval(studentCountPollRef.current);
+                studentCountPollRef.current = null;
+            }
         };
     }, []);
 

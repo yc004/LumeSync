@@ -70,8 +70,11 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         const dpr = window.devicePixelRatio || 1;
         const w = Math.max(1, Math.floor(baseW * dpr));
         const h = Math.max(1, Math.floor(baseH * dpr));
-        if (canvas.width !== w) canvas.width = w;
-        if (canvas.height !== h) canvas.height = h;
+        const resized = canvas.width !== w || canvas.height !== h;
+        if (resized) {
+            canvas.width = w;
+            canvas.height = h;
+        }
         const ctx = canvas.getContext('2d');
         if (!ctx) return null;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -80,20 +83,17 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         ctx.setLineDash([]);
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
-        return ctx;
+        return { ctx, baseW, baseH, resized };
     };
 
     const clearAnnoCanvas = () => {
-        const ctx = prepareAnnoCanvas();
-        if (!ctx) return;
-        const { w: baseW, h: baseH } = getAnnoBaseSize();
-        ctx.clearRect(0, 0, baseW, baseH);
+        const m = prepareAnnoCanvas();
+        if (!m) return;
+        m.ctx.clearRect(0, 0, m.baseW, m.baseH);
     };
 
-    const drawAnnoSegment = (segment) => {
-        const ctx = prepareAnnoCanvas();
+    const drawAnnoSegmentOn = (ctx, baseW, baseH, segment) => {
         if (!ctx || !segment || !Array.isArray(segment.points) || segment.points.length < 2) return;
-        const { w: baseW, h: baseH } = getAnnoBaseSize();
         const tool = segment.tool || 'pen';
         const alpha = Number.isFinite(Number(segment.alpha)) ? Number(segment.alpha) : 1;
         ctx.globalAlpha = alpha;
@@ -116,10 +116,12 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     };
 
     const renderAnnoForCurrent = () => {
-        clearAnnoCanvas();
+        const m = prepareAnnoCanvas();
+        if (!m) return;
+        m.ctx.clearRect(0, 0, m.baseW, m.baseH);
         const key = annoKey(courseId, currentSlide);
         const segments = annoSegmentsRef.current.get(key) || [];
-        for (const seg of segments) drawAnnoSegment(seg);
+        for (const seg of segments) drawAnnoSegmentOn(m.ctx, m.baseW, m.baseH, seg);
     };
 
     useEffect(() => {
@@ -207,7 +209,12 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             if (arr.length > 5000) arr.splice(0, arr.length - 5000);
             annoSegmentsRef.current.set(key, arr);
             if (key === annoKey(courseId, currentSlide)) {
-                drawAnnoSegment(seg);
+                const m = prepareAnnoCanvas();
+                if (m && m.resized) {
+                    renderAnnoForCurrent();
+                } else if (m) {
+                    drawAnnoSegmentOn(m.ctx, m.baseW, m.baseH, seg);
+                }
             }
         };
 
@@ -215,7 +222,14 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             if (!data || !data.courseId) return;
             const key = annoKey(data.courseId, data.slideIndex);
             if (key !== annoKey(courseId, currentSlide)) return;
-            drawAnnoSegment({ tool: data.tool, color: data.color, width: data.width, alpha: data.alpha, points: data.points });
+            const m = prepareAnnoCanvas();
+            if (m && m.resized) {
+                renderAnnoForCurrent();
+                const m2 = prepareAnnoCanvas();
+                if (m2) drawAnnoSegmentOn(m2.ctx, m2.baseW, m2.baseH, { tool: data.tool, color: data.color, width: data.width, alpha: data.alpha, points: data.points });
+            } else if (m) {
+                drawAnnoSegmentOn(m.ctx, m.baseW, m.baseH, { tool: data.tool, color: data.color, width: data.width, alpha: data.alpha, points: data.points });
+            }
         };
 
         const onAnnoClear = (data) => {
@@ -254,11 +268,28 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     }, [annoTool, annoColor, annoWidth]);
 
     useEffect(() => {
-        prepareAnnoCanvas();
         if (socketRef.current && courseId) {
             socketRef.current.emit('annotation:get', { courseId, slideIndex: currentSlide });
         }
         renderAnnoForCurrent();
+    }, [courseId, currentSlide]);
+
+    useEffect(() => {
+        const canvas = annoCanvasRef.current;
+        if (!canvas) return;
+        let raf = 0;
+        const ro = new ResizeObserver(() => {
+            if (raf) cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(() => {
+                stopAnnoDrawing();
+                renderAnnoForCurrent();
+            });
+        });
+        ro.observe(canvas);
+        return () => {
+            if (raf) cancelAnimationFrame(raf);
+            ro.disconnect();
+        };
     }, [courseId, currentSlide]);
 
     const goToSlide = (index) => {
@@ -323,18 +354,22 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         annoStrokePointsRef.current = [[p.xn, p.yn]];
         try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
 
-        const ctx = prepareAnnoCanvas();
-        if (ctx) {
+        let m = prepareAnnoCanvas();
+        if (m && m.resized) {
+            renderAnnoForCurrent();
+            m = prepareAnnoCanvas();
+        }
+        if (m) {
             const tool = annoPenRef.current.tool;
-            ctx.globalAlpha = annoPenRef.current.alpha;
-            ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
-            ctx.fillStyle = tool === 'eraser' ? '#000000' : annoPenRef.current.color;
+            m.ctx.globalAlpha = annoPenRef.current.alpha;
+            m.ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+            m.ctx.fillStyle = tool === 'eraser' ? '#000000' : annoPenRef.current.color;
             const r = Math.max(1, (annoPenRef.current.width || 4) / 2);
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = 'source-over';
+            m.ctx.beginPath();
+            m.ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+            m.ctx.fill();
+            m.ctx.globalAlpha = 1;
+            m.ctx.globalCompositeOperation = 'source-over';
         }
     };
 
@@ -344,19 +379,23 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         const last = annoLastPointRef.current;
         if (!p || !last) return;
 
-        const ctx = prepareAnnoCanvas();
-        if (ctx) {
+        let m = prepareAnnoCanvas();
+        if (m && m.resized) {
+            renderAnnoForCurrent();
+            m = prepareAnnoCanvas();
+        }
+        if (m) {
             const tool = annoPenRef.current.tool;
-            ctx.globalAlpha = annoPenRef.current.alpha;
-            ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
-            ctx.strokeStyle = tool === 'eraser' ? '#000000' : annoPenRef.current.color;
-            ctx.lineWidth = annoPenRef.current.width;
-            ctx.beginPath();
-            ctx.moveTo(last.x, last.y);
-            ctx.lineTo(p.x, p.y);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = 'source-over';
+            m.ctx.globalAlpha = annoPenRef.current.alpha;
+            m.ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+            m.ctx.strokeStyle = tool === 'eraser' ? '#000000' : annoPenRef.current.color;
+            m.ctx.lineWidth = annoPenRef.current.width;
+            m.ctx.beginPath();
+            m.ctx.moveTo(last.x, last.y);
+            m.ctx.lineTo(p.x, p.y);
+            m.ctx.stroke();
+            m.ctx.globalAlpha = 1;
+            m.ctx.globalCompositeOperation = 'source-over';
         }
 
         annoStrokePointsRef.current.push([p.xn, p.yn]);

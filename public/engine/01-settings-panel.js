@@ -63,7 +63,6 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
                         { key: 'allowInteract',      label: '允许学生交互',  icon: 'fa-hand-pointer' },
                         { key: 'forceFullscreen',     label: '强制学生全屏',  icon: 'fa-expand' },
                         { key: 'syncFollow',          label: '学生跟随翻页',  icon: 'fa-rotate' },
-                        { key: 'podiumAtTop',         label: '讲台在上方',    icon: 'fa-chalkboard' },
                         { key: 'alertJoin',           label: '学生上线提醒',  icon: 'fa-user-plus' },
                         { key: 'alertLeave',          label: '学生离线提醒',  icon: 'fa-user-minus' },
                         { key: 'alertFullscreenExit', label: '退出全屏提醒',  icon: 'fa-compress' },

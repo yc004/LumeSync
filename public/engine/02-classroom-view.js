@@ -3,7 +3,7 @@
 // 功能：显示所有学生座位，支持命名、拖拽排列、在线状态
 // 布局和命名持久化到 localStorage
 // ========================================================
-function ClassroomView({ onClose, socket, studentLog, podiumAtTop }) {
+function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTopChange }) {
     const STORAGE_KEY = 'classroom-layout-v1';
     const podiumOnTop = typeof podiumAtTop === 'boolean' ? podiumAtTop : true;
 
@@ -148,6 +148,9 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop }) {
             if (isJson) {
                 try {
                     const parsed = JSON.parse(trimmedText || '{}');
+                    if (parsed && typeof parsed.podiumAtTop === 'boolean' && typeof onPodiumAtTopChange === 'function') {
+                        onPodiumAtTopChange(parsed.podiumAtTop);
+                    }
                     const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.seats) ? parsed.seats : []);
                     const normalized = list
                         .map((s, idx) => {
@@ -449,11 +452,18 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop }) {
                         <span className="px-2.5 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold border border-green-500/30">{onlineIPs.length} 在线</span>
                         <span className="px-2.5 py-1 bg-slate-700 text-slate-400 rounded-full text-xs font-bold">{seats.length} 座位</span>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
                         <div className="flex rounded-lg overflow-hidden border border-slate-600">
                             <button onClick={() => setViewMode('grid')} className={`px-3 py-1.5 text-sm transition-colors ${viewMode === 'grid' ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`} title="网格视图"><i className="fas fa-table-cells"></i></button>
                             <button onClick={() => setViewMode('list')} className={`px-3 py-1.5 text-sm transition-colors ${viewMode === 'list' ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`} title="列表视图"><i className="fas fa-list"></i></button>
                         </div>
+                        <button
+                            onClick={() => typeof onPodiumAtTopChange === 'function' && onPodiumAtTopChange(!podiumOnTop)}
+                            className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium transition-colors border border-slate-600"
+                            title={podiumOnTop ? '讲台在上（点击切换为下）' : '讲台在下（点击切换为上）'}
+                        >
+                            <i className="fas fa-chalkboard mr-1.5"></i>{podiumOnTop ? '讲台在上' : '讲台在下'}
+                        </button>
                         <button onClick={handleAutoImport} disabled={autoImporting} className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors" title="将当前在线学生自动添加为座位">
                             <i className={`fas ${autoImporting ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'} mr-1.5`}></i>自动导入
                         </button>

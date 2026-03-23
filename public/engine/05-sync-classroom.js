@@ -683,7 +683,10 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 <i className="fas fa-pen mr-2"></i>绘制
                             </button>
                             <button
-                                onClick={() => onSettingsChange && onSettingsChange('allowInteract', !(settings && settings.allowInteract === false))}
+                                onClick={() => {
+                                    const allow = !(settings && settings.allowInteract === false);
+                                    onSettingsChange && onSettingsChange('allowInteract', !allow);
+                                }}
                                 className={`flex items-center px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all border ${
                                     (settings && settings.allowInteract === false)
                                         ? 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
@@ -880,6 +883,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                     socket={socketRef.current}
                     studentLog={studentLog}
                     podiumAtTop={settings && settings.podiumAtTop}
+                    onPodiumAtTopChange={(v) => onSettingsChange && onSettingsChange('podiumAtTop', !!v)}
                 />
             )}
 

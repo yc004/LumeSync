@@ -122,6 +122,7 @@ function ClassroomApp() {
         forceFullscreen: true,
         syncFollow: true,
         allowInteract: true,
+        syncInteraction: false,  // 默认关闭教师交互同步
         podiumAtTop: true,
         renderScale: 0.96,
         uiScale: 1.0,
@@ -154,7 +155,13 @@ function ClassroomApp() {
     }, []);
 
     const handleSettingsChange = (key, value) => {
-        const next = { ...settingsRef.current, [key]: value };
+        let next = { ...settingsRef.current, [key]: value };
+        
+        // 特殊处理：如果是多项更新（传入对象）
+        if (typeof key === 'object' && key !== null) {
+            next = { ...settingsRef.current, ...key };
+        }
+        
         setSettings(next);
         if (socketRef.current) socketRef.current.emit('host-settings', next);
         window.electronAPI?.saveSettings?.(next);
@@ -162,6 +169,8 @@ function ClassroomApp() {
 
     useEffect(() => {
         socketRef.current = window.io();
+        // 将 socket 引用暴露到全局，供 CourseGlobalContext.syncInteraction 使用
+        window.socketRef = socketRef;
 
         socketRef.current.on('role-assigned', (data) => {
             setIsHost(data.role === 'host');
@@ -315,6 +324,12 @@ function ClassroomApp() {
                     },
                     releaseCamera: () => window.CameraManager.release(),
                     unregisterCamera: (onStream) => window.CameraManager.unregister(onStream),
+                    // 教师交互同步 API
+                    syncInteraction: (event, payload = {}) => {
+                        if (window.socketRef && window.socketRef.current) {
+                            window.socketRef.current.emit('interaction:sync', { event, payload });
+                        }
+                    },
                 };
 
                 setCurrentCourseData({
@@ -467,6 +482,12 @@ function ClassroomApp() {
                         },
                         releaseCamera: () => window.CameraManager.release(),
                         unregisterCamera: (onStream) => window.CameraManager.unregister(onStream),
+                        // 教师交互同步 API
+                        syncInteraction: (event, payload = {}) => {
+                            if (window.socketRef && window.socketRef.current) {
+                                window.socketRef.current.emit('interaction:sync', { event, payload });
+                            }
+                        },
                     };
                 } else {
                     window.CourseGlobalContext = {
@@ -483,6 +504,12 @@ function ClassroomApp() {
                         },
                         releaseCamera: () => window.CameraManager.release(),
                         unregisterCamera: (onStream) => window.CameraManager.unregister(onStream),
+                        // 教师交互同步 API
+                        syncInteraction: (event, payload = {}) => {
+                            if (window.socketRef && window.socketRef.current) {
+                                window.socketRef.current.emit('interaction:sync', { event, payload });
+                            }
+                        },
                     };
                 }
 

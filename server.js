@@ -849,7 +849,11 @@ let studentIPs = new Map(); // IP -> socket数量，同一IP只计一个学生
 let currentHostSettings = {
     forceFullscreen: true,
     syncFollow: true,
+    syncInteraction: false,  // 默认关闭教师交互同步
+    allowInteract: true,
+    podiumAtTop: true,
     renderScale: 0.96,
+    uiScale: 1.0,
     alertJoin: true,
     alertLeave: true,
     alertFullscreenExit: true,
@@ -976,6 +980,65 @@ io.on('connection', (socket) => {
         if (!courseId) return;
         annotationStore.delete(getAnnoKey(courseId, slideIndex));
         io.emit('annotation:clear', { courseId, slideIndex });
+    });
+
+    // 交互状态同步（教师端广播给所有学生端）
+    socket.on('interaction:sync', (data) => {
+        if (role !== 'host') return;
+        const courseId = data && data.courseId ? String(data.courseId) : '';
+        const slideIndex = data && Number.isFinite(Number(data.slideIndex)) ? Number(data.slideIndex) : 0;
+        const event = data && typeof data.event === 'string' ? data.event : '';
+        const payload = data && typeof data.payload === 'object' ? data.payload : {};
+        
+        if (!courseId || !event) return;
+        
+        // 广播给所有学生端（不包括发送的教师端）
+        socket.broadcast.emit('interaction:sync', { courseId, slideIndex, event, payload });
+    });
+
+    // 自动同步变量（教师端广播给所有学生端）
+    socket.on('sync-var', (data) => {
+        if (role !== 'host') return;
+        const courseId = data && data.courseId ? String(data.courseId) : '';
+        const slideIndex = data && Number.isFinite(Number(data.slideIndex)) ? Number(data.slideIndex) : 0;
+        const key = data && typeof data.key === 'string' ? data.key : '';
+        const value = data && 'value' in data ? data.value : undefined;
+        
+        if (!courseId || !key) return;
+        
+        // 广播给所有学生端（不包括发送的教师端）
+        socket.broadcast.emit('sync-var', { courseId, slideIndex, key, value });
+    });
+
+    // 学生端请求完整同步数据
+    socket.on('request-sync-state', (data) => {
+        if (role !== 'viewer') return;
+        const courseId = data && data.courseId ? String(data.courseId) : '';
+        const slideIndex = data && Number.isFinite(Number(data.slideIndex)) ? Number(data.slideIndex) : 0;
+        
+        if (!courseId) return;
+        
+        // 定向发送给所有教师端（避免发给其他学生）
+        io.to('hosts').emit('request-sync-state', { courseId, slideIndex, requesterId: socket.id });
+    });
+
+    // 教师端发送完整同步数据
+    socket.on('full-sync-state', (data) => {
+        if (role !== 'host') return;
+        const targetId = data && data.targetId ? String(data.targetId) : '';
+        const courseId = data && data.courseId ? String(data.courseId) : '';
+        const slideIndex = data && Number.isFinite(Number(data.slideIndex)) ? Number(data.slideIndex) : 0;
+        const state = data && typeof data.state === 'object' ? data.state : {};
+        
+        if (!courseId) return;
+        
+        if (targetId) {
+            // 定向发送给请求的学生
+            io.to(targetId).emit('full-sync-state', { courseId, slideIndex, state });
+        } else {
+            // 广播给所有学生
+            socket.broadcast.emit('full-sync-state', { courseId, slideIndex, state });
+        }
     });
 
     // 课程切换（仅老师端可操作）

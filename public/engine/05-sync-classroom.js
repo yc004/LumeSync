@@ -15,6 +15,9 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     const [annoWidth, setAnnoWidth] = useState(4);
     const [annoColor, setAnnoColor] = useState('#ef4444');
 
+    // 强制渲染计数器，用于课件变量变化时触发重新渲染（已废弃）
+    const [renderCounter] = useState(0);
+
     // 摄像头选择器状态
     const [camDevices, setCamDevices] = useState([]);
     const [camActive, setCamActive] = useState(false);   // 是否有课件正在使用摄像头
@@ -49,6 +52,213 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     const socketRef = useRef(socket);
     const settingsRef = useRef(settings);
     useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+    // 自动同步机制：课件注册的变量
+    const syncVarsRef = useRef(new Map()); // key -> { value, onChange, sync: boolean }
+
+    // 在组件渲染时立即注册 API 函数到全局（课件渲染时会调用）
+    if (window.CourseGlobalContext) {
+        window.CourseGlobalContext.useSyncVar = (key, initialValue, options = {}) => {
+            const { onChange = null } = options;
+
+            // 初始化存储（如果不存在）
+            if (!syncVarsRef.current.has(key)) {
+                syncVarsRef.current.set(key, {
+                    value: initialValue,
+                    sync: true,
+                    listeners: new Set()
+                });
+            } else {
+                syncVarsRef.current.get(key).sync = true;
+            }
+
+            const varData = syncVarsRef.current.get(key);
+            
+            // 使用 React state 让组件能重新渲染
+            const [localVal, setLocalVal] = useState(varData.value);
+
+            // 监听外部（同步或其它组件）的变化
+            useEffect(() => {
+                const listener = (newVal) => setLocalVal(newVal);
+                varData.listeners.add(listener);
+                
+                // 初次挂载时同步一次值
+                setLocalVal(varData.value);
+                
+                return () => varData.listeners.delete(listener);
+            }, [varData]);
+
+            // 设置新值并同步
+            const setValue = React.useCallback((newValue) => {
+                const oldValue = varData.value;
+                varData.value = newValue;
+
+                // 通知所有使用这个 key 的组件更新
+                varData.listeners.forEach(l => l(newValue));
+
+                // 本地触发 onChange
+                if (typeof onChange === 'function') {
+                    onChange(newValue, oldValue);
+                }
+
+                // 教师端自动同步到学生端
+                if (isHost && socketRef.current && settingsRef.current.syncInteraction) {
+                    socketRef.current.emit('sync-var', {
+                        courseId,
+                        slideIndex: currentSlide,
+                        key,
+                        value: newValue
+                    });
+                }
+            }, [key, onChange, isHost, currentSlide]);
+
+            return [localVal, setValue];
+        };
+
+        // 注册不需要同步的本地变量 Hook
+        window.CourseGlobalContext.useLocalVar = (key, initialValue, options = {}) => {
+            const { onChange = null } = options;
+
+            if (!syncVarsRef.current.has(key)) {
+                syncVarsRef.current.set(key, {
+                    value: initialValue,
+                    sync: false,
+                    listeners: new Set()
+                });
+            } else {
+                syncVarsRef.current.get(key).sync = false;
+            }
+
+            const varData = syncVarsRef.current.get(key);
+            const [localVal, setLocalVal] = useState(varData.value);
+
+            useEffect(() => {
+                const listener = (newVal) => setLocalVal(newVal);
+                varData.listeners.add(listener);
+                setLocalVal(varData.value);
+                return () => varData.listeners.delete(listener);
+            }, [varData]);
+
+            const setValue = React.useCallback((newValue) => {
+                const oldValue = varData.value;
+                varData.value = newValue;
+                varData.listeners.forEach(l => l(newValue));
+
+                if (typeof onChange === 'function') {
+                    onChange(newValue, oldValue);
+                }
+            }, [key, onChange]);
+
+            return [localVal, setValue];
+        };
+        
+        // 保留旧的 API 以防代码不兼容，但旧的不会触发重新渲染
+        window.CourseGlobalContext.registerSyncVar = (key, initialValue, options = {}) => {
+            const [val, setVal] = window.CourseGlobalContext.useSyncVar(key, initialValue, options);
+            return { get: () => val, set: setVal };
+        };
+        window.CourseGlobalContext.registerVar = (key, initialValue, options = {}) => {
+            const [val, setVal] = window.CourseGlobalContext.useLocalVar(key, initialValue, options);
+            return { get: () => val, set: setVal };
+        };
+    }
+
+    // 学生端接收同步变量及完整状态
+    useEffect(() => {
+        if (isHost || !socket) return;
+        
+        socketRef.current = socket;
+        socket.on('sync-var', (data) => {
+            if (data.courseId !== courseId || data.slideIndex !== currentSlide) return;
+
+            const { key, value } = data;
+            const varData = syncVarsRef.current.get(key);
+            if (!varData) return;
+
+            const oldValue = varData.value;
+            varData.value = value;
+
+            // 通知所有订阅的 Hook 实例重新渲染
+            if (varData.listeners) {
+                varData.listeners.forEach(l => l(value));
+            }
+
+            // 触发本地 onChange
+            if (typeof varData.onChange === 'function') {
+                varData.onChange(value, oldValue);
+            }
+        });
+
+        socket.on('full-sync-state', (data) => {
+            if (data.courseId !== courseId) return;
+            const state = data.state;
+            if (!state) return;
+            
+            Object.keys(state).forEach(key => {
+                const value = state[key];
+                const varData = syncVarsRef.current.get(key);
+                if (!varData) return;
+                
+                const oldValue = varData.value;
+                if (oldValue === value) return;
+                
+                varData.value = value;
+                
+                // 通知所有订阅的 Hook 实例重新渲染
+                if (varData.listeners) {
+                    varData.listeners.forEach(l => l(value));
+                }
+                
+                // 触发本地 onChange
+                if (typeof varData.onChange === 'function') {
+                    varData.onChange(value, oldValue);
+                }
+            });
+        });
+        
+        return () => {
+            socket.off('sync-var');
+            socket.off('full-sync-state');
+        };
+    }, [isHost, socket, courseId, currentSlide]);
+
+    // 学生端请求完整同步数据（在进入新页面或教师开启同步时）
+    useEffect(() => {
+        if (isHost || !socket || !courseId) return;
+
+        if (settings && settings.syncInteraction) {
+            socket.emit('request-sync-state', { courseId, slideIndex: currentSlide });
+        }
+    }, [isHost, socket, courseId, currentSlide, settings?.syncInteraction]);
+
+    // 教师端监听同步请求并发送当前状态
+    useEffect(() => {
+        if (!isHost || !socket || !courseId) return;
+        
+        const handleSyncRequest = (data) => {
+            if (data.courseId !== courseId) return;
+            
+            // 收集所有需要同步的变量
+            const stateToSync = {};
+            syncVarsRef.current.forEach((val, key) => {
+                if (val.sync) {
+                    stateToSync[key] = val.value;
+                }
+            });
+            
+            socket.emit('full-sync-state', {
+                targetId: data.requesterId,
+                courseId,
+                slideIndex: data.slideIndex,
+                state: stateToSync
+            });
+        };
+        
+        socket.on('request-sync-state', handleSyncRequest);
+        return () => {
+            socket.off('request-sync-state', handleSyncRequest);
+        };
+    }, [isHost, socket, courseId]);
 
     const annoKey = (cid, slideIdx) => `${String(cid || '')}:${Number(slideIdx || 0)}`;
     const colorPresets = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#0f172a', '#ffffff'];
@@ -179,6 +389,14 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             if (window._onCamActive) window._onCamActive(false);
             setCurrentSlide(data.slideIndex);
         });
+        socket.on('interaction:sync', (data) => {
+            // 学生端接收并应用教师端的交互状态
+            if (!isHost && settingsRef.current.syncInteraction && data.courseId === courseId && data.slideIndex === currentSlide) {
+                const { event, payload } = data;
+                // 触发全局事件，让课件组件可以响应
+                window.dispatchEvent(new CustomEvent('teacher-interaction', { detail: { event, payload } }));
+            }
+        });
         socket.on('student-status', (data) => {
             if (data.action === 'join' && settingsRef.current.alertJoin) showToast(`学生上线 (IP: ${data.ip})`, 'success');
             else if (data.action === 'leave' && settingsRef.current.alertLeave) showToast(`学生离开 (IP: ${data.ip})`, 'warning');
@@ -246,6 +464,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
 
         return () => {
             socket.off('sync-slide');
+            socket.off('interaction:sync');
             socket.off('student-status');
             socket.off('student-alert');
             socket.off('annotation:state', onAnnoState);
@@ -566,6 +785,8 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 }}
                             >
                                 {/* 课件内容（基于 1280x720 设计尺寸渲染） */}
+                                {/* 隐藏的同步状态计数器，用于触发课件重新渲染 */}
+                                <div key={renderCounter} style={{ display: 'none' }}></div>
                                 <div className={`absolute top-0 left-0 w-full h-full ${slides[currentSlide]?.scrollable === true ? 'overflow-y-auto no-scrollbar' : ''}`}>
                                     {slides[currentSlide] && slides[currentSlide].component}
                                 </div>
@@ -588,6 +809,12 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 />
                                 {!isHost && settings && settings.allowInteract === false && (
                                     <div className="absolute inset-0 z-50" style={{ pointerEvents: 'auto', background: 'transparent' }} title="老师已暂时关闭页面交互"></div>
+                                )}
+                                {!isHost && settings && settings.syncInteraction === true && (
+                                    <div className="absolute top-4 right-4 z-45 px-2 py-1 rounded-lg bg-amber-500/90 text-white text-xs font-bold border border-amber-300 shadow-lg backdrop-blur-sm">
+                                        <i className="fas fa-sync fa-spin mr-1"></i>
+                                        同步教师交互中
+                                    </div>
                                 )}
                             </div>
                             {isHost && annotateEnabled && (
@@ -683,20 +910,29 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                             >
                                 <i className="fas fa-pen mr-2"></i>绘制
                             </button>
+
                             <button
                                 onClick={() => {
-                                    const allow = !(settings && settings.allowInteract === false);
-                                    onSettingsChange && onSettingsChange('allowInteract', !allow);
+                                    const currentSync = settings && settings.syncInteraction === true;
+                                    const newSync = !currentSync;
+                                    
+                                    // 开启同步时自动禁止学生交互，关闭同步时自动允许学生交互
+                                    if (onSettingsChange) {
+                                        onSettingsChange({
+                                            'syncInteraction': newSync,
+                                            'allowInteract': !newSync // true = 允许交互，false = 禁止交互
+                                        });
+                                    }
                                 }}
                                 className={`flex items-center px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all border ${
-                                    (settings && settings.allowInteract === false)
-                                        ? 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                                        : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-500'
+                                    (settings && settings.syncInteraction === true)
+                                        ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-400'
+                                        : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
                                 }`}
-                                title={(settings && settings.allowInteract === false) ? '学生交互已禁用（点击开启）' : '学生可交互（点击关闭）'}
+                                title={(settings && settings.syncInteraction === true) ? '已开启交互同步（点击关闭）' : '开启教师交互同步（学生端同步所有操作）'}
                             >
-                                <i className={`fas ${(settings && settings.allowInteract === false) ? 'fa-ban' : 'fa-hand-pointer'} mr-2`}></i>
-                                {(settings && settings.allowInteract === false) ? '禁止交互' : '允许交互'}
+                                <i className={`fas ${(settings && settings.syncInteraction === true) ? 'fa-sync' : 'fa-rotate'} mr-2`}></i>
+                                {(settings && settings.syncInteraction === true) ? '同步交互' : '开启同步'}
                             </button>
 
                             {annotateMenuOpen && (

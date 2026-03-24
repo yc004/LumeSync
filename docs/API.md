@@ -9,6 +9,7 @@
 - [窗口 API](#窗口-api)
 - [摄像头 API](#摄像头-api)
 - [Socket.io 通信](#socketio-通信)
+- [教师交互同步](#教师交互同步)
 - [工具函数](#工具函数)
 - [课件事件](#课件事件)
 - [完整示例](#完整示例)
@@ -69,6 +70,21 @@ window.CourseGlobalContext = {
         fileName?: string;     // 文件名（默认 "submission.txt"）
         mergeFile?: boolean;   // 是否合并到同一个文件（默认 false）
     }) => Promise<{ success: boolean }>;
+
+    // 自动同步变量 API（简化版，推荐使用）
+    registerSyncVar: (key: string, initialValue: any, options?: { onChange?: (newValue: any, oldValue: any) => void }) => {
+        get: () => any;
+        set: (value: any) => void;
+    };
+
+    // 注册普通变量（不自动同步）
+    registerVar: (key: string, initialValue: any, options?: { onChange?: (newValue: any, oldValue: any) => void }) => {
+        get: () => any;
+        set: (value: any) => void;
+    };
+
+    // 教师交互同步 API（高级用法，手动控制）
+    syncInteraction: (event: string, payload: any) => void;
 
     // 辅助方法
     log: (message: string, data?: any) => void;
@@ -533,6 +549,7 @@ function QuizSlide() {
 2. **自动保存**：教师端会自动将内容保存到文件，无需手动下载
 3. **默认路径**：文件默认保存在项目根目录的 `submissions` 文件夹中
 4. **学生名称**：如果学生在机房视图中有命名，文件名会使用学生名称；否则使用 IP 地址
+   - **多班级支持**：学生名称与当前选中的班级相关联，切换班级后学生端提交的文件名会使用新班级中对应的学生名称
 5. **超时处理**：提交请求有 10 秒超时限制
 6. **错误处理**：建议使用 try-catch 处理提交错误
 
@@ -965,6 +982,304 @@ useEffect(() => {
     };
 }, []);
 ```
+
+---
+
+## 自动变量同步（推荐）
+
+引擎提供了简化的自动同步机制，课件开发者只需使用类似 `useState` 的 Hook，引擎会自动处理同步逻辑，无需手动发送和接收事件。
+
+### useSyncVar - 自动同步变量 Hook
+
+注册一个会自动同步到所有学生端的变量。行为与 React 的 `useState` 非常相似。
+
+#### 语法
+
+```tsx
+const [value, setValue] = window.CourseGlobalContext.useSyncVar(key, initialValue, options);
+```
+
+#### 参数
+
+- `key` (string): 变量的唯一标识符
+- `initialValue` (any): 变量的初始值
+- `options` (object, 可选):
+  - `onChange` (function): 变量变化时的回调函数，接收 `(newValue, oldValue)` 两个参数
+
+#### 返回值
+
+返回一个包含当前值和 setter 函数的数组，就像 `useState` 一样：
+
+```tsx
+[
+    any,          // 当前值
+    (value) => void // 设置新值的函数（教师端会自动同步到学生端）
+]
+```
+
+#### 使用示例
+
+**示例 1：选项选择同步**
+
+```tsx
+function QuizSlide() {
+    // 使用自动同步的 Hook：当前选中的选项
+    const [selectedOption, setSelectedOption] = window.CourseGlobalContext.useSyncVar('quiz:option', null, {
+        onChange: (newValue, oldValue) => {
+            console.log('选项已改变:', oldValue, '->', newValue);
+        }
+    });
+
+    const handleOptionClick = (index) => {
+        // 设置新值，引擎会自动同步到所有学生端并重新渲染组件
+        setSelectedOption(index);
+    };
+
+    return (
+        <div className="quiz-container">
+            {['A', 'B', 'C', 'D'].map((opt, index) => (
+                <button
+                    key={index}
+                    onClick={() => handleOptionClick(index)}
+                    className={`option-btn ${selectedOption === index ? 'selected' : ''}`}
+                >
+                    {opt}
+                </button>
+            ))}
+        </div>
+    );
+}
+```
+
+**示例 2：拖拽位置同步**
+
+```tsx
+function DragDropSlide() {
+    // 使用同步 Hook
+    const [item1Pos, setItem1Pos] = window.CourseGlobalContext.useSyncVar('item1:pos', { x: 0, y: 0 });
+    const [item1Target, setItem1Target] = window.CourseGlobalContext.useSyncVar('item1:target', null);
+
+    const handleDrop = (targetId) => {
+        setItem1Target(targetId);
+    };
+
+    return (
+        <div>
+            <div style={{ left: item1Pos.x, top: item1Pos.y }}>
+                拖拽我
+            </div>
+            <div onDrop={() => handleDrop('box1')}>目标区域1</div>
+            <div onDrop={() => handleDrop('box2')}>目标区域2</div>
+        </div>
+    );
+}
+```
+
+**示例 3：面板状态同步**
+
+```tsx
+function PanelSlide() {
+    const [panelState, setPanelState] = window.CourseGlobalContext.useSyncVar('panel:visible', {
+        panel1: false,
+        panel2: false,
+        panel3: false
+    });
+
+    const togglePanel = (panelId) => {
+        setPanelState({
+            ...panelState,
+            [panelId]: !panelState[panelId]
+        });
+    };
+
+    return (
+        <div>
+            <button onClick={() => togglePanel('panel1')}>切换面板1</button>
+            {panelState.panel1 && <div>面板1内容</div>}
+        </div>
+    );
+}
+```
+
+### useLocalVar - 普通变量 Hook（不自动同步）
+
+如果某些变量不需要同步到学生端（例如本地 UI 状态），使用 `useLocalVar`，它的行为完全等同于 `useState`：
+
+```tsx
+function MySlide() {
+    // 不同步的本地变量
+    const [localMenuOpen, setLocalMenuOpen] = window.CourseGlobalContext.useLocalVar('local:menu', false);
+    
+    const toggleMenu = () => {
+        setLocalMenuOpen(!localMenuOpen);
+    };
+
+    return (
+        <div>
+            <button onClick={toggleMenu}>打开菜单</button>
+            {localMenuOpen && <div>菜单内容</div>}
+        </div>
+    );
+}
+```
+
+### 自动同步 vs 手动同步
+
+| 特性 | 自动同步 (`useSyncVar`) | 手动同步 (`syncInteraction`) |
+|------|---------------------------|--------------------------|
+| **使用复杂度** | 极低，就像 useState | 较高，需要手动发送和接收 |
+| **适用场景** | 状态变量同步 | 复杂的事件同步 |
+| **代码量** | 少 | 多 |
+| **灵活性** | 标准化 | 完全自定义 |
+| **推荐度** | ⭐⭐⭐⭐⭐ | ⭐⭐ |
+
+### 最佳实践
+
+1. **命名规范**：使用 `prefix:name` 格式，例如 `quiz:option`、`drag:position`
+2. **变更回调**：利用 `onChange` 处理副作用（如播放动画）
+3. **避免循环**：不要在 `onChange` 中再次修改同一个变量
+4. **合理分组**：相关的变量使用相同前缀（如 `panel1:visible`、`panel1:content`）
+
+### 注意事项
+
+- 教师端只有在开启"同步教师交互"后，才会自动同步变量
+- 学生端会自动接收并应用教师端的变量变化
+- 变量仅在当前幻灯片内有效
+- 复杂对象（数组、对象）会被完整同步
+
+---
+
+## 手动交互同步（高级用法）
+
+对于更复杂的同步场景，可以使用手动同步方式。
+
+#### 教师端：发起同步
+
+在教师端的课件组件中，使用 `syncInteraction` 方法发起同步：
+
+```tsx
+const handleOptionSelect = (questionId: string, optionIndex: number) => {
+    // 更新本地状态
+    setSelectedOption(prev => ({
+        ...prev,
+        [questionId]: optionIndex
+    }));
+    
+    // 同步到学生端
+    window.CourseGlobalContext.syncInteraction('select-option', {
+        questionId,
+        optionIndex,
+        timestamp: Date.now()
+    });
+};
+
+const handleDragEnd = (itemId: string, targetId: string, x: number, y: number) => {
+    updateItemPosition(itemId, { targetId, x, y });
+    
+    // 同步拖拽结果
+    window.CourseGlobalContext.syncInteraction('item-dropped', {
+        itemId,
+        targetId,
+        position: { x, y }
+    });
+};
+
+const togglePanel = (panelId: string, show: boolean) => {
+    setPanels(prev => ({
+        ...prev,
+        [panelId]: show
+    }));
+    
+    // 同步面板状态
+    window.CourseGlobalContext.syncInteraction('toggle-panel', {
+        panelId,
+        show
+    });
+};
+```
+
+#### 学生端：接收同步
+
+在学生端的课件组件中，监听 `teacher-interaction` 事件：
+
+```tsx
+useEffect(() => {
+    const handleTeacherInteraction = (e: CustomEvent) => {
+        const { event, payload } = e.detail;
+        
+        switch (event) {
+            case 'select-option':
+                setSelectedOption(prev => ({
+                    ...prev,
+                    [payload.questionId]: payload.optionIndex
+                }));
+                break;
+                
+            case 'item-dropped':
+                updateItemPosition(payload.itemId, {
+                    targetId: payload.targetId,
+                    x: payload.position.x,
+                    y: payload.position.y
+                });
+                break;
+                
+            case 'toggle-panel':
+                setPanels(prev => ({
+                    ...prev,
+                    [payload.panelId]: payload.show
+                }));
+                break;
+                
+            default:
+                console.warn('[Interaction Sync] Unknown event:', event);
+        }
+    };
+    
+    // 监听教师交互事件
+    window.addEventListener('teacher-interaction', handleTeacherInteraction);
+    
+    return () => {
+        window.removeEventListener('teacher-interaction', handleTeacherInteraction);
+    };
+}, []);
+```
+
+### 数据同步规范
+
+#### ✅ 推荐同步的数据
+
+以下类型的数据**应该**同步（课件的核心业务状态）：
+
+- **选项选择**：选择题、多选题的选项状态
+- **元素状态**：面板显示/隐藏、按钮激活/禁用
+- **拖拽放置**：拖拽操作的目标位置
+- **数据更新**：输入框内容、数值修改
+- **场景切换**：切换不同视图或场景
+
+#### ❌ 不推荐同步的数据
+
+以下类型的数据**不应该**同步（界面显示层面的临时状态）：
+
+- **UI 显示状态**：下拉框打开/关闭、菜单显示
+- **工具栏切换**：画笔工具、颜色选择器状态
+- **鼠标位置**：鼠标移动轨迹、悬停状态
+- **动画过程**：动画播放的中间状态
+
+> **详细规范**：请参阅 [交互同步规范文档](./interaction-sync-guide.md)
+
+### 最佳实践
+
+1. **幂等性设计**：确保重复应用同一事件不会产生副作用
+2. **数据验证**：在接收端验证 payload 的有效性
+3. **防抖节流**：对高频事件进行防抖或节流处理
+4. **条件同步**：只在数据确实变化时才发起同步
+
+### 注意事项
+
+1. **教师端专用**：此 API 仅在教师端可用，学生端调用无效
+2. **设置依赖**：学生端只有在教师开启"同步教师交互"设置后才会接收同步事件
+3. **页面限制**：同步事件仅在当前幻灯片页面内生效
+4. **性能考虑**：避免同步大量数据或高频触发的事件
 
 ---
 

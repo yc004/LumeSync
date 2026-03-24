@@ -117,7 +117,6 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
                 </div>
                 <div className="flex-1 px-6 py-4 space-y-5">
                     {[
-                        { key: 'allowInteract',      label: '允许学生交互',  icon: 'fa-hand-pointer' },
                         { key: 'forceFullscreen',     label: '强制学生全屏',  icon: 'fa-expand' },
                         { key: 'syncFollow',          label: '学生跟随翻页',  icon: 'fa-rotate' },
                         { key: 'alertJoin',           label: '学生上线提醒',  icon: 'fa-user-plus' },

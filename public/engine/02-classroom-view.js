@@ -1,18 +1,58 @@
 // ========================================================
 // 机房视图组件（教师端）
 // 功能：显示所有学生座位，支持命名、拖拽排列、在线状态
-// 布局和命名持久化到 localStorage
+// 布局和命名持久化到 localStorage，支持多个班级（表）
 // ========================================================
 function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTopChange }) {
-    const STORAGE_KEY = 'classroom-layout-v1';
+    const STORAGE_KEY = 'classroom-layouts-v1';
     const podiumOnTop = typeof podiumAtTop === 'boolean' ? podiumAtTop : true;
 
-    const [seats, setSeats] = useState(() => {
+    // 多班级状态管理
+    const [classrooms, setClassrooms] = useState(() => {
         try {
-            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            return saved.map(s => ({ ...s, ip: s.ip && s.ip.startsWith('::ffff:') ? s.ip.slice(7) : s.ip }));
-        } catch(e) { return []; }
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            // 兼容旧版本数据（如果存在单个表）
+            const oldLayout = JSON.parse(localStorage.getItem('classroom-layout-v1') || '[]');
+            if (oldLayout.length > 0 && Object.keys(saved).length === 0) {
+                // 迁移旧数据到默认班级
+                return {
+                    'default': {
+                        name: '默认班级',
+                        seats: oldLayout.map(s => ({ ...s, ip: s.ip && s.ip.startsWith('::ffff:') ? s.ip.slice(7) : s.ip })),
+                        podiumAtTop: true
+                    }
+                };
+            }
+            return saved;
+        } catch(e) { return {}; }
     });
+    const [currentClassroomId, setCurrentClassroomId] = useState(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            const lastUsed = localStorage.getItem('classroom-last-used');
+            if (lastUsed && saved[lastUsed]) return lastUsed;
+            return Object.keys(saved)[0] || 'default';
+        } catch(e) { return 'default'; }
+    });
+    const [showClassroomMenu, setShowClassroomMenu] = useState(false);
+    const [showAddClassroom, setShowAddClassroom] = useState(false);
+    const [newClassName, setNewClassName] = useState('');
+    const classroomMenuRef = useRef(null);
+
+    // 当前班级数据
+    const currentClassroom = classrooms[currentClassroomId] || { name: '默认班级', seats: [], podiumAtTop: true };
+    const [seats, setSeats] = useState(currentClassroom.seats || []);
+    const [currentPodiumTop, setCurrentPodiumTop] = useState(currentClassroom.podiumAtTop !== undefined ? currentClassroom.podiumAtTop : podiumOnTop);
+
+    // 当切换班级或更新数据时，同步状态
+    useEffect(() => {
+        const classroom = classrooms[currentClassroomId];
+        if (classroom) {
+            setSeats(classroom.seats || []);
+            setCurrentPodiumTop(classroom.podiumAtTop !== undefined ? classroom.podiumAtTop : podiumOnTop);
+        }
+    }, [currentClassroomId, classrooms]);
+
     const [onlineIPs, setOnlineIPs] = useState([]);
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState('');
@@ -35,6 +75,9 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
             if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
                 setShowMoreMenu(false);
             }
+            if (classroomMenuRef.current && !classroomMenuRef.current.contains(e.target)) {
+                setShowClassroomMenu(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -45,9 +88,20 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     const gridRows = Math.max(maxRow, 4);
     const gridCols = Math.max(maxCol, 6);
 
+    const saveClassroom = (classroomId, data) => {
+        setClassrooms(prev => {
+            const updated = {
+                ...prev,
+                [classroomId]: { ...prev[classroomId], ...data }
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+            return updated;
+        });
+    };
+
     const saveSeats = (next) => {
         setSeats(next);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        saveClassroom(currentClassroomId, { seats: next });
     };
 
     const normalizeIp = ip => ip && ip.startsWith('::ffff:') ? ip.slice(7) : ip;
@@ -57,6 +111,69 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
             setEditingId(null);
         }
         if (onClose) onClose();
+    };
+
+    // 切换班级
+    const handleSwitchClassroom = (classroomId) => {
+        if (classroomId === currentClassroomId) return;
+        setCurrentClassroomId(classroomId);
+        localStorage.setItem('classroom-last-used', classroomId);
+        setShowClassroomMenu(false);
+    };
+
+    // 创建新班级
+    const handleCreateClassroom = () => {
+        if (!newClassName.trim()) return;
+        const newId = `classroom-${Date.now()}`;
+        saveClassroom(newId, {
+            name: newClassName.trim(),
+            seats: [],
+            podiumAtTop: true
+        });
+        setNewClassName('');
+        setShowAddClassroom(false);
+        handleSwitchClassroom(newId);
+    };
+
+    // 删除班级
+    const handleDeleteClassroom = (e, classroomId) => {
+        e.stopPropagation();
+        if (Object.keys(classrooms).length <= 1) {
+            alert('至少需要保留一个班级');
+            return;
+        }
+        if (!confirm(`确定要删除班级 "${classrooms[classroomId]?.name}" 吗？`)) return;
+
+        setClassrooms(prev => {
+            const updated = { ...prev };
+            delete updated[classroomId];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+            return updated;
+        });
+
+        // 如果删除的是当前班级，切换到第一个班级
+        if (classroomId === currentClassroomId) {
+            const remainingClassrooms = Object.keys(classrooms).filter(id => id !== classroomId);
+            if (remainingClassrooms.length > 0) {
+                handleSwitchClassroom(remainingClassrooms[0]);
+            }
+        }
+        setShowClassroomMenu(false);
+    };
+
+    // 重命名班级
+    const handleRenameClassroom = (e, classroomId, newName) => {
+        e.stopPropagation();
+        saveClassroom(classroomId, { name: newName.trim() });
+    };
+
+    // 更新班级的讲台位置
+    const handlePodiumAtTopChange = (value) => {
+        setCurrentPodiumTop(value);
+        saveClassroom(currentClassroomId, { podiumAtTop: value });
+        if (onPodiumAtTopChange) {
+            onPodiumAtTopChange(value);
+        }
     };
 
     const fetchOnline = () => {
@@ -160,8 +277,26 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
             if (isJson) {
                 try {
                     const parsed = JSON.parse(trimmedText || '{}');
-                    if (parsed && typeof parsed.podiumAtTop === 'boolean' && typeof onPodiumAtTopChange === 'function') {
-                        onPodiumAtTopChange(parsed.podiumAtTop);
+                    // 如果是 v2 格式的班级数据，可以选择创建新班级或覆盖
+                    if (parsed && parsed.version === 2 && parsed.classroomId && parsed.classroomName) {
+                        const shouldCreateNew = confirm(`导入的班级名称为 "${parsed.classroomName}"\n\n点击"确定"创建新班级\n点击"取消"覆盖当前班级`);
+                        if (shouldCreateNew) {
+                            const newId = `classroom-${Date.now()}`;
+                            saveClassroom(newId, {
+                                name: parsed.classroomName,
+                                seats: parsed.seats.map((s, idx) => {
+                                    const ip = normalizeIp(s.ip);
+                                    return { id: s.id || `seat-${Date.now()}-${ip}-${idx}`, ip, name: s.name || '', row: s.row, col: s.col };
+                                }),
+                                podiumAtTop: parsed.podiumAtTop !== undefined ? parsed.podiumAtTop : true
+                            });
+                            handleSwitchClassroom(newId);
+                            return;
+                        }
+                    }
+                    // 覆盖当前班级
+                    if (parsed && typeof parsed.podiumAtTop === 'boolean') {
+                        handlePodiumAtTopChange(parsed.podiumAtTop);
                     }
                     const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.seats) ? parsed.seats : []);
                     const normalized = list
@@ -245,13 +380,15 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     };
     const handleExportJson = () => {
         const payload = {
-            version: 1,
+            version: 2,
             exportedAt: new Date().toISOString(),
-            podiumAtTop: podiumOnTop,
+            classroomId: currentClassroomId,
+            classroomName: currentClassroom.name,
+            podiumAtTop: currentPodiumTop,
             seats: seats.map(s => ({ ip: s.ip, name: s.name || '', row: s.row, col: s.col }))
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-        downloadBlob(blob, `classroom-layout-${getStamp()}.json`);
+        downloadBlob(blob, `classroom-${currentClassroom.name}-${getStamp()}.json`);
     };
     const handleExportCsv = () => {
         const content = [
@@ -421,7 +558,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
         const rowCount = gridRows + 1;
         const colCount = gridCols + 1;
         for (let vr = 1; vr <= rowCount; vr++) {
-            const r = podiumOnTop ? vr : (rowCount - vr + 1);
+            const r = currentPodiumTop ? vr : (rowCount - vr + 1);
             const cols = [];
             for (let c = 1; c <= colCount; c++) {
                 const seat = seats.find(s => s.row === r && s.col === c);
@@ -461,6 +598,54 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                     <div className="flex items-center space-x-3">
                         <i className="fas fa-chalkboard text-blue-400 text-xl"></i>
                         <h2 className="text-white font-bold text-lg">机房视图</h2>
+                        {/* 班级选择器 */}
+                        <div className="relative" ref={classroomMenuRef}>
+                            <button
+                                onClick={() => setShowClassroomMenu(!showClassroomMenu)}
+                                className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition-colors border border-slate-600 text-slate-200"
+                            >
+                                <i className="fas fa-users mr-1.5"></i>
+                                <span className="max-w-[120px] truncate">{currentClassroom.name}</span>
+                                <i className={`fas fa-chevron-down ml-2 text-xs transition-transform ${showClassroomMenu ? 'rotate-180' : ''}`}></i>
+                            </button>
+                            {showClassroomMenu && (
+                                <div className="absolute left-0 mt-2 w-56 bg-slate-800 rounded-xl shadow-xl border border-slate-700 py-2 z-50">
+                                    <div className="px-3 py-2 border-b border-slate-700 flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">班级列表</span>
+                                        <button
+                                            onClick={() => { setShowAddClassroom(true); setShowClassroomMenu(false); }}
+                                            className="text-xs text-blue-400 hover:text-blue-300 flex items-center"
+                                        >
+                                            <i className="fas fa-plus mr-1"></i>新建
+                                        </button>
+                                    </div>
+                                    {Object.entries(classrooms).map(([id, cls]) => (
+                                        <div
+                                            key={id}
+                                            onClick={() => handleSwitchClassroom(id)}
+                                            className={`px-3 py-2 flex items-center justify-between group transition-colors cursor-pointer ${
+                                                id === currentClassroomId ? 'bg-blue-500/20 text-blue-300' : 'hover:bg-slate-700 text-slate-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center flex-1 min-w-0">
+                                                <i className="fas fa-chalkboard-teacher w-4 mr-2 text-slate-500"></i>
+                                                <span className="truncate text-sm">{cls.name}</span>
+                                                <span className="ml-2 text-xs text-slate-500">({cls.seats?.length || 0}座)</span>
+                                            </div>
+                                            {id !== currentClassroomId && (
+                                                <button
+                                                    onClick={(e) => handleDeleteClassroom(e, id)}
+                                                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all p-1"
+                                                    title="删除班级"
+                                                >
+                                                    <i className="fas fa-trash-can text-xs"></i>
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                         <span className="px-2.5 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold border border-green-500/30">{onlineIPs.length} 在线</span>
                         <span className="px-2.5 py-1 bg-slate-700 text-slate-400 rounded-full text-xs font-bold">{seats.length} 座位</span>
                     </div>
@@ -470,11 +655,11 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                             <button onClick={() => setViewMode('list')} className={`px-3 py-1.5 text-sm transition-colors ${viewMode === 'list' ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`} title="列表视图"><i className="fas fa-list"></i></button>
                         </div>
                         <button
-                            onClick={() => typeof onPodiumAtTopChange === 'function' && onPodiumAtTopChange(!podiumOnTop)}
+                            onClick={() => handlePodiumAtTopChange(!currentPodiumTop)}
                             className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium transition-colors border border-slate-600"
-                            title={podiumOnTop ? '讲台在上（点击切换为下）' : '讲台在下（点击切换为上）'}
+                            title={currentPodiumTop ? '讲台在上（点击切换为下）' : '讲台在下（点击切换为上）'}
                         >
-                            <i className="fas fa-chalkboard mr-1.5"></i>{podiumOnTop ? '讲台在上' : '讲台在下'}
+                            <i className="fas fa-chalkboard mr-1.5"></i>{currentPodiumTop ? '讲台在上' : '讲台在下'}
                         </button>
                         <button onClick={handleAutoImport} disabled={autoImporting} className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors" title="将当前在线学生自动添加为座位">
                             <i className={`fas ${autoImporting ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'} mr-1.5`}></i>自动导入
@@ -496,7 +681,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                                         <i className="fas fa-table-list w-5 mr-2 text-center"></i>导出列表 (CSV)
                                     </button>
                                     <button onClick={() => { handleExportJson(); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
-                                        <i className="fas fa-file-export w-5 mr-2 text-center"></i>导出布局 (JSON)
+                                        <i className="fas fa-file-export w-5 mr-2 text-center"></i>导出当前班级 (JSON)
                                     </button>
                                     <div className="h-px bg-slate-700 my-1 mx-2"></div>
                                     <button onClick={() => { handleDownloadTemplate(); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center">
@@ -527,6 +712,22 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                     </div>
                 )}
 
+                {showAddClassroom && (
+                    <div className="px-6 py-3 bg-slate-800/80 border-b border-slate-700 flex items-center gap-3 shrink-0">
+                        <i className="fas fa-users text-slate-400"></i>
+                        <input
+                            value={newClassName}
+                            onChange={e => setNewClassName(e.target.value)}
+                            placeholder="输入班级名称（如：高一1班）"
+                            className="flex-1 px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-blue-400"
+                            autoFocus
+                            onKeyDown={e => { if (e.key === 'Enter') handleCreateClassroom(); if (e.key === 'Escape') setShowAddClassroom(false); }}
+                        />
+                        <button onClick={handleCreateClassroom} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors">创建</button>
+                        <button onClick={() => setShowAddClassroom(false)} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition-colors">取消</button>
+                    </div>
+                )}
+
                 {importError && (
                     <div className="px-6 py-2 bg-red-900/40 border-b border-red-700/50 flex items-center gap-3 shrink-0 text-sm text-red-300">
                         <i className="fas fa-triangle-exclamation text-red-400"></i>
@@ -543,7 +744,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                     <span className="ml-auto text-slate-600">拖拽座位可调整位置 · 双击名称可编辑</span>
                 </div>
 
-                {viewMode === 'grid' && podiumOnTop && (
+                {viewMode === 'grid' && currentPodiumTop && (
                     <div className="px-6 pt-4 shrink-0">
                         <div className="flex justify-center">
                             <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">讲台</div>
@@ -565,7 +766,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                     </div>
                 )}
 
-                {viewMode === 'grid' && !podiumOnTop && (
+                {viewMode === 'grid' && !currentPodiumTop && (
                     <div className="px-6 pb-5 shrink-0">
                         <div className="flex justify-center">
                             <div className="px-12 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 text-sm font-bold tracking-widest">讲台</div>

@@ -7,6 +7,25 @@
 
     <!-- 1. 引入 Tailwind CSS (优先局域网，自动缓存) -->
     <script src="/lib/tailwindcss.js" onerror="this.src='https://cdn.tailwindcss.com'"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                screens: {
+                    'sm': '10px',
+                    'md': '10px',
+                    'lg': '10px',
+                    'xl': '10px',
+                    '2xl': '10px',
+                },
+                extend: {
+                    height: { 'screen': '100%' },
+                    width: { 'screen': '100%' },
+                    minHeight: { 'screen': '100%' },
+                    minWidth: { 'screen': '100%' }
+                }
+            }
+        }
+    </script>
 
     <!-- 2. 引入 FontAwesome 图标库 (优先局域网，自动缓存) -->
     <link rel="stylesheet" href="/lib/fontawesome.all.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
@@ -25,6 +44,18 @@
     <script src="/lib/marked.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/marked@9/marked.min.js'"></script>
 
     <style>
+        /* 全局强制样式，确保 body 和根容器完全覆盖并禁止滚动 */
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        
+        /* 虚拟分辨率容器，用于始终提供 1280x720 以上的画布供 Tailwind 渲染 */
+        #root-wrapper {
+            width: 100vw;
+            height: 100vh;
+            transform-origin: top left;
+            overflow: hidden;
+            position: relative;
+        }
+
         /* 全局隐藏滚动条（保留滚动功能） */
         * { scrollbar-width: none; -ms-overflow-style: none; user-select: none; -webkit-user-select: none; }
         *::-webkit-scrollbar { display: none; }
@@ -68,8 +99,41 @@
 </head>
 <body class="bg-slate-900">
     
-    <!-- React 会把所有的界面渲染到这个 div 里面 -->
-    <div id="root"></div>
+    <!-- 缩放包裹层，确保 UI 逻辑总是以为自己在一个至少 1280x720 的屏幕上渲染 -->
+    <div id="root-wrapper">
+        <!-- React 会把所有的界面渲染到这个 div 里面 -->
+        <div id="root" class="w-full h-full"></div>
+    </div>
+
+    <!-- 动态调整缩放比例脚本 -->
+    <script>
+        function updateContainerScale() {
+            const minW = 1280;
+            const minH = 720;
+            const realW = window.innerWidth;
+            const realH = window.innerHeight;
+            
+            // 计算需要的缩小比例
+            let scale = Math.min(realW / minW, realH / minH);
+            
+            const wrapper = document.getElementById('root-wrapper');
+            if (!wrapper) return;
+            
+            if (scale < 1) {
+                // 如果窗口过小，通过增加容器宽高来“欺骗”内部应用，然后缩小外层容器
+                wrapper.style.width = (realW / scale) + 'px';
+                wrapper.style.height = (realH / scale) + 'px';
+                wrapper.style.transform = 'scale(' + scale + ')';
+            } else {
+                // 如果窗口足够大，不进行缩放
+                wrapper.style.width = '100vw';
+                wrapper.style.height = '100vh';
+                wrapper.style.transform = 'none';
+            }
+        }
+        window.addEventListener('resize', updateContainerScale);
+        window.addEventListener('DOMContentLoaded', updateContainerScale);
+    </script>
 
     <!-- 同步引擎模块（按依赖顺序加载） -->
     <script type="text/babel" src="/engine/00-globals.js"></script>

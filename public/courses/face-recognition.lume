@@ -210,7 +210,8 @@ function VisionProcessSlide() {
 }
 
 function PixelSlide() {
-    const [grid, setGrid] = useState(Array(5).fill(Array(5).fill(0)));
+    // 使用同步变量，支持教师交互同步
+    const [grid, setGrid] = window.CourseGlobalContext.useSyncVar('pixel:grid', Array(5).fill(Array(5).fill(0)));
 
     const togglePixel = (r, c) => {
         const newGrid = grid.map((row, rIdx) =>
@@ -293,7 +294,8 @@ function PixelSlide() {
 }
 
 function RGBSlide() {
-    const [color, setColor] = useState({ r: 255, g: 165, b: 0 }); // 默认橘色
+    // 使用同步变量，支持教师交互同步
+    const [color, setColor] = window.CourseGlobalContext.useSyncVar('rgb:color', { r: 255, g: 165, b: 0 });
     const setPreset = (r, g, b) => setColor({ r, g, b });
 
     // 生成一个 6x6 的彩色图案（笑脸）数据
@@ -311,7 +313,8 @@ function RGBSlide() {
         [bg, bg, yw, yw, bg, bg],
     ];
 
-    const [hoveredPixel, setHoveredPixel] = useState(null);
+    // 使用本地变量，因为这是鼠标悬停的临时状态，不需要同步
+    const [hoveredPixel, setHoveredPixel] = window.CourseGlobalContext.useLocalVar('rgb:hover', null);
 
     return (
         <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
@@ -525,11 +528,12 @@ function ConvolutionSlide() {
         }
     };
 
-    const [selectedInput, setSelectedInput] = useState('vertical');
-    const [selectedKernel, setSelectedKernel] = useState('vertical');
-    
-    const [step, setStep] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
+    // 使用同步变量，支持教师交互同步
+    const [selectedInput, setSelectedInput] = window.CourseGlobalContext.useSyncVar('conv:input', 'vertical');
+    const [selectedKernel, setSelectedKernel] = window.CourseGlobalContext.useSyncVar('conv:kernel', 'vertical');
+
+    const [step, setStep] = window.CourseGlobalContext.useSyncVar('conv:step', 0);
+    const [isPlaying, setIsPlaying] = window.CourseGlobalContext.useSyncVar('conv:playing', false);
 
     useEffect(() => {
         setStep(0);
@@ -753,8 +757,9 @@ function PoolingSlide() {
         [1, 2, 3, 4]
     ];
 
-    const [activeQuad, setActiveQuad] = useState(0);
-    const [poolType, setPoolType] = useState('max'); 
+    // 使用同步变量，支持教师交互同步
+    const [activeQuad, setActiveQuad] = window.CourseGlobalContext.useSyncVar('pool:activeQuad', 0);
+    const [poolType, setPoolType] = window.CourseGlobalContext.useSyncVar('pool:poolType', 'max'); 
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -941,7 +946,8 @@ function PoolingSlide() {
 }
 
 function FCSlide() {
-    const [step, setStep] = useState(0);
+    // 使用同步变量，支持教师交互同步
+    const [step, setStep] = window.CourseGlobalContext.useSyncVar('fc:step', 0);
 
     // 使用上一步池化层输出的特征图数据
     const inputVals = [6, 8, 3, 4];
@@ -1180,7 +1186,9 @@ function FCSlide() {
 function PracticeSlide() {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
-    const [filterMode, setFilterMode] = useState('normal');
+    // 使用同步变量，支持教师交互同步
+    const [filterMode, setFilterMode] = window.CourseGlobalContext.useSyncVar('practice:filter', 'normal');
+    // streamActive 不需要同步，因为它是摄像头状态
     const [streamActive, setStreamActive] = useState(false);
 
     useEffect(() => {

@@ -54,13 +54,11 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     const colorPresets = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#0f172a', '#ffffff'];
 
     const getAnnoBaseSize = () => {
-        const canvas = annoCanvasRef.current;
-        if (!canvas) return { w: 1280, h: 720 };
-        const rect = canvas.getBoundingClientRect();
-        const w = Math.max(1, Math.round(rect.width || 0));
-        const h = Math.max(1, Math.round(rect.height || 0));
-        if (w <= 1 || h <= 1) return { w: 1280, h: 720 };
-        return { w, h };
+        // 固定按 16:9 比例以及当前缩放计算物理像素尺寸
+        // 避免因为 getBoundingClientRect 返回非 16:9 导致画布比例失调变形
+        const ui = uiScale || 1;
+        const scale = (stageScale || 1) * ui;
+        return { w: 1280 * scale, h: 720 * scale };
     };
 
     const prepareAnnoCanvas = () => {
@@ -568,7 +566,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 }}
                             >
                                 {/* 课件内容（基于 1280x720 设计尺寸渲染） */}
-                                <div className="absolute top-0 left-0 w-full h-full">
+                                <div className={`absolute top-0 left-0 w-full h-full ${slides[currentSlide]?.scrollable === true ? 'overflow-y-auto no-scrollbar' : ''}`}>
                                     {slides[currentSlide] && slides[currentSlide].component}
                                 </div>
                                 {/* 标注画布：与课件内容处于同一缩放容器中，保证坐标一致 */}

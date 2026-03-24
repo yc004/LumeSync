@@ -1,11 +1,29 @@
 // ========================================================
 // 共享设置面板组件（教师端两处复用）
 // ========================================================
+const { useEffect } = React;
+
 function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = 'z-50' }) {
     const [newPwd, setNewPwd] = useState('');
     const [pwdStatus, setPwdStatus] = useState(null); // 'ok' | 'err' | null
+    const [submissionDir, setSubmissionDir] = useState('');
+    const [submissionDirStatus, setSubmissionDirStatus] = useState(null); // 'ok' | 'err' | null
     const renderScaleValue = (typeof settings?.renderScale === 'number' && Number.isFinite(settings.renderScale)) ? settings.renderScale : 0.96;
     const uiScaleValue = (typeof settings?.uiScale === 'number' && Number.isFinite(settings.uiScale)) ? settings.uiScale : 1.0;
+
+    // 加载当前配置的提交目录
+    useEffect(() => {
+        fetch('/api/submission-config')
+            .then(res => res.json())
+            .then(data => {
+                if (data.submissionsDir) {
+                    setSubmissionDir(data.submissionsDir);
+                }
+            })
+            .catch(err => {
+                console.error('[SettingsPanel] Failed to load submission config:', err);
+            });
+    }, []);
 
     const handleSetPassword = () => {
         if (!newPwd.trim()) return;
@@ -32,6 +50,19 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
         }
     };
 
+    const handleSelectSubmissionDir = async () => {
+        try {
+            const selectedDir = await window.electronAPI.selectSubmissionDir();
+            if (selectedDir) {
+                setSubmissionDir(selectedDir);
+                await handleChangeSubmissionDir(selectedDir);
+            }
+        } catch (err) {
+            console.error('[handleSelectSubmissionDir] error:', err);
+            alert('无法选择目录');
+        }
+    };
+
     const handleToggleDevTools = () => {
         try {
             if (window.electronAPI && typeof window.electronAPI.toggleDevTools === 'function') {
@@ -41,6 +72,32 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
             }
         } catch (_) {
             alert('无法打开调试面板');
+        }
+    };
+
+    const handleChangeSubmissionDir = async (dir = submissionDir) => {
+        if (!dir.trim()) return;
+
+        try {
+            const response = await fetch('/api/submission-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ submissionsDir: dir.trim() })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setSubmissionDirStatus('ok');
+                setTimeout(() => setSubmissionDirStatus(null), 3000);
+            } else {
+                setSubmissionDirStatus('err');
+                setTimeout(() => setSubmissionDirStatus(null), 3000);
+            }
+        } catch (err) {
+            console.error('[handleChangeSubmissionDir] error:', err);
+            setSubmissionDirStatus('err');
+            setTimeout(() => setSubmissionDirStatus(null), 3000);
         }
     };
 
@@ -178,6 +235,49 @@ function SettingsPanel({ settings, onSettingsChange, socket, onClose, zIndex = '
                             {pwdStatus === 'err' && (
                                 <p className="text-xs text-red-500 flex items-center">
                                     <i className="fas fa-xmark mr-1"></i> 推送失败，请重试
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-4">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center">
+                            <i className="fas fa-folder-open w-4 mr-2 text-slate-400"></i>
+                            学生提交内容存储位置
+                        </p>
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={submissionDir}
+                                    onChange={e => setSubmissionDir(e.target.value)}
+                                    placeholder="输入存储目录路径"
+                                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 font-mono"
+                                />
+                                <button
+                                    onClick={handleSelectSubmissionDir}
+                                    className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-2"
+                                    title="选择目录"
+                                >
+                                    <i className="fas fa-folder-open"></i>
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => handleChangeSubmissionDir()}
+                                disabled={!submissionDir.trim()}
+                                className={`w-full py-2 rounded-lg text-sm font-bold transition-colors ${submissionDir.trim() ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                            >
+                                <i className="fas fa-save mr-2"></i>
+                                更新存储位置
+                            </button>
+                            {submissionDirStatus === 'ok' && (
+                                <p className="text-xs text-green-600 flex items-center">
+                                    <i className="fas fa-check mr-1"></i> 已更新存储位置
+                                </p>
+                            )}
+                            {submissionDirStatus === 'err' && (
+                                <p className="text-xs text-red-500 flex items-center">
+                                    <i className="fas fa-xmark mr-1"></i> 更新失败，请检查路径
                                 </p>
                             )}
                         </div>

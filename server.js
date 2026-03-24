@@ -663,6 +663,139 @@ app.get('/api/student-log', (req, res) => {
     res.json({ log: studentLog });
 });
 
+// 学生提交内容保存 API
+// 默认存储位置：项目根目录下的 submissions 文件夹
+// 教师端可通过修改 SUBMISSIONS_DIR 环境变量自定义存储位置
+const DEFAULT_SUBMISSIONS_DIR = path.join(__dirname, 'submissions');
+
+// 函数：获取当前提交目录（支持运行时动态更新）
+function getSubmissionDir() {
+    return process.env.SUBMISSIONS_DIR || DEFAULT_SUBMISSIONS_DIR;
+}
+
+// 确保存储目录存在
+if (!fs.existsSync(getSubmissionDir())) {
+    fs.mkdirSync(getSubmissionDir(), { recursive: true });
+}
+
+// 尝试从配置文件加载上次保存的路径
+const CONFIG_FILE = path.join(__dirname, 'submissions-config.json');
+try {
+    if (fs.existsSync(CONFIG_FILE)) {
+        const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+        if (config.submissionsDir) {
+            process.env.SUBMISSIONS_DIR = config.submissionsDir;
+            console.log(`[config] Loaded submissions directory from config: ${config.submissionsDir}`);
+            // 确保目录存在
+            if (!fs.existsSync(config.submissionsDir)) {
+                fs.mkdirSync(config.submissionsDir, { recursive: true });
+            }
+        }
+    }
+} catch (err) {
+    console.warn('[config] Failed to load submissions config:', err.message);
+}
+
+app.post('/api/save-submission', (req, res) => {
+    const { courseId, clientIp, content, fileName, mergeFile } = req.body;
+
+    if (!courseId || !clientIp) {
+        return res.json({ success: false, error: 'Missing required fields' });
+    }
+
+    try {
+        const submissionsDir = getSubmissionDir();
+        const courseDir = path.join(submissionsDir, courseId);
+        if (!fs.existsSync(courseDir)) {
+            fs.mkdirSync(courseDir, { recursive: true });
+        }
+        
+        let filePath;
+        const baseFileName = fileName || 'submission.txt';
+        const fileContent = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+        
+        if (mergeFile) {
+            // 合并模式：所有学生提交到一个文件（表格格式）
+            filePath = path.join(courseDir, baseFileName);
+            const timestamp = new Date().toISOString();
+            const entry = `${timestamp},${clientIp},${JSON.stringify(content).replace(/"/g, '""')}\n`;
+            
+            // 检查文件是否存在，不存在则创建表头
+            if (!fs.existsSync(filePath)) {
+                fs.writeFileSync(filePath, `Timestamp,IP,Content\n${entry}`, 'utf-8');
+            } else {
+                fs.appendFileSync(filePath, entry, 'utf-8');
+            }
+        } else {
+            // 分离模式：每个学生一个文件
+            // 获取学生姓名（从机房视图配置中获取）
+            const classroomLayoutPath = path.join(__dirname, 'public', 'data', 'classroom-layout-v1.json');
+            let studentName = clientIp;
+            try {
+                if (fs.existsSync(classroomLayoutPath)) {
+                    const layout = JSON.parse(fs.readFileSync(classroomLayoutPath, 'utf-8'));
+                    const studentSeat = Array.isArray(layout) ? layout.find(s => s.ip === clientIp) : null;
+                    if (studentSeat && studentSeat.name) {
+                        studentName = studentSeat.name;
+                    }
+                }
+            } catch (err) {
+                console.warn('[save-submission] Failed to read classroom layout:', err.message);
+            }
+            
+            // 文件名：学生名称_文件名 或 IP_文件名
+            const namePrefix = studentName === clientIp ? clientIp.replace(/\./g, '-') : studentName;
+            const safeFileName = `${namePrefix}_${baseFileName}`.replace(/[<>:"/\\|?*]/g, '_');
+            filePath = path.join(courseDir, safeFileName);
+            fs.writeFileSync(filePath, fileContent, 'utf-8');
+        }
+        
+        console.log(`[save-submission] Saved: ${filePath} (merge=${mergeFile})`);
+        res.json({ success: true, filePath });
+    } catch (err) {
+        console.error('[save-submission] Error:', err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// 获取提交文件夹路径（供教师端设置使用）
+app.get('/api/submission-config', (req, res) => {
+    res.json({ submissionsDir: getSubmissionDir() });
+});
+
+// 更新提交文件夹路径
+app.post('/api/submission-config', (req, res) => {
+    const { submissionsDir } = req.body;
+
+    if (!submissionsDir || typeof submissionsDir !== 'string') {
+        return res.status(400).json({ success: false, error: 'Invalid directory path' });
+    }
+
+    try {
+        // 验证并创建目录
+        if (!fs.existsSync(submissionsDir)) {
+            fs.mkdirSync(submissionsDir, { recursive: true });
+        }
+
+        // 更新全局配置
+        process.env.SUBMISSIONS_DIR = submissionsDir;
+
+        // 保存到配置文件，下次重启时自动加载
+        try {
+            fs.writeFileSync(CONFIG_FILE, JSON.stringify({ submissionsDir }, null, 2), 'utf-8');
+            console.log(`[config] Saved submissions directory to config file: ${CONFIG_FILE}`);
+        } catch (saveErr) {
+            console.warn('[config] Failed to save config file:', saveErr.message);
+        }
+
+        console.log(`[submission-config] Updated submissions directory to: ${submissionsDir}`);
+        res.json({ success: true, submissionsDir });
+    } catch (err) {
+        console.error('[submission-config] Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // 下载 Skill 文件（docs/create-course.md）
 app.get('/api/download-skill', (req, res) => {
     const skillPath = path.join(__dirname, 'docs', 'create-course.md');
@@ -918,6 +1051,55 @@ io.on('connection', (socket) => {
             courseCatalog = scanCourses();
             socket.emit('course-catalog-updated', { courses: courseCatalog });
         }
+    });
+
+    // 学生提交内容到教师端
+    socket.on('student:submit', (data) => {
+        if (role !== 'viewer') return;
+        
+        const submissionId = data && data.submissionId ? String(data.submissionId) : '';
+        const courseId = data && data.courseId ? String(data.courseId) : currentCourseId || '';
+        const content = data && data.content !== undefined ? data.content : null;
+        const fileName = data && data.fileName ? String(data.fileName) : '';
+        const mergeFile = data && typeof data.mergeFile === 'boolean' ? data.mergeFile : false;
+        
+        if (!submissionId || !courseId) {
+            socket.emit('student:submit:result', { 
+                submissionId, 
+                success: false, 
+                error: 'Invalid parameters' 
+            });
+            return;
+        }
+        
+        // 转发到教师端处理存储
+        io.to('hosts').emit('student:submit', {
+            submissionId,
+            courseId,
+            clientIp,
+            content,
+            fileName,
+            mergeFile,
+            timestamp: Date.now()
+        });
+        
+        console.log(`[student:submit] IP=${clientIp} courseId=${courseId} submissionId=${submissionId}`);
+    });
+
+    // 教师端确认已收到提交
+    socket.on('student:submit:ack', (data) => {
+        if (role !== 'host') return;
+        
+        const submissionId = data && data.submissionId ? String(data.submissionId) : '';
+        const success = data && typeof data.success === 'boolean' ? data.success : true;
+        const error = data && data.error ? String(data.error) : '';
+        
+        // 转发确认给学生端
+        io.emit('student:submit:result', {
+            submissionId,
+            success,
+            error
+        });
     });
 
     // 处理断开连接逻辑

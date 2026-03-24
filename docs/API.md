@@ -63,6 +63,13 @@ window.CourseGlobalContext = {
     // 摄像头管理器
     cameraManager: CameraManager;
 
+    // 提交内容 API（学生端专用）
+    submitContent: (options: {
+        content: any;         // 要提交的内容（可以是字符串、对象等）
+        fileName?: string;     // 文件名（默认 "submission.txt"）
+        mergeFile?: boolean;   // 是否合并到同一个文件（默认 false）
+    }) => Promise<{ success: boolean }>;
+
     // 辅助方法
     log: (message: string, data?: any) => void;
     error: (message: string, error?: any) => void;
@@ -410,6 +417,124 @@ function InteractiveSlide() {
     );
 }
 ```
+
+### 学生提交内容到教师端
+
+学生端可以通过 `submitContent` API 将内容提交给教师端，教师端会自动保存到文件。
+
+#### 基本用法
+
+```tsx
+const handleSubmit = async () => {
+    try {
+        await window.CourseGlobalContext.submitContent({
+            content: '学生的回答内容',
+            fileName: 'answer.txt'
+        });
+        alert('提交成功！');
+    } catch (err) {
+        alert('提交失败：' + err.message);
+    }
+};
+```
+
+#### 参数说明
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `content` | `any` | 必填 | 要提交的内容（字符串、对象、数组等） |
+| `fileName` | `string` | `"submission.txt"` | 保存的文件名 |
+| `mergeFile` | `boolean` | `false` | 是否合并所有学生提交到一个文件 |
+
+#### 存储模式
+
+**分离模式（mergeFile = false，默认）**
+- 每个学生的提交保存为独立文件
+- 文件名格式：`学生名_文件名` 或 `IP_文件名`
+- 示例：`张三_answer.txt` 或 `192-168-1-101_answer.txt`
+
+**合并模式（mergeFile = true）**
+- 所有学生提交合并到一个文件（CSV 格式）
+- 文件名即为 `fileName` 指定的名称
+- 格式：`Timestamp,IP,Content`
+- 示例：
+  ```
+  Timestamp,IP,Content
+  2024-03-24T10:30:00.000Z,192.168.1.101,"学生的回答"
+  2024-03-24T10:30:15.000Z,192.168.1.102,"另一个回答"
+  ```
+
+#### 完整示例
+
+```tsx
+function QuizSlide() {
+    const [answer, setAnswer] = useState('');
+    const [submitted, setSubmitted] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async () => {
+        if (!answer.trim()) return;
+        
+        setIsSubmitting(true);
+        try {
+            await window.CourseGlobalContext.submitContent({
+                content: {
+                    question: '1+1=?',
+                    answer: answer,
+                    timestamp: new Date().toISOString()
+                },
+                fileName: 'quiz-result.json',
+                mergeFile: false  // 每个学生一个文件
+            });
+            setSubmitted(true);
+        } catch (err) {
+            console.error('提交失败:', err);
+            alert('提交失败，请重试');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+            <h2 className="text-2xl font-bold mb-6">问题：1+1=?</h2>
+            
+            {!submitted ? (
+                <div className="flex flex-col items-center gap-4">
+                    <input
+                        type="text"
+                        value={answer}
+                        onChange={(e) => setAnswer(e.target.value)}
+                        placeholder="输入答案..."
+                        className="px-4 py-2 border rounded-lg w-64"
+                        disabled={isSubmitting}
+                    />
+                    <button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting || !answer.trim()}
+                        className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+                    >
+                        {isSubmitting ? '提交中...' : '提交答案'}
+                    </button>
+                </div>
+            ) : (
+                <div className="text-green-600 font-bold text-lg">
+                    已提交答案：{answer}
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+#### 注意事项
+
+1. **学生端专用**：此 API 仅在学生端可用，教师端调用将返回错误
+2. **自动保存**：教师端会自动将内容保存到文件，无需手动下载
+3. **默认路径**：文件默认保存在项目根目录的 `submissions` 文件夹中
+4. **学生名称**：如果学生在机房视图中有命名，文件名会使用学生名称；否则使用 IP 地址
+5. **超时处理**：提交请求有 10 秒超时限制
+6. **错误处理**：建议使用 try-catch 处理提交错误
 
 ---
 

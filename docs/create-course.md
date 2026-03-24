@@ -215,6 +215,7 @@ function ContentSlide1() { ... }
 const mySlides = [
     { id: 'intro', component: <IntroSlide /> },
     { id: 'content-1', component: <ContentSlide1 /> },
+    { id: 'long-form', component: <LongFormSlide />, scrollable: true }, // 可选：允许滚动
 ];
 
 // 7. 课程数据导出（必须是文件最后一部分）
@@ -369,6 +370,109 @@ function CameraSlide() {
 
 ---
 
+## 提交内容 API（学生端）
+
+学生端课件可以通过 `window.CourseGlobalContext.submitContent` 将内容提交给教师端，教师端会自动保存到文件。
+
+### API 说明
+
+```tsx
+window.CourseGlobalContext.submitContent(options: {
+    content: any;         // 要提交的内容（字符串、对象、数组等）
+    fileName?: string;    // 文件名（默认 "submission.txt"）
+    mergeFile?: boolean;  // 是否合并到同一个文件（默认 false）
+}) => Promise<{ success: boolean }>;
+```
+
+### 参数说明
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `content` | `any` | 必填 | 要提交的内容（字符串、对象、数组等） |
+| `fileName` | `string` | `"submission.txt"` | 保存的文件名 |
+| `mergeFile` | `boolean` | `false` | 是否合并所有学生提交到一个文件 |
+
+### 存储模式
+
+#### 模式 1：每个学生一个文件（mergeFile = false，默认）
+
+每个学生的提交保存为独立文件，文件命名规则：
+- 如果学生端有名称：`{学生名称}-{文件名}`
+- 如果学生端无名称：`{IP地址}-{文件名}`
+- 示例：`张三-answer.txt`、`192.168.1.101-answer.txt`
+
+#### 模式 2：合并为一个文件（mergeFile = true）
+
+所有学生的提交合并到一个 CSV 文件中，格式：
+```
+Timestamp,IP,Content,StudentName
+2024-03-24T10:30:00.000Z,192.168.1.101,"学生的回答",张三
+2024-03-24T10:30:15.000Z,192.168.1.102,"另一个回答",李四
+```
+
+### 使用示例
+
+```tsx
+function QuizSlide() {
+    const [answer, setAnswer] = useState('');
+    const [submitted, setSubmitted] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async () => {
+        if (!answer.trim()) return;
+
+        setIsSubmitting(true);
+        try {
+            await window.CourseGlobalContext.submitContent({
+                content: {
+                    question: '1+1=?',
+                    answer: answer,
+                    timestamp: new Date().toISOString()
+                },
+                fileName: 'quiz-result.json',
+                mergeFile: false  // 每个学生一个文件
+            });
+            setSubmitted(true);
+        } catch (err) {
+            console.error('提交失败:', err);
+            alert('提交失败，请重试');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full p-8 bg-white">
+            <h2 className="text-2xl font-bold mb-6">问题：1+1=？</h2>
+            <input
+                type="text"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                className="w-64 px-4 py-2 border rounded-lg mb-4"
+                placeholder="输入你的答案"
+                disabled={submitted}
+            />
+            <button
+                onClick={handleSubmit}
+                disabled={submitted || isSubmitting}
+                className="px-6 py-2 bg-blue-500 text-white rounded-lg disabled:bg-gray-300"
+            >
+                {isSubmitting ? '提交中...' : submitted ? '已提交' : '提交答案'}
+            </button>
+        </div>
+    );
+}
+```
+
+### 注意事项
+
+- 仅学生端可以使用此 API，教师端调用会失败
+- 提交的文件会保存在教师端的 `submissions/{课程ID}/` 目录下（可配置）
+- 合并模式只支持简单内容，复杂对象建议使用独立文件模式
+- 提交超时时间为 30 秒，超时会抛出错误
+
+---
+
 ## window.CourseData 配置
 
 ### 必需字段
@@ -379,7 +483,8 @@ function CameraSlide() {
 | `icon` | string | 课程图标（emoji） |
 | `desc` | string | 课程描述，显示在选课卡片 |
 | `color` | string | 卡片渐变色，格式：`from-[色]-500 to-[色]-600` |
-| `slides` | array | 幻灯片数组，每项：`{ id: string, component: <Component /> }` |
+| `slides` | array | 幻灯片数组，每项：`{ id: string, component: <Component />, scrollable?: boolean }` |
+| `slides[].scrollable` | boolean | 可选，是否允许该页面滚动。默认 false，适合内容较长的页面（如长问卷、多表单） |
 
 ### dependencies 格式
 

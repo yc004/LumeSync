@@ -48,11 +48,13 @@ function Slide2() {
     );
 }
 
+
 // ================= COURSE DATA =================
 
 const mySlides = [
     { id: 'slide-1', component: <Slide1 /> },
     { id: 'slide-2', component: <Slide2 /> },
+    { id: 'long-quiz', component: <LongQuizSlide />, scrollable: true }, // 允许滚动的页面
 ];
 
 window.CourseData = {
@@ -65,12 +67,35 @@ window.CourseData = {
 };
 ```
 
+### 幻灯片滚动控制
+
+对于内容较多的页面（如长问卷、多表单等），可以通过在幻灯片数组中添加 `scrollable: true` 参数来启用滚动：
+
+```tsx
+const mySlides = [
+    { id: 'short-page', component: <ShortPage /> },           // 默认不滚动
+    { id: 'long-quiz', component: <LongQuiz />, scrollable: true }, // 允许滚动
+];
+```
+
+**使用场景：**
+- 长问卷（题目较多，超出 720px 高度）
+- 多表单页面
+- 列表或表格内容较多的页面
+- 需要垂直滚动查看完整内容的页面
+
+**注意事项：**
+- 默认情况下页面不可滚动（`scrollable: false` 或未设置）
+- 启用滚动后，页面可以使用鼠标滚轮或触摸滑动进行垂直滚动
+- 滚动时标注画布的坐标会自动跟随
+- 建议为长页面添加合适的 padding 和间距，提升用户体验
+
 ## 渲染约定（重要）
 
 ### 固定画布与缩放
 
 - 教师端/学生端使用固定 16:9 画布（1280×720），再按窗口尺寸自动缩放显示
-- 教师端“课堂设置”中提供“课件内容缩放”（60%～120%），用于在不改变画布大小的情况下缩放课件内部内容，降低溢出风险
+- 教师端"课堂设置"中提供"课件内容缩放"（60%～120%），用于在不改变画布大小的情况下缩放课件内部内容，降低溢出风险
 
 ### 兼容性建议
 
@@ -458,6 +483,107 @@ function CameraSlide() {
 - 多个组件可以同时注册不同的 `onStream` 回调，共享同一个流
 - 不需要在课件里渲染摄像头选择器，引擎已内置
 - 不要在课件里直接调用 `window.CameraManager`，始终通过 `CourseGlobalContext`
+
+## 提交内容 API（学生端）
+
+学生端课件可以通过 `window.CourseGlobalContext.submitContent` 将内容提交给教师端，教师端会自动保存到文件。
+
+### API 说明
+
+```tsx
+window.CourseGlobalContext.submitContent(options: {
+    content: any;         // 要提交的内容（字符串、对象、数组等）
+    fileName?: string;    // 文件名（默认 "submission.txt"）
+    mergeFile?: boolean;  // 是否合并到同一个文件（默认 false）
+}) => Promise<{ success: boolean }>;
+```
+
+### 参数说明
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `content` | `any` | 必填 | 要提交的内容（字符串、对象、数组等） |
+| `fileName` | `string` | `"submission.txt"` | 保存的文件名 |
+| `mergeFile` | `boolean` | `false` | 是否合并所有学生提交到一个文件 |
+
+### 存储模式
+
+#### 模式 1：每个学生一个文件（mergeFile = false，默认）
+
+每个学生的提交保存为独立文件，文件命名规则：
+- 如果学生端有名称：`{学生名称}-{文件名}`
+- 如果学生端无名称：`{IP地址}-{文件名}`
+- 示例：`张三-answer.txt`、`192.168.1.101-answer.txt`
+
+#### 模式 2：合并为一个文件（mergeFile = true）
+
+所有学生的提交合并到一个 CSV 文件中，格式：
+```
+Timestamp,IP,Content,StudentName
+2024-03-24T10:30:00.000Z,192.168.1.101,"学生的回答",张三
+2024-03-24T10:30:15.000Z,192.168.1.102,"另一个回答",李四
+```
+
+### 使用示例
+
+```tsx
+function QuizSlide() {
+    const [answer, setAnswer] = useState('');
+    const [submitted, setSubmitted] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async () => {
+        if (!answer.trim()) return;
+
+        setIsSubmitting(true);
+        try {
+            await window.CourseGlobalContext.submitContent({
+                content: {
+                    question: '1+1=?',
+                    answer: answer,
+                    timestamp: new Date().toISOString()
+                },
+                fileName: 'quiz-result.json',
+                mergeFile: false  // 每个学生一个文件
+            });
+            setSubmitted(true);
+        } catch (err) {
+            console.error('提交失败:', err);
+            alert('提交失败，请重试');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full p-8 bg-white">
+            <h2 className="text-2xl font-bold mb-6">问题：1+1=？</h2>
+            <input
+                type="text"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                className="w-64 px-4 py-2 border rounded-lg mb-4"
+                placeholder="输入你的答案"
+                disabled={submitted}
+            />
+            <button
+                onClick={handleSubmit}
+                disabled={submitted || isSubmitting}
+                className="px-6 py-2 bg-blue-500 text-white rounded-lg disabled:bg-gray-300"
+            >
+                {isSubmitting ? '提交中...' : submitted ? '已提交' : '提交答案'}
+            </button>
+        </div>
+    );
+}
+```
+
+### 注意事项
+
+- 仅学生端可以使用此 API，教师端调用会失败
+- 提交的文件会保存在教师端的 `submissions/{课程ID}/` 目录下（可配置）
+- 合并模式只支持简单内容，复杂对象建议使用独立文件模式
+- 提交超时时间为 30 秒，超时会抛出错误
 
 ## 调试技巧
 

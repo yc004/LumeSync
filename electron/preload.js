@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // 教师端：打开日志目录
     openLogDir: () => ipcRenderer.invoke('open-log-dir'),
     getLogDir: () => ipcRenderer.invoke('get-log-dir'),
+    // 教师端：选择提交内容存储目录
+    selectSubmissionDir: () => ipcRenderer.invoke('select-submission-dir'),
     // 窗口控制：最小化、最大化/还原、关闭
     minimizeWindow: () => ipcRenderer.send('minimize-window'),
     maximizeWindow: () => ipcRenderer.send('maximize-window'),

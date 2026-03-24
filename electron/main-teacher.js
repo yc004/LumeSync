@@ -348,6 +348,24 @@ ipcMain.handle('open-log-dir', () => {
     return logger.getLogDir();
 });
 
+// IPC: 选择提交内容存储目录
+ipcMain.handle('select-submission-dir', async () => {
+    logger.info('IPC', 'Selecting submission directory');
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: '选择学生提交内容存储位置',
+        properties: ['openDirectory', 'createDirectory']
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+        logger.info('IPC', 'Submission directory selection cancelled');
+        return null;
+    }
+
+    const selectedDir = result.filePaths[0];
+    logger.info('IPC', 'Submission directory selected', { dir: selectedDir });
+    return selectedDir;
+});
+
 // IPC: 切换全屏
 ipcMain.on('toggle-fullscreen', () => {
     if (!mainWindow) return;

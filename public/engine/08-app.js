@@ -134,6 +134,7 @@ function ClassroomApp() {
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [studentCount, setStudentCount] = useState(0);
     const [sharedStudentLog, setSharedStudentLog] = useState([]);
+    const [studentInfo, setStudentInfo] = useState({ ip: '', name: '', studentId: '' });
     const socketRef = useRef(null);
     const courseCatalogRef = useRef([]);
     const settingsRef = useRef(settings);
@@ -179,6 +180,15 @@ function ClassroomApp() {
             courseCatalogRef.current = catalog;
             setCurrentCourseId(data.currentCourseId);
             setRoleAssigned(true);
+
+            // 存储学生信息（从服务器座位表获取）
+            if (data.role !== 'host') {
+                setStudentInfo({
+                    ip: data.clientIp || '',
+                    name: data.studentInfo?.name || '',
+                    studentId: data.studentInfo?.studentId || ''
+                });
+            }
 
             if (data.role !== 'host' && data.hostSettings) {
                 setSettings(s => ({ ...s, ...data.hostSettings }));
@@ -676,6 +686,7 @@ function ClassroomApp() {
             onSettingsChange={handleSettingsChange}
             studentCount={studentCount}
             studentLog={sharedStudentLog}
+            studentInfo={studentInfo}
         />
     );
 }

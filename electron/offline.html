@@ -80,6 +80,7 @@
 
   <button class="btn" onclick="manualRetry()">立即重试</button>
   <p class="hint">如需修改教师机 IP，请右键托盘图标 → 管理员设置</p>
+  <p class="hint"><a href="#" onclick="toggleDevTools(event)" style="color: #475569;">打开开发者工具</a></p>
 </div>
 <script>
   let countdownVal = 5;
@@ -125,6 +126,13 @@
     }
     // 重置倒计时（如果连接失败主进程会重新加载此页）
     setTimeout(startCountdown, 2000);
+  }
+
+  function toggleDevTools(event) {
+    event.preventDefault();
+    if (window.electronAPI?.toggleDevTools) {
+      window.electronAPI.toggleDevTools();
+    }
   }
 
   init();

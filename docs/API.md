@@ -96,7 +96,152 @@ window.CourseGlobalContext = {
 
 引擎会在全局注册一组可复用组件，供课件直接使用（无需 import）。当前可用组件：
 
-- `WebPageSlide`：将一个 URL 作为“纯网页页”嵌入到课件中，并提供“刷新 / 在新窗口打开”的兜底。
+- `WebPageSlide`：将一个 URL 作为"纯网页页"嵌入到课件中，并提供"刷新 / 在新窗口打开"的兜底。
+
+### window.SurveySlide（问卷组件）
+
+**问卷通用组件**，支持整页问卷展示、多种题型、自动提交和数据合并。
+
+#### 功能特性
+
+- ✅ 支持五种题型：单选、多选、简答、评分、排序
+- ✅ 自动提交数据到教师端
+- ✅ 教师端自动合并所有学生提交为 CSV 文件
+- ✅ 支持本地草稿保存
+- ✅ 实时进度显示
+- ✅ 自定义主题色
+
+#### 基本用法
+
+```tsx
+// 1. 加载问卷组件（在课件开头）
+// 组件位置：public/components/SurveySlide.js
+
+// 2. 配置问卷
+const surveyConfig = {
+    id: 'course-001:survey',
+    title: '课程反馈问卷',
+    description: '请真实填写，帮助我们改进课程质量',
+    required: true,
+    showProgress: true,
+    theme: {
+        primary: 'blue',
+        background: 'slate'
+    },
+    questions: [
+        {
+            id: 'q1',
+            type: 'single',
+            title: '你对课程的满意度如何？',
+            options: [
+                { value: 'very-satisfied', label: '非常满意' },
+                { value: 'satisfied', label: '满意' },
+                { value: 'neutral', label: '一般' },
+                { value: 'dissatisfied', label: '不满意' }
+            ],
+            required: true
+        }
+    ]
+};
+
+// 3. 在页面中使用
+function SurveyPage() {
+    return <SurveySlide config={surveyConfig} />;
+}
+```
+
+#### 题型说明
+
+**1. 单选题 (single)**
+```tsx
+{
+    id: 'q1',
+    type: 'single',
+    title: '问题标题',
+    options: [
+        { value: 'option1', label: '选项1' },
+        { value: 'option2', label: '选项2' }
+    ],
+    required: true
+}
+```
+
+**2. 多选题 (multiple)**
+```tsx
+{
+    id: 'q2',
+    type: 'multiple',
+    title: '问题标题（可多选）',
+    options: [
+        { value: 'a', label: '选项 A' },
+        { value: 'b', label: '选项 B' }
+    ],
+    required: false
+}
+```
+
+**3. 简答题 (text)**
+```tsx
+{
+    id: 'q3',
+    type: 'text',
+    title: '请写下你的回答',
+    description: '字数限制：10-500 字',
+    required: false
+}
+```
+
+**4. 评分题 (rating)**
+```tsx
+{
+    id: 'q4',
+    type: 'rating',
+    title: '请评分',
+    min: 1,
+    max: 5,
+    options: [
+        { value: 1, label: '非常差', icon: '😠' },
+        { value: 5, label: '非常好', icon: '😊' }
+    ],
+    required: true
+}
+```
+
+**5. 排序题 (ranking)**
+```tsx
+{
+    id: 'q5',
+    type: 'ranking',
+    title: '请排序（拖拽调整顺序）',
+    options: [
+        { value: 'a', label: '选项 A' },
+        { value: 'b', label: '选项 B' }
+    ],
+    required: true
+}
+```
+
+#### 数据提交格式
+
+**学生端提交**：自动格式化为 CSV 行，包含：
+- Timestamp（时间戳）
+- Student IP（学生 IP）
+- Student Name（学生姓名，从机房视图配置获取）
+- Question 1, Question 2, ...（各题答案）
+- Status（提交状态）
+
+**教师端存储**：
+- 位置：`submissions/{courseId}/{surveyId}-YYYY-MM-DD.csv`
+- 格式：UTF-8 with BOM（Excel 兼容）
+- 合并：所有学生提交合并到同一个 CSV 文件
+
+#### 完整示例
+
+查看 `public/courses/survey-demo.lume` 了解完整使用示例。
+
+#### 详细文档
+
+查看 `docs/survey-component-guide.md` 了解完整的开发规范和详细说明。
 
 **示例：添加一个纯网页页**
 
@@ -107,7 +252,7 @@ const mySlides = [
 ```
 
 **注意：**
-- 不是所有网站都允许被 iframe 内嵌（可能有 `X-Frame-Options` / `CSP frame-ancestors` 限制）。遇到这种情况，可点击组件自带的“打开”按钮在新窗口打开。
+- 不是所有网站都允许被 iframe 内嵌（可能有 `X-Frame-Options` / `CSP frame-ancestors` 限制）。遇到这种情况，可点击组件自带的"打开"按钮在新窗口打开。
 
 ---
 
@@ -473,12 +618,19 @@ const handleSubmit = async () => {
 - 所有学生提交合并到一个文件（CSV 格式）
 - 文件名即为 `fileName` 指定的名称
 - 格式：`Timestamp,IP,Content`
+- **重要**：服务器会自动根据学生 IP 从座位表查询并填充学生姓名和学号
 - 示例：
   ```
-  Timestamp,IP,Content
-  2024-03-24T10:30:00.000Z,192.168.1.101,"学生的回答"
-  2024-03-24T10:30:15.000Z,192.168.1.102,"另一个回答"
+  提交时间,学生IP,学生姓名,学号,Content
+  2024-03-24T10:30:00.000Z,192.168.1.101,张三,20230001,"学生的回答"
+  2024-03-24T10:30:15.000Z,192.168.1.102,李四,20230002,"另一个回答"
   ```
+
+#### 重要说明
+
+- ✅ **学生信息由服务器自动添加**：在合并模式下，学生的 IP、姓名、学号由服务器根据座位表自动填充
+- ❌ **客户端不应添加学生信息**：课件代码中不应手动添加或修改学生信息字段
+- ✅ **座位表配置**：教师需在机房视图中正确配置学生姓名和学号，否则这些字段将为空
 
 #### 完整示例
 

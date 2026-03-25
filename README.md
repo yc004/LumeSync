@@ -87,6 +87,18 @@ npm run build:editor
 
 课件文件放入 `public/courses/`，刷新教师端即可识别。
 
+### 内置组件库
+
+引擎提供以下可复用组件：
+
+- **`SurveySlide`** - 问卷通用组件（支持单选、多选、简答、评分、排序五种题型，自动提交和 CSV 导出）
+- **`WebPageSlide`** - 网页嵌入组件
+
+详细使用方法：
+- 问卷组件：[docs/survey-component-guide.md](docs/survey-component-guide.md)
+- API 文档：[docs/API.md](docs/API.md)
+- 机房视图：[docs/classroom-view-guide.md](docs/classroom-view-guide.md)
+
 ### 基本示例
 
 ```tsx

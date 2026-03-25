@@ -54,20 +54,35 @@ window.__LUMESYNC_AI_PROMPT__ = `
   - \`window.CourseGlobalContext.useSyncVar(key, initialValue)\`：使用同步变量，教师端的操作会自动同步到所有学生端。
     - \`key\`: 唯一标识符（建议格式：\`slide-id:variable-name\`，如 \`knn-demo:k-value\`）
     - \`initialValue\`: 初始值（可以是字符串、数字、布尔值、对象、数组等）
+    - \`options\`: 可选配置对象，支持：
+      - \`persist\`: boolean（默认 false）- 是否持久化到本地存储，刷新页面后保留值
+      - \`immediate\`: boolean（默认 false）- 是否立即同步给已连接的学生端（仅首次设置时生效）
     - 返回：\`[value, setValue]\`，使用方式与 \`useState\` 完全相同
     - 示例：
       \`\`\`tsx
       const [selectedOption, setSelectedOption] = window.CourseGlobalContext.useSyncVar('quiz:answer', null);
       const [dragItems, setDragItems] = window.CourseGlobalContext.useSyncVar('drag:items', initialItems);
-      const [showPanel, setShowPanel] = window.CourseGlobalContext.useSyncVar('panel:visible', false);
+      const [showPanel, setShowPanel] = window.CourseGlobalContext.useSyncVar('panel:visible', false, { persist: true });
       \`\`\`
   - \`window.CourseGlobalContext.useLocalVar(key, initialValue)\`：使用本地变量，仅在本地变化，**不会同步**到学生端。
-    - 适用于：菜单展开/折叠状态、本地 UI 动画状态等不需要同步的 UI 状态
+    - \`key\`: 唯一标识符（与 useSyncVar 相同的格式）
+    - \`initialValue\`: 初始值
+    - \`options\`: 可选配置对象（与 useSyncVar 相同）
+    - 返回：\`[value, setValue]\`，使用方式与 \`useState\` 完全相同
+    - 适用于：菜单展开/折叠状态、本地 UI 动画状态、模态框显示状态等不需要同步的 UI 状态
     - 示例：
       \`\`\`tsx
       const [localMenuOpen, setLocalMenuOpen] = window.CourseGlobalContext.useLocalVar('menu:open', false);
+      const [showTooltip, setShowTooltip] = window.CourseGlobalContext.useLocalVar('tooltip:visible', false);
       \`\`\`
-  - **重要规则**：凡是教师端操作后希望学生端同步显示的状态，**必须**使用 \`useSyncVar\`，不要用 \`useState\`！
+  - **重要规则**：
+    - 凡是教师端操作后希望学生端同步显示的状态，**必须**使用 \`useSyncVar\`，不要用 \`useState\`！
+    - 仅本地 UI 状态（如菜单、提示框、动画等）使用 \`useLocalVar\`
+    - 普通的 \`useState\` 仍然可以在某些场景下使用，但不会在师生间同步
+  - **同步 vs 本地变量的选择指南**：
+    - 需要学生看到的互动结果 → 使用 \`useSyncVar\`（如：K 值选择、答题状态、实验参数）
+    - 仅教师端显示的 UI 状态 → 使用 \`useLocalVar\`（如：设置面板展开、工具提示）
+    - 临时计算变量 → 使用 \`useState\` 或 \`useMemo\`（如：中间计算结果、DOM 引用）
 - 内置组件库（可选）：引擎提供 \`window.CourseComponents\`，课件可直接使用内置组件（无需 import）。常用：
   - \`WebPageSlide\`：纯网页页（iframe 内嵌 + "刷新/打开"兜底）。用法：
   \`\`\`tsx

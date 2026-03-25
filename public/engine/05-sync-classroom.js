@@ -1,7 +1,7 @@
 // ========================================================
 // 课堂主界面组件（教师端 + 学生端共用）
 // ========================================================
-function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: initialIsHost, initialSlide, settings, onSettingsChange, studentCount, studentLog, hideTopBar = false, hideBottomBar = false }) {
+function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: initialIsHost, initialSlide, settings, onSettingsChange, studentCount, studentLog, studentInfo, hideTopBar = false, hideBottomBar = false }) {
     const [currentSlide, setCurrentSlide] = useState(initialSlide || 0);
     const [isHost, setIsHost] = useState(initialIsHost || false);
     const [roleAssigned, setRoleAssigned] = useState(true);
@@ -55,6 +55,24 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
 
     // 自动同步机制：课件注册的变量
     const syncVarsRef = useRef(new Map()); // key -> { value, onChange, sync: boolean }
+
+    // 学生信息（仅学生端）
+    const studentInfoRef = useRef({
+        ip: '',
+        name: '',
+        studentId: ''
+    });
+
+    // 更新学生信息 ref
+    useEffect(() => {
+        if (studentInfo) {
+            studentInfoRef.current = {
+                ip: studentInfo.ip || '',
+                name: studentInfo.name || '',
+                studentId: studentInfo.studentId || ''
+            };
+        }
+    }, [studentInfo]);
 
     // 在组件渲染时立即注册 API 函数到全局（课件渲染时会调用）
     if (window.CourseGlobalContext) {
@@ -161,6 +179,67 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             const [val, setVal] = window.CourseGlobalContext.useLocalVar(key, initialValue, options);
             return { get: () => val, set: setVal };
         };
+
+        // 获取学生信息（学生端专用）
+        window.CourseGlobalContext.getStudentInfo = () => {
+            const info = studentInfoRef.current;
+            console.log('[getStudentInfo] Returning:', info);
+            return info;
+        };
+
+        // 学生端提交内容到教师端
+        window.CourseGlobalContext.submitContent = async (options) => {
+            if (isHost) {
+                throw new Error('教师端不能使用 submitContent，此方法仅供学生端使用');
+            }
+
+            const { content, fileName, mergeFile } = options || {};
+            console.log('[submitContent] Submitting:', {
+                contentType: typeof content,
+                fileName,
+                mergeFile,
+                contentPreview: typeof content === 'string' ? content.substring(0, 100) : '[Object]'
+            });
+            console.log('[submitContent] Student info:', studentInfoRef.current);
+            const submissionId = `submission-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+            return new Promise((resolve, reject) => {
+                if (!socketRef.current) {
+                    reject(new Error('Socket 连接不存在'));
+                    return;
+                }
+
+                // 监听提交结果
+                const timeout = setTimeout(() => {
+                    socketRef.current.off('student:submit:result', handleResult);
+                    reject(new Error('提交超时，请重试或联系教师'));
+                }, 10000);
+
+                const handleResult = (data) => {
+                    if (data.submissionId === submissionId) {
+                        clearTimeout(timeout);
+                        socketRef.current.off('student:submit:result', handleResult);
+
+                        if (data.success) {
+                            resolve({ success: true, filePath: data.filePath });
+                        } else {
+                            reject(new Error(data.error || '提交失败，请重试或联系教师'));
+                        }
+                    }
+                };
+
+                socketRef.current.on('student:submit:result', handleResult);
+
+                // 发送提交数据
+                socketRef.current.emit('student:submit', {
+                    submissionId,
+                    courseId,
+                    content,
+                    fileName: fileName || 'submission.txt',
+                    mergeFile: mergeFile || false
+                });
+            });
+        };
     }
 
     // 学生端接收同步变量及完整状态
@@ -234,10 +313,10 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     // 教师端监听同步请求并发送当前状态
     useEffect(() => {
         if (!isHost || !socket || !courseId) return;
-        
+
         const handleSyncRequest = (data) => {
             if (data.courseId !== courseId) return;
-            
+
             // 收集所有需要同步的变量
             const stateToSync = {};
             syncVarsRef.current.forEach((val, key) => {
@@ -245,7 +324,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                     stateToSync[key] = val.value;
                 }
             });
-            
+
             socket.emit('full-sync-state', {
                 targetId: data.requesterId,
                 courseId,
@@ -253,10 +332,51 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                 state: stateToSync
             });
         };
-        
+
+        const handleStudentSubmit = async (data) => {
+            const { submissionId, courseId: submitCourseId, clientIp, content, fileName, mergeFile } = data;
+
+            if (submitCourseId !== courseId) return;
+
+            try {
+                // 发送到服务器端保存
+                const response = await fetch('/api/save-submission', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        courseId: submitCourseId,
+                        clientIp,
+                        content,
+                        fileName,
+                        mergeFile
+                    })
+                });
+
+                const result = await response.json();
+
+                // 返回确认给学生端
+                socket.emit('student:submit:ack', {
+                    submissionId,
+                    success: result.success,
+                    error: result.error
+                });
+
+                console.log(`[student:submit] Saved: IP=${clientIp} courseId=${courseId} success=${result.success}`);
+            } catch (error) {
+                console.error('[student:submit] Error:', error);
+                socket.emit('student:submit:ack', {
+                    submissionId,
+                    success: false,
+                    error: error.message || '提交失败'
+                });
+            }
+        };
+
         socket.on('request-sync-state', handleSyncRequest);
+        socket.on('student:submit', handleStudentSubmit);
         return () => {
             socket.off('request-sync-state', handleSyncRequest);
+            socket.off('student:submit', handleStudentSubmit);
         };
     }, [isHost, socket, courseId]);
 

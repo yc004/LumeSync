@@ -368,6 +368,19 @@ function createTray() {
 
     const menu = Menu.buildFromTemplate([
         { label: '显示窗口', click: () => mainWindow && mainWindow.show() },
+        { label: '打开开发者工具', click: () => {
+            if (mainWindow && mainWindow.webContents) {
+                try {
+                    if (mainWindow.webContents.isDevToolsOpened()) {
+                        mainWindow.webContents.closeDevTools();
+                    } else {
+                        mainWindow.webContents.openDevTools({ mode: 'detach' });
+                    }
+                } catch (err) {
+                    logger.error('TRAY', 'Failed to toggle devtools', err);
+                }
+            }
+        }},
         { label: '管理员设置...', click: openAdminWindow },
         { type: 'separator' },
         {
@@ -531,6 +544,19 @@ ipcMain.on('close-window', () => {
         return;
     }
     mainWindow.close();
+});
+
+ipcMain.on('toggle-devtools', () => {
+    if (!mainWindow) return;
+    try {
+        if (mainWindow.webContents.isDevToolsOpened()) {
+            mainWindow.webContents.closeDevTools();
+        } else {
+            mainWindow.webContents.openDevTools({ mode: 'detach' });
+        }
+    } catch (err) {
+        logger.error('IPC', 'Failed to toggle devtools', err);
+    }
 });
 
 // ── 应用生命周期 ─────────────────────────────────────────

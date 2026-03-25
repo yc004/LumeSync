@@ -6,11 +6,11 @@ const AI_PROMPT = (typeof window.__LUMESYNC_AI_PROMPT__ === 'string' && window._
     ? window.__LUMESYNC_AI_PROMPT__
     : '';
 
-const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, currentCode, compileError }, ref) => {
+const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, currentCode, compileError, onEditSelectedCode }, ref) => {
     const { useState, useEffect, useRef, useImperativeHandle } = React;
     const [messages, setMessages] = useState([{ 
         role: 'assistant', 
-        content: '你好！我是萤火课件 AI 助手。为了帮你生成最合适的互动课件，请告诉我课件的**主题**、**授课年级**（如低年级、高年级）以及**课程时长**。' 
+        content: '你好！我是萤火课件 AI 助手。为了帮你生成最合适的互动课件，请告诉我课件的**主题**、**授课年级**（如低年级、高年级）以及**课程时长**。\n\n**提示**：使用"修改"、"更改"、"添加"、"删除"等词汇时，我会自动识别相关代码并只输出修改指令，而不需要重新生成整个课件。' 
     }]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -22,11 +22,191 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
     const [attachmentNotice, setAttachmentNotice] = useState(null);
     const chatEndRef = useRef(null);
     const fileInputRef = useRef(null);
+    const [selectedCode, setSelectedCode] = useState(null); // 选中的代码片段
     const REQUEST_TIMEOUT_MS = 30000;
     const MAX_FILES = 6;
     const MAX_TOTAL_BYTES = 6 * 1024 * 1024;
     const MAX_TEXT_BYTES = 500 * 1024;
     const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
+    // 智能识别与用户请求相关的代码段
+    const extractRelevantCode = (fullCode, userRequest) => {
+        if (!fullCode || !userRequest) return null;
+
+        const keywords = userRequest.toLowerCase()
+            .replace(/[，。！？\s]+/g, ' ')
+            .split(' ')
+            .filter(w => w.length > 1);
+
+        if (keywords.length === 0) return null;
+
+        const lines = fullCode.split('\n');
+        let relevantLines = [];
+        let inRelevantBlock = false;
+        let braceCount = 0;
+        let blockStartIdx = 0;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lineLower = line.toLowerCase();
+
+            // 检查是否包含关键词
+            const hasKeyword = keywords.some(kw => {
+                if (lineLower.includes(kw)) {
+                    // 排除常见的非代码行
+                    if (line.trim().startsWith('//') || line.trim().startsWith('*')) return false;
+                    if (line.includes('window.CourseData')) return false;
+                    return true;
+                }
+                return false;
+            });
+
+            if (hasKeyword) {
+                inRelevantBlock = true;
+                // 向上找函数或组件定义的开始
+                const startIdx = Math.max(0, i - 10);
+                for (let j = startIdx; j <= i; j++) {
+                    if (lines[j].includes('function ') || lines[j].includes('= (') || lines[j].includes('= async (')) {
+                        braceCount = (lines[j].match(/{/g) || []).length;
+                        relevantLines = lines.slice(j, i + 1);
+                        blockStartIdx = j;
+                        break;
+                    }
+                }
+                if (relevantLines.length === 0) {
+                    braceCount = (line.match(/{/g) || []).length;
+                    blockStartIdx = i;
+                    relevantLines.push(line);
+                }
+            } else if (inRelevantBlock) {
+                relevantLines.push(line);
+                braceCount += (line.match(/{/g) || []).length;
+                braceCount -= (line.match(/}/g) || []).length;
+
+                if (braceCount <= 0) {
+                    // 包裹一些上下文（前后各几行）
+                    const extraContext = 3;
+                    const contextStart = Math.max(0, blockStartIdx - extraContext);
+                    const contextEnd = Math.min(lines.length, i + extraContext + 1);
+                    const withContext = lines.slice(contextStart, contextEnd);
+                    // 返回代码片段和起始行号
+                    return {
+                        code: withContext.join('\n'),
+                        startLine: contextStart
+                    };
+                }
+            }
+        }
+
+        // 如果没找到代码块，返回包含关键词的行及其上下文
+        const matchingIndices = [];
+        lines.forEach((line, idx) => {
+            if (keywords.some(kw => line.toLowerCase().includes(kw))) {
+                matchingIndices.push(idx);
+            }
+        });
+        
+        if (matchingIndices.length > 0) {
+            const firstMatchIdx = matchingIndices[0];
+            const lastMatchIdx = matchingIndices[matchingIndices.length - 1];
+            const contextLines = 10;
+            const start = Math.max(0, firstMatchIdx - contextLines);
+            const end = Math.min(lines.length, lastMatchIdx + contextLines + 1);
+            return {
+                code: lines.slice(start, end).join('\n'),
+                startLine: start
+            };
+        }
+
+        return null;
+    };
+
+    // 判断是否应该使用部分修改模式
+    const shouldUsePartialEdit = (userRequest, currentCode) => {
+        if (!currentCode) return false;
+        
+        const partialEditKeywords = [
+            '修改', '更改', '调整', '增加', '添加', '删除', '移除', 
+            '改为', '变成', '让', '把', '让...变成', '让...改为',
+            '优化', '改进', '修复', 'bug', '错误', '问题',
+            '改成', '换成', '替换'
+        ];
+
+        const requestLower = userRequest.toLowerCase();
+        const isPartialEdit = partialEditKeywords.some(kw => requestLower.includes(kw));
+        
+        // 检查是否能找到相关代码
+        const relevantCodeInfo = extractRelevantCode(currentCode, userRequest);
+        
+        return isPartialEdit && relevantCodeInfo;
+    };
+
+    // 应用 AI 返回的修改指令
+    const applyEditInstructions = (fullCode, instructions, snippetStartLine = 0) => {
+        if (!instructions || !fullCode) return null;
+
+        const lines = fullCode.split('\n');
+        const instructionLines = instructions.split('\n');
+        
+        // 解析指令格式
+        // 支持以下格式：
+        // 1. 替换: 行号 -> 新代码
+        // 2. 删除: 行号
+        // 3. 插入: 行号 -> 新代码
+        // 4. 搜索替换: 搜索文本 -> 替换文本
+        // 注意：行号是相对于代码片段的，需要映射到完整代码
+        
+        let resultLines = [...lines];
+        
+        for (const instr of instructionLines) {
+            const trimmed = instr.trim();
+            if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue;
+
+            if (trimmed.startsWith('替换:') || trimmed.startsWith('Replace:')) {
+                const parts = trimmed.split(/[:：]/);
+                if (parts.length >= 2) {
+                    const relativeLineNum = parseInt(parts[1].trim()) - 1;
+                    const newCode = parts.slice(2).join(':').trim();
+                    const absoluteLineNum = snippetStartLine + relativeLineNum;
+                    if (!isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum < resultLines.length) {
+                        resultLines[absoluteLineNum] = newCode;
+                    }
+                }
+            } else if (trimmed.startsWith('删除:') || trimmed.startsWith('Delete:')) {
+                const parts = trimmed.split(/[:：]/);
+                if (parts.length >= 2) {
+                    const relativeLineNum = parseInt(parts[1].trim()) - 1;
+                    const absoluteLineNum = snippetStartLine + relativeLineNum;
+                    if (!isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum < resultLines.length) {
+                        resultLines.splice(absoluteLineNum, 1);
+                    }
+                }
+            } else if (trimmed.startsWith('插入:') || trimmed.startsWith('Insert:')) {
+                const parts = trimmed.split(/[:：]/);
+                if (parts.length >= 2) {
+                    const relativeLineNum = parseInt(parts[1].trim()) - 1;
+                    const newCode = parts.slice(2).join(':').trim();
+                    const absoluteLineNum = snippetStartLine + relativeLineNum;
+                    if (!isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum <= resultLines.length) {
+                        resultLines.splice(absoluteLineNum, 0, newCode);
+                    }
+                }
+            } else if (trimmed.startsWith('搜索替换:') || trimmed.startsWith('FindAndReplace:')) {
+                const parts = trimmed.split(/[:：]/);
+                if (parts.length >= 3) {
+                    const searchText = parts[1].trim();
+                    const replaceText = parts[2].trim();
+                    for (let i = 0; i < resultLines.length; i++) {
+                        if (resultLines[i].includes(searchText)) {
+                            resultLines[i] = resultLines[i].replace(searchText, replaceText);
+                        }
+                    }
+                }
+            }
+        }
+        
+        return resultLines.join('\n');
+    };
 
     const handleAutoFix = () => {
         if (!compileError) return;
@@ -299,6 +479,11 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
 
         const sendingAttachments = overrideInput ? [] : attachments;
         
+        // 检测是否使用部分修改模式
+        const usePartialEdit = shouldUsePartialEdit(messageText, currentCode);
+        const relevantCodeInfo = usePartialEdit ? extractRelevantCode(currentCode, messageText) : null;
+        const relevantCode = relevantCodeInfo?.code || null;
+        
         // 检测模型是否支持多模态（图片）输入
         const visionSupportedModels = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-vision-preview', 'gpt-4-turbo', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3.5-sonnet', 'claude-3.5-opus'];
         const hasImageAttachment = sendingAttachments.some(a => a.kind === 'image');
@@ -316,7 +501,7 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         const newMessages = [...messages, userMsg];
         const assistantIndex = newMessages.length;
         
-        setMessages([...newMessages, { role: 'assistant', content: '正在思考...' }]);
+        setMessages([...newMessages, { role: 'assistant', content: usePartialEdit ? '正在分析代码并生成修改指令...' : '正在思考...' }]);
         if (!overrideInput) {
             setInput('');
             setAttachments([]);
@@ -328,17 +513,66 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         let currentFullText = '';
         let lastAppliedLen = 0;
 
+        // 如果是部分修改模式，修改提示词
+        let systemPrompt = AI_PROMPT;
+        if (usePartialEdit && relevantCode) {
+            systemPrompt = AI_PROMPT + `
+
+【部分修改模式（重要）】
+用户要求对现有代码进行修改，而不是重新生成整个课件。
+当前代码片段如下：
+\`\`\`javascript
+${relevantCode}
+\`\`\`
+
+**你的任务：**
+1. 分析用户的修改请求
+2. 只对相关代码段进行修改，不要重新生成整个课件
+3. 输出修改指令，而不是完整代码
+
+**修改指令格式：**
+使用以下格式之一来描述修改：
+- 替换: 行号 -> 新代码内容
+- 删除: 行号
+- 插入: 行号 -> 新代码内容
+- 搜索替换: 搜索文本 -> 替换文本
+
+**示例：**
+\`\`\`
+替换: 15 -> const [count, setCount] = window.CourseGlobalContext.useSyncVar('example:count', 0);
+插入: 16 -> useEffect(() => { console.log('Count changed:', count); }, [count]);
+搜索替换: setCount(count + 1) -> setCount(prev => prev + 1)
+\`\`\`
+
+**注意事项：**
+- 行号是相对于当前代码片段的（从1开始）
+- 如果需要多行代码，使用 "替换" 或 "插入"，代码中可以包含换行
+- 只输出修改指令，不要输出其他解释
+- 如果修改涉及多个地方，可以输出多个指令（每行一个）
+- 代码中的换行符请在指令中用 \\n 表示
+`;
+        }
+
         const apiMessagesToSend = [
-            { role: 'system', content: AI_PROMPT },
+            { role: 'system', content: systemPrompt },
             ...newMessages.filter(m => m.role !== 'system').map(m => {
                 if (m.role === 'user' && m === userMsg) {
-                    const includeCurrentCode = !!currentCode;
-                    const normalizedMessageText = String(messageText || '').trim() ? messageText : '（无文本，见附件）';
-                    const apiContent = buildUserContentForApi({
-                        messageText: normalizedMessageText,
-                        currentCodeText: includeCurrentCode ? currentCode : '',
-                        files: sendingAttachments
-                    });
+                    let apiContent;
+                    if (usePartialEdit && relevantCode) {
+                        // 部分修改模式：只发送相关代码片段
+                        apiContent = [
+                            { type: 'text', text: `用户请求：${messageText}\n\n代码片段（已包含在系统提示中）` }
+                        ];
+                    } else {
+                        // 完整生成模式：发送全部代码
+                        const includeCurrentCode = !!currentCode;
+                        const normalizedMessageText = String(messageText || '').trim() ? messageText : '（无文本，见附件）';
+                        apiContent = buildUserContentForApi({
+                            messageText: normalizedMessageText,
+                            currentCodeText: includeCurrentCode ? currentCode : '',
+                            files: sendingAttachments
+                        });
+                    }
                     return { role: 'user', content: apiContent };
                 }
                 return { role: m.role, content: m.content };
@@ -373,13 +607,29 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
                             return next;
                         });
 
-                        // 流式更新代码
-                        const shouldTryApply =
-                            (currentFullText.includes('window.CourseData') || currentFullText.includes('```')) &&
-                            (currentFullText.length - lastAppliedLen >= 120);
-                        if (shouldTryApply) {
-                            lastAppliedLen = currentFullText.length;
-                            applyGeneratedCode(currentFullText);
+                        // 部分修改模式：检查是否有修改指令
+                        if (usePartialEdit) {
+                            const hasEditInstruction = 
+                                currentFullText.includes('替换:') || 
+                                currentFullText.includes('删除:') || 
+                                currentFullText.includes('插入:') ||
+                                currentFullText.includes('搜索替换:');
+                            if (hasEditInstruction && (currentFullText.length - lastAppliedLen >= 50)) {
+                                lastAppliedLen = currentFullText.length;
+                                const editedCode = applyEditInstructions(currentCode, currentFullText, relevantCodeInfo?.startLine);
+                                if (editedCode && editedCode !== currentCode) {
+                                    onCodeGenerated(editedCode);
+                                }
+                            }
+                        } else {
+                            // 完整生成模式：流式更新代码
+                            const shouldTryApply =
+                                (currentFullText.includes('window.CourseData') || currentFullText.includes('```')) &&
+                                (currentFullText.length - lastAppliedLen >= 120);
+                            if (shouldTryApply) {
+                                lastAppliedLen = currentFullText.length;
+                                applyGeneratedCode(currentFullText);
+                            }
                         }
                     }
                 });
@@ -405,7 +655,17 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
                 });
             });
 
-            if (currentFullText) applyGeneratedCode(currentFullText);
+            // 最终应用代码
+            if (currentFullText) {
+                if (usePartialEdit && relevantCodeInfo) {
+                    const editedCode = applyEditInstructions(currentCode, currentFullText, relevantCodeInfo.startLine);
+                    if (editedCode && editedCode !== currentCode) {
+                        onCodeGenerated(editedCode);
+                    }
+                } else {
+                    applyGeneratedCode(currentFullText);
+                }
+            }
 
         } catch (error) {
             console.error('[AIChat] Error:', error.message);

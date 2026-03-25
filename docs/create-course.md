@@ -540,6 +540,330 @@ modelsUrls: {
 
 ---
 
+## 教师端与学生端交互同步（核心功能）
+
+萤火课堂提供了强大的状态同步机制，使教师端的操作能够自动同步到所有学生端。
+
+### API 概览
+
+| API | 用途 | 同步范围 |
+|-----|------|---------|
+| `window.CourseGlobalContext.useSyncVar(key, initialValue, options?)` | 需要师生同步的状态变量 | 教师端 → 学生端（实时同步） |
+| `window.CourseGlobalContext.useLocalVar(key, initialValue, options?)` | 仅本地的 UI 状态变量 | 仅本地（不同步） |
+
+### useSyncVar - 同步变量
+
+用于需要在师生间同步的状态，如答题状态、参数选择、实验结果等。
+
+#### API 签名
+
+```tsx
+const [value, setValue] = window.CourseGlobalContext.useSyncVar(
+    key: string,              // 唯一标识符
+    initialValue: any,         // 初始值
+    options?: {               // 可选配置
+        persist?: boolean,     // 是否持久化到 localStorage（默认 false）
+        immediate?: boolean    // 是否立即同步给已连接学生端（默认 false）
+    }
+);
+```
+
+#### 参数说明
+
+- **key**: 变量的唯一标识符，建议使用格式 `slide-id:variable-name`
+  - 示例：`quiz-1:answer`、`knn-demo:k-value`、`experiment:results`
+- **initialValue**: 初始值，可以是任何类型（字符串、数字、布尔值、对象、数组等）
+- **options**: 可选配置
+  - `persist`: 是否持久化到 localStorage，刷新页面后保留值（默认 false）
+  - `immediate`: 是否立即同步给已连接的学生端（仅首次设置时生效，默认 false）
+
+#### 返回值
+
+返回一个数组 `[value, setValue]`，与 `useState` 的返回值完全相同：
+- `value`: 当前值
+- `setValue`: 设置值的函数
+
+#### 使用示例
+
+**示例 1：KNN 演示的 K 值选择**
+```tsx
+function KNNDemoSlide() {
+    // K 值选择，教师修改后所有学生同步更新
+    const [kValue, setKValue] = window.CourseGlobalContext.useSyncVar('knn-demo:k-value', 3);
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full p-8 bg-white">
+            <h2 className="text-3xl font-bold mb-8">KNN 分类演示</h2>
+            <div className="flex items-center gap-4">
+                <span className="text-xl">K 值：</span>
+                <select
+                    value={kValue}
+                    onChange={(e) => setKValue(Number(e.target.value))}
+                    className="px-4 py-2 border rounded-lg text-xl"
+                >
+                    <option value={1}>1</option>
+                    <option value={3}>3</option>
+                    <option value={5}>5</option>
+                    <option value={7}>7</option>
+                </select>
+            </div>
+            <p className="mt-4 text-slate-600">当前 K 值：{kValue}</p>
+        </div>
+    );
+}
+```
+
+**示例 2：答题状态**
+```tsx
+function QuizSlide() {
+    const [selectedOption, setSelectedOption] = window.CourseGlobalContext.useSyncVar('quiz-1:answer', null);
+
+    const options = ['A', 'B', 'C', 'D'];
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full p-8 bg-white">
+            <h2 className="text-3xl font-bold mb-8">选择题</h2>
+            <div className="grid grid-cols-2 gap-4">
+                {options.map((opt) => (
+                    <button
+                        key={opt}
+                        onClick={() => setSelectedOption(opt)}
+                        className={`p-8 rounded-2xl text-2xl font-bold transition-all ${
+                            selectedOption === opt
+                                ? 'bg-blue-500 text-white shadow-lg'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                    >
+                        {opt}
+                    </button>
+                ))}
+            </div>
+            {selectedOption && (
+                <p className="mt-8 text-xl text-green-600 font-bold">
+                    你选择了：{selectedOption}
+                </p>
+            )}
+        </div>
+    );
+}
+```
+
+**示例 3：持久化设置**
+```tsx
+function SettingsSlide() {
+    // 使用 persist 选项，刷新页面后保留设置
+    const [theme, setTheme] = window.CourseGlobalContext.useSyncVar('settings:theme', 'light', {
+        persist: true
+    });
+
+    return (
+        <div className={`flex flex-col items-center justify-center h-full p-8 ${
+            theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'
+        }`}>
+            <h2 className="text-3xl font-bold mb-8">主题设置</h2>
+            <div className="flex gap-4">
+                <button
+                    onClick={() => setTheme('light')}
+                    className={`px-6 py-3 rounded-xl font-bold ${
+                        theme === 'light' ? 'bg-blue-500 text-white' : 'bg-slate-200'
+                    }`}
+                >
+                    浅色
+                </button>
+                <button
+                    onClick={() => setTheme('dark')}
+                    className={`px-6 py-3 rounded-xl font-bold ${
+                        theme === 'dark' ? 'bg-blue-500 text-white' : 'bg-slate-200'
+                    }`}
+                >
+                    深色
+                </button>
+            </div>
+        </div>
+    );
+}
+```
+
+### useLocalVar - 本地变量
+
+用于仅本地的 UI 状态，如菜单展开、模态框显示、提示框等不需要同步的状态。
+
+#### API 签名
+
+```tsx
+const [value, setValue] = window.CourseGlobalContext.useLocalVar(
+    key: string,              // 唯一标识符
+    initialValue: any,         // 初始值
+    options?: {               // 可选配置（与 useSyncVar 相同）
+        persist?: boolean,     // 是否持久化到 localStorage（默认 false）
+        immediate?: boolean    // 是否立即同步（本地变量此选项无意义）
+    }
+);
+```
+
+#### 使用示例
+
+**示例 1：菜单展开状态**
+```tsx
+function MenuSlide() {
+    const [menuOpen, setMenuOpen] = window.CourseGlobalContext.useLocalVar('menu:open', false);
+
+    return (
+        <div className="flex flex-col h-full p-8 bg-white">
+            <h2 className="text-3xl font-bold mb-4">菜单示例</h2>
+            <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+            >
+                {menuOpen ? '收起菜单' : '展开菜单'}
+            </button>
+            {menuOpen && (
+                <div className="mt-4 p-4 bg-slate-100 rounded-lg">
+                    <ul className="space-y-2">
+                        <li>选项 1</li>
+                        <li>选项 2</li>
+                        <li>选项 3</li>
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+**示例 2：提示框显示**
+```tsx
+function TooltipSlide() {
+    const [showTooltip, setShowTooltip] = window.CourseGlobalContext.useLocalVar('tooltip:visible', false);
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full p-8 bg-white">
+            <h2 className="text-3xl font-bold mb-8">提示框示例</h2>
+            <button
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+                className="px-6 py-3 bg-blue-500 text-white rounded-xl font-bold"
+            >
+                鼠标悬停显示提示
+            </button>
+            {showTooltip && (
+                <div className="mt-4 px-4 py-2 bg-slate-800 text-white rounded-lg">
+                    这是一个提示框
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+### useState vs useSyncVar vs useLocalVar 选择指南
+
+| API | 同步范围 | 适用场景 | 示例 |
+|-----|---------|---------|------|
+| `useState` | 不同步 | 临时的本地计算变量、DOM 引用、纯计算结果 | `const [hovered, setHovered] = useState(false)` |
+| `useLocalVar` | 不同步 | 需要持久化但不需要同步的 UI 状态 | 菜单展开、模态框显示、提示框 |
+| `useSyncVar` | 教师端→学生端 | 需要师生同步的业务状态 | K 值选择、答题状态、实验参数 |
+
+#### 决策流程
+
+1. **这个状态需要学生看到吗？**
+   - 不需要 → 使用 `useState` 或 `useLocalVar`
+   - 需要 → 使用 `useSyncVar`
+
+2. **这个本地状态需要持久化吗（刷新页面后保留）？**
+   - 不需要 → 使用 `useState`
+   - 需要 → 使用 `useLocalVar`（加上 `persist: true`）
+
+3. **常见用例**
+   ```tsx
+   // ✅ 正确：K 值需要师生同步
+   const [kValue, setKValue] = window.CourseGlobalContext.useSyncVar('knn:k', 3);
+
+   // ✅ 正确：菜单展开仅本地，但需要持久化
+   const [menuOpen, setMenuOpen] = window.CourseGlobalContext.useLocalVar('menu:open', false, { persist: true });
+
+   // ✅ 正确：鼠标悬停是临时的，不需要持久化
+   const [hovered, setHovered] = useState(false);
+
+   // ❌ 错误：答题状态应该用 useSyncVar
+   const [answer, setAnswer] = useState(null);  // 教师改了，学生看不到
+
+   // ❌ 错误：菜单展开不需要同步
+   const [menuOpen, setMenuOpen] = window.CourseGlobalContext.useSyncVar('menu:open', false);  // 浪费同步带宽
+   ```
+
+### 最佳实践
+
+1. **命名规范**
+   - 使用描述性的 key：`slide-id:variable-name`
+   - 统一前缀避免冲突：同一个幻灯片的所有共享变量用相同前缀
+   ```tsx
+   // ✅ 好的命名
+   const [kValue, setKValue] = window.CourseGlobalContext.useSyncVar('knn:k-value', 3);
+   const [mode, setMode] = window.CourseGlobalContext.useSyncVar('knn:mode', 'train');
+
+   // ❌ 不好的命名
+   const [val, setVal] = window.CourseGlobalContext.useSyncVar('v', 3);
+   ```
+
+2. **数据结构优化**
+   - 简单值优于复杂对象：能用原始类型就不要用对象
+   - 大数据量考虑分拆：避免一次性同步大数组
+   ```tsx
+   // ✅ 推荐：简单值
+   const [kValue, setKValue] = window.CourseGlobalContext.useSyncVar('knn:k', 3);
+   const [dataset, setDataset] = window.CourseGlobalContext.useSyncVar('knn:dataset', 'iris');
+
+   // ⚠️ 可用但注意性能：对象
+   const [config, setConfig] = window.CourseGlobalContext.useSyncVar('knn:config', { k: 3, mode: 'train' });
+
+   // ❌ 避免：大数组同步
+   const [allData, setAllData] = window.CourseGlobalContext.useSyncVar('data:all', hugeArray);
+   ```
+
+3. **合理使用持久化**
+   - 只在需要时启用 `persist`，避免 localStorage 污染
+   - 持久化变量应该有明确的语义（设置、偏好等）
+   ```tsx
+   // ✅ 适合持久化：用户设置
+   const [theme, setTheme] = window.CourseGlobalContext.useSyncVar('settings:theme', 'light', { persist: true });
+
+   // ❌ 不适合持久化：临时状态
+   const [hovered, setHovered] = window.CourseGlobalContext.useLocalVar('ui:hovered', false, { persist: true });
+   ```
+
+4. **避免过度同步**
+   - 只同步必要的状态，减少网络传输
+   - 高频更新的状态考虑节流或去抖
+   ```tsx
+   // ✅ 合理：低频同步（用户操作触发）
+   const [kValue, setKValue] = window.CourseGlobalContext.useSyncVar('knn:k', 3);
+
+   // ⚠️ 需要优化：高频同步（可以考虑节流）
+   const [mousePos, setMousePos] = window.CourseGlobalContext.useSyncVar('canvas:mouse', { x: 0, y: 0 });
+   ```
+
+5. **类型安全**
+   - 使用 TypeScript 类型注解
+   - 确保 initialValue 的类型与预期一致
+   ```tsx
+   // ✅ 推荐：带类型注解
+   const [count, setCount] = window.CourseGlobalContext.useSyncVar<number>('counter', 0);
+   const [items, setItems] = window.CourseGlobalContext.useSyncVar<string[]>('list', []);
+
+   // ⚠️ 注意：TypeScript 可能无法推断复杂类型
+   interface Config {
+       k: number;
+       mode: 'train' | 'test';
+   }
+   const [config, setConfig] = window.CourseGlobalContext.useSyncVar<Config>('knn:config', {
+       k: 3,
+       mode: 'train'
+   });
+   ```
+
+---
+
 ## 样式指南
 
 ### 颜色主题建议

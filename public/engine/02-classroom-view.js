@@ -56,12 +56,14 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     const [onlineIPs, setOnlineIPs] = useState([]);
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState('');
+    const [editStudentId, setEditStudentId] = useState('');
     const [dragId, setDragId] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const [addRow, setAddRow] = useState(1);
     const [addCol, setAddCol] = useState(1);
     const [addIp, setAddIp] = useState('');
     const [addName, setAddName] = useState('');
+    const [addStudentId, setAddStudentId] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
     const [autoImporting, setAutoImporting] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
@@ -95,6 +97,32 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                 [classroomId]: { ...prev[classroomId], ...data }
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+            // 同步当前班级的座位表到服务器
+            if (classroomId === currentClassroomId && socket) {
+                const currentLayout = updated[classroomId];
+                if (currentLayout?.seats) {
+                    // 将当前班级的座位表转换为旧格式（数组）发送到服务器
+                    const seatsArray = currentLayout.seats.map(s => ({
+                        ...s,
+                        ip: s.ip && s.ip.startsWith('::ffff:') ? s.ip.slice(7) : s.ip
+                    }));
+                    fetch('/api/save-classroom-layout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ layout: seatsArray })
+                    }).then(res => res.json()).then(result => {
+                        if (result.success) {
+                            console.log('[ClassroomView] Layout synced to server');
+                        } else {
+                            console.warn('[ClassroomView] Failed to sync layout:', result.error);
+                        }
+                    }).catch(err => {
+                        console.warn('[ClassroomView] Error syncing layout:', err);
+                    });
+                }
+            }
+
             return updated;
         });
     };
@@ -185,6 +213,22 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     useEffect(() => {
         fetchOnline();
         const t = setInterval(fetchOnline, 3000);
+
+        // 初始时将当前班级的座位表同步到服务器
+        if (seats && seats.length > 0) {
+            const seatsArray = seats.map(s => ({
+                ...s,
+                ip: s.ip && s.ip.startsWith('::ffff:') ? s.ip.slice(7) : s.ip
+            }));
+            fetch('/api/save-classroom-layout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ layout: seatsArray })
+            }).catch(err => {
+                console.warn('[ClassroomView] Initial sync failed:', err);
+            });
+        }
+
         return () => clearInterval(t);
     }, []);
 
@@ -239,20 +283,20 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     const handleDownloadTemplate = () => {
         const content = [
             '# 机房座位列表模板',
-            '# 格式：ip,名称,行,列',
+            '# 格式：ip,名称,学号,行,列',
             '# 每行一个座位，# 开头为注释行',
             '# 行列从 1 开始，左上角为 (1,1)',
             '#',
             '# 示例：',
-            '192.168.1.101,A01,1,1',
-            '192.168.1.102,A02,1,2',
-            '192.168.1.103,A03,1,3',
-            '192.168.1.104,A04,1,4',
-            '192.168.1.105,A05,1,5',
-            '192.168.1.106,A06,1,6',
-            '192.168.1.201,B01,2,1',
-            '192.168.1.202,B02,2,2',
-            '192.168.1.203,B03,2,3',
+            '192.168.1.101,A01,20230001,1,1',
+            '192.168.1.102,A02,20230002,1,2',
+            '192.168.1.103,A03,20230003,1,3',
+            '192.168.1.104,A04,20230004,1,4',
+            '192.168.1.105,A05,20230005,1,5',
+            '192.168.1.106,A06,20230006,1,6',
+            '192.168.1.201,B01,20230007,2,1',
+            '192.168.1.202,B02,20230008,2,2',
+            '192.168.1.203,B03,20230009,2,3',
         ].join('\n');
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -282,14 +326,14 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                         const shouldCreateNew = confirm(`导入的班级名称为 "${parsed.classroomName}"\n\n点击"确定"创建新班级\n点击"取消"覆盖当前班级`);
                         if (shouldCreateNew) {
                             const newId = `classroom-${Date.now()}`;
-                            saveClassroom(newId, {
-                                name: parsed.classroomName,
-                                seats: parsed.seats.map((s, idx) => {
-                                    const ip = normalizeIp(s.ip);
-                                    return { id: s.id || `seat-${Date.now()}-${ip}-${idx}`, ip, name: s.name || '', row: s.row, col: s.col };
-                                }),
-                                podiumAtTop: parsed.podiumAtTop !== undefined ? parsed.podiumAtTop : true
-                            });
+                        saveClassroom(newId, {
+                            name: parsed.classroomName,
+                            seats: parsed.seats.map((s, idx) => {
+                                const ip = normalizeIp(s.ip);
+                                return { id: s.id || `seat-${Date.now()}-${ip}-${idx}`, ip, name: s.name || '', studentId: s.studentId || '', row: s.row, col: s.col };
+                            }),
+                            podiumAtTop: parsed.podiumAtTop !== undefined ? parsed.podiumAtTop : true
+                        });
                             handleSwitchClassroom(newId);
                             return;
                         }
@@ -303,11 +347,12 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                         .map((s, idx) => {
                             const ip = normalizeIp(s && s.ip ? String(s.ip).trim() : '');
                             const name = s && s.name ? String(s.name) : '';
+                            const studentId = s && s.studentId ? String(s.studentId) : '';
                             const row = s && Number.isFinite(Number(s.row)) ? Math.max(1, Number(s.row)) : null;
                             const col = s && Number.isFinite(Number(s.col)) ? Math.max(1, Number(s.col)) : null;
                             if (!ip || !row || !col) return null;
                             const id = s && s.id ? String(s.id) : `seat-${Date.now()}-${ip}-${idx}`;
-                            return { id, ip, name, row, col };
+                            return { id, ip, name, studentId, row, col };
                         })
                         .filter(Boolean);
                     if (normalized.length === 0) {
@@ -331,12 +376,13 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                 if (parts.length < 2) { errors.push(`第 ${idx + 1} 行格式错误`); return; }
                 const ip = normalizeIp(parts[0].trim());
                 const name = parts[1] ? parts[1].trim() : '';
-                const row = parts[2] ? parseInt(parts[2].trim(), 10) : null;
-                const col = parts[3] ? parseInt(parts[3].trim(), 10) : null;
+                const studentId = parts[2] ? parts[2].trim() : '';
+                const row = parts[3] ? parseInt(parts[3].trim(), 10) : null;
+                const col = parts[4] ? parseInt(parts[4].trim(), 10) : null;
                 if (!ip) { errors.push(`第 ${idx + 1} 行 IP 为空`); return; }
                 if (row !== null && (isNaN(row) || row < 1)) { errors.push(`第 ${idx + 1} 行 行号无效`); return; }
                 if (col !== null && (isNaN(col) || col < 1)) { errors.push(`第 ${idx + 1} 行 列号无效`); return; }
-                imported.push({ ip, name, row: row || null, col: col || null });
+                imported.push({ ip, name, studentId, row: row || null, col: col || null });
             });
             if (errors.length > 0) {
                 setImportError(errors.slice(0, 3).join('；') + (errors.length > 3 ? `…等 ${errors.length} 处错误` : ''));
@@ -354,9 +400,9 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                     r = autoRow; c = autoCol;
                 }
                 if (existing) {
-                    nextSeats = nextSeats.map(s => s.ip === item.ip ? { ...s, name: item.name || s.name, row: r, col: c } : s);
+                    nextSeats = nextSeats.map(s => s.ip === item.ip ? { ...s, name: item.name || s.name, studentId: item.studentId || s.studentId, row: r, col: c } : s);
                 } else {
-                    nextSeats.push({ id: `seat-${Date.now()}-${item.ip}`, ip: item.ip, name: item.name, row: r, col: c });
+                    nextSeats.push({ id: `seat-${Date.now()}-${item.ip}`, ip: item.ip, name: item.name, studentId: item.studentId, row: r, col: c });
                 }
             });
             saveSeats(nextSeats);
@@ -385,7 +431,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
             classroomId: currentClassroomId,
             classroomName: currentClassroom.name,
             podiumAtTop: currentPodiumTop,
-            seats: seats.map(s => ({ ip: s.ip, name: s.name || '', row: s.row, col: s.col }))
+            seats: seats.map(s => ({ ip: s.ip, name: s.name || '', studentId: s.studentId || '', row: s.row, col: s.col }))
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
         downloadBlob(blob, `classroom-${currentClassroom.name}-${getStamp()}.json`);
@@ -393,10 +439,10 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     const handleExportCsv = () => {
         const content = [
             '# 机房座位列表',
-            '# 格式：ip,名称,行,列',
+            '# 格式：ip,名称,学号,行,列',
             ...[...seats]
                 .sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col)
-                .map(s => `${s.ip},${String(s.name || '').replace(/,/g, ' ')},${s.row},${s.col}`)
+                .map(s => `${s.ip},${String(s.name || '').replace(/,/g, ' ')},${String(s.studentId || '').replace(/,/g, ' ')},${s.row},${s.col}`)
         ].join('\n');
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
         downloadBlob(blob, `classroom-seats-${getStamp()}.csv`);
@@ -405,15 +451,15 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     const handleAddSeat = () => {
         if (!addIp.trim()) return;
         const id = `seat-${Date.now()}`;
-        saveSeats([...seats, { id, ip: normalizeIp(addIp.trim()), name: addName.trim(), row: Number(addRow), col: Number(addCol) }]);
-        setAddIp(''); setAddName(''); setShowAddForm(false);
+        saveSeats([...seats, { id, ip: normalizeIp(addIp.trim()), name: addName.trim(), studentId: addStudentId.trim(), row: Number(addRow), col: Number(addCol) }]);
+        setAddIp(''); setAddName(''); setAddStudentId(''); setShowAddForm(false);
     };
 
     const handleDelete = (id) => saveSeats(seats.filter(s => s.id !== id));
 
-    const startEdit = (seat) => { setEditingId(seat.id); setEditName(seat.name); };
+    const startEdit = (seat) => { setEditingId(seat.id); setEditName(seat.name); setEditStudentId(seat.studentId || ''); };
     const commitEdit = () => {
-        saveSeats(seats.map(s => s.id === editingId ? { ...s, name: editName } : s));
+        saveSeats(seats.map(s => s.id === editingId ? { ...s, name: editName, studentId: editStudentId } : s));
         setEditingId(null);
     };
 
@@ -447,25 +493,14 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                     <i className="fas fa-xmark text-[10px]"></i>
                 </button>
                 <div className={`w-2.5 h-2.5 rounded-full mb-1.5 ${isOnline ? 'bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.8)]' : 'bg-slate-600'}`}></div>
-                {editingId === seat.id ? (
-                    <input
-                        autoFocus
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        onBlur={commitEdit}
-                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); }}
-                        className="w-full text-center text-xs bg-slate-700 border border-blue-400 rounded px-1 py-0.5 text-white outline-none"
-                        onClick={e => e.stopPropagation()}
-                    />
-                ) : (
-                    <span
-                        className="text-xs font-bold text-white truncate max-w-full px-1 cursor-text"
-                        title={seat.name || seat.ip}
-                        onDoubleClick={() => startEdit(seat)}
-                    >
-                        {seat.name || <span className="text-slate-500 italic">双击命名</span>}
-                    </span>
-                )}
+                <span
+                    className="text-xs font-bold text-white truncate max-w-full px-1 cursor-text"
+                    title={`${seat.name || '未命名'}\n${seat.studentId ? '学号: ' + seat.studentId : ''}\n${seat.ip}`}
+                    onDoubleClick={() => startEdit(seat)}
+                >
+                    {seat.name || <span className="text-slate-500 italic">双击命名</span>}
+                </span>
+                {seat.studentId && <span className="text-[9px] text-blue-400 font-mono truncate max-w-full px-1">{seat.studentId}</span>}
                 <span className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-full px-1">{seat.ip}</span>
                 {lastAlert && alertIcons[lastAlert.type] && (
                     <div className={`mt-1 flex items-center text-[10px] ${alertIcons[lastAlert.type].color}`}>
@@ -486,6 +521,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                         <th className="px-3 py-2">状态</th>
                         <th className="px-3 py-2">IP 地址</th>
                         <th className="px-3 py-2">名称</th>
+                        <th className="px-3 py-2">学号</th>
                         <th className="px-3 py-2 text-center">行</th>
                         <th className="px-3 py-2 text-center">列</th>
                         <th className="px-3 py-2">最近告警</th>
@@ -494,7 +530,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                 </thead>
                 <tbody>
                     {seats.length === 0 && (
-                        <tr><td colSpan="8" className="text-center text-slate-600 py-12">暂无座位，请导入或手动添加</td></tr>
+                        <tr><td colSpan="9" className="text-center text-slate-600 py-12">暂无座位，请导入或手动添加</td></tr>
                     )}
                     {[...seats].sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col).map((seat, idx) => {
                         const isOnline = onlineIPs.includes(seat.ip);
@@ -511,25 +547,15 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                                 </td>
                                 <td className="px-3 py-2 font-mono text-slate-300 text-xs">{seat.ip}</td>
                                 <td className="px-3 py-2">
-                                    {editingId === seat.id ? (
-                                        <input
-                                            autoFocus
-                                            value={editName}
-                                            onChange={e => setEditName(e.target.value)}
-                                            onBlur={commitEdit}
-                                            onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); }}
-                                            className="bg-slate-700 border border-blue-400 rounded px-2 py-0.5 text-white text-xs outline-none w-32"
-                                        />
-                                    ) : (
-                                        <span
-                                            className="text-white text-xs cursor-text hover:text-blue-300 transition-colors"
-                                            onDoubleClick={() => startEdit(seat)}
-                                            title="双击编辑"
-                                        >
-                                            {seat.name || <span className="text-slate-600 italic">双击命名</span>}
-                                        </span>
-                                    )}
+                                    <span
+                                        className="text-white text-xs cursor-text hover:text-blue-300 transition-colors"
+                                        onClick={() => startEdit(seat)}
+                                        title="点击编辑"
+                                    >
+                                        {seat.name || <span className="text-slate-600 italic">点击编辑</span>}
+                                    </span>
                                 </td>
+                                <td className="px-3 py-2 font-mono text-slate-400 text-xs">{seat.studentId || <span className="text-slate-700 italic">—</span>}</td>
                                 <td className="px-3 py-2 text-center text-slate-400 text-xs">{seat.row}</td>
                                 <td className="px-3 py-2 text-center text-slate-400 text-xs">{seat.col}</td>
                                 <td className="px-3 py-2 text-xs">
@@ -702,7 +728,8 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                 {showAddForm && (
                     <div className="px-6 py-3 bg-slate-800/80 border-b border-slate-700 flex items-center gap-3 shrink-0">
                         <input value={addIp} onChange={e => setAddIp(e.target.value)} placeholder="IP 地址" className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-blue-400 w-36" />
-                        <input value={addName} onChange={e => setAddName(e.target.value)} placeholder="计算机名称（可选）" className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-blue-400 w-44" />
+                        <input value={addName} onChange={e => setAddName(e.target.value)} placeholder="学生姓名" className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-blue-400 w-32" />
+                        <input value={addStudentId} onChange={e => setAddStudentId(e.target.value)} placeholder="学号" className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-blue-400 w-32" />
                         <span className="text-slate-400 text-sm">行</span>
                         <input type="number" min="1" value={addRow} onChange={e => setAddRow(e.target.value)} className="px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white outline-none focus:border-blue-400 w-16 text-center" />
                         <span className="text-slate-400 text-sm">列</span>
@@ -741,7 +768,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                     <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-600 inline-block"></span>离线</span>
                     <span className="flex items-center gap-1.5"><i className="fas fa-compress text-orange-400"></i>退出全屏</span>
                     <span className="flex items-center gap-1.5"><i className="fas fa-eye-slash text-red-400"></i>切换页面</span>
-                    <span className="ml-auto text-slate-600">拖拽座位可调整位置 · 双击名称可编辑</span>
+                    <span className="ml-auto text-slate-600">拖拽座位可调整位置 · 点击名称可编辑姓名和学号</span>
                 </div>
 
                 {viewMode === 'grid' && currentPodiumTop && (
@@ -774,6 +801,41 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
                     </div>
                 )}
             </div>
+
+            {editingId && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={(e) => { if (e.target === e.currentTarget) setEditingId(null); }}>
+                    <div className="bg-slate-800 rounded-xl p-6 w-96 border border-slate-700 shadow-2xl">
+                        <h3 className="text-lg font-bold text-white mb-4">编辑座位信息</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-slate-400 mb-1">学生姓名</label>
+                                <input
+                                    autoFocus
+                                    value={editName}
+                                    onChange={e => setEditName(e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 outline-none focus:border-blue-400"
+                                    placeholder="输入学生姓名"
+                                    onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); }}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm text-slate-400 mb-1">学号</label>
+                                <input
+                                    value={editStudentId}
+                                    onChange={e => setEditStudentId(e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 outline-none focus:border-blue-400"
+                                    placeholder="输入学号（可选）"
+                                    onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); }}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm transition-colors">取消</button>
+                            <button onClick={commitEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors">保存</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

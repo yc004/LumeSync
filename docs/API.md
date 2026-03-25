@@ -476,6 +476,7 @@ function CameraSlide() {
 | `class:end` | 教师端 → 学生端 | 结课 |
 | `slide:change` | 教师端 → 学生端 | 切换幻灯片 |
 | `settings:update` | 教师端 → 学生端 | 更新设置 |
+| `course-catalog-updated` | 教师端 → 教师端 | 课程目录更新（刷新后广播） |
 
 #### 数据同步事件
 

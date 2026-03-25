@@ -1,6 +1,65 @@
 # 更新日志
 
-## [未发布] - 多班级机房视图支持
+## [未发布] - 服务器模块化重构
+
+### 新增功能
+
+#### 服务器架构重构
+- ✨ 将 `server.js` 拆分为 8 个独立模块，提升可维护性
+- ✨ 模块化架构，每个模块职责单一
+- ✨ 详细的架构文档 (`server/README.md`)
+
+### 改进
+
+#### 后端模块化
+- 📦 `config.js` - 配置管理（环境变量、路径等）
+- 📦 `courses.js` - 课程扫描和管理
+- 📦 `data.js` - 文件夹数据管理（CRUD）
+- 📦 `proxy.js` - CDN 代理和缓存
+- 📦 `routes.js` - API 路由定义
+- 📦 `socket.js` - Socket.io 实时通信
+- 📦 `submissions.js` - 学生提交和座位表管理
+- 📦 `utils.js` - 工具函数
+
+#### 主入口简化
+- 📝 `server.js` 从 ~1000+ 行简化到 ~150 行
+- 📝 清晰的初始化流程
+- 📝 易于理解和维护
+
+#### Bug 修复
+- 🐛 修复 `role-assigned` 事件中缺少 `courseCatalog` 数据的问题
+- 🐛 修复课件库显示为空的 bug
+- 🐛 添加 `refresh-courses` Socket 事件处理
+
+### 技术细节
+
+#### 模块依赖关系
+```
+config.js (配置中心)
+    ↓
+    ├── courses.js (使用 config.coursesDir)
+    ├── data.js (使用 config.folderDataPath)
+    ├── submissions.js (使用 config.classroomLayoutPath)
+    ├── proxy.js (使用 config.*)
+    └── socket.js (使用 config.*)
+```
+
+#### 数据流
+```
+客户端请求 → Express 中间件 → API 路由 → 业务模块 → 数据层
+                ↓                    ↓
+           代理处理            Socket.io
+                ↓
+           CDN/文件系统
+```
+
+### 文档更新
+- 📝 更新 `README.md`，反映最新的模块化架构
+- 📝 更新 `server/README.md`，提供详细的架构说明
+
+---
+
+## [之前版本] - 多班级机房视图支持
 
 ### 新增功能
 

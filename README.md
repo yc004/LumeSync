@@ -137,7 +137,17 @@ window.CourseData = {
 
 ```
 SyncClassroom/
-├── server.js                          # 后端服务（Express + Socket.io + CDN 代理）
+├── server.js                          # 主入口文件（仅 ~150 行）
+├── server/                            # 后端服务模块
+│   ├── config.js                      # 配置管理（环境变量、路径等）
+│   ├── courses.js                     # 课程扫描和管理
+│   ├── data.js                        # 文件夹数据管理（CRUD）
+│   ├── proxy.js                       # CDN 代理和缓存
+│   ├── routes.js                      # API 路由定义
+│   ├── socket.js                      # Socket.io 实时通信
+│   ├── submissions.js                 # 学生提交和座位表管理
+│   ├── utils.js                       # 工具函数
+│   └── README.md                      # 架构详细说明
 ├── public/
 │   ├── index.html                     # Web 入口页面
 │   ├── editor.html                    # 编辑器入口页面
@@ -156,12 +166,26 @@ SyncClassroom/
 └── .github/workflows/release.yml      # 打 tag 自动发布 Release
 ```
 
+**详细架构文档：** [server/README.md](./server/README.md)
+
 ## 技术栈
 
-- 后端：Express + Socket.io
-- 前端：React 18 + Babel Standalone
-- UI：Tailwind CSS + FontAwesome
-- 桌面端：Electron + electron-builder
+### 后端
+- **框架**: Express.js
+- **实时通信**: Socket.io
+- **模块化架构**: 按功能拆分为 8 个独立模块
+- **代理服务**: CDN 资源自动下载和缓存
+
+### 前端
+- **框架**: React 18
+- **编译**: Babel Standalone（课件热加载）
+- **UI 框架**: Tailwind CSS
+- **图标**: FontAwesome 6
+
+### 桌面端
+- **框架**: Electron
+- **打包**: electron-builder
+- **多架构**: 教师端 / 学生端 / 编辑器
 
 ## 许可证
 

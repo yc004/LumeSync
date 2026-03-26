@@ -12,9 +12,10 @@
     "electron/preload.js",
     "electron/config.js",
     "electron/logger.js",
+    "server.js",
+    "server/**",
     "assets/**",
     "public/**",
-    "server.js",
     "docs/**",
     "node_modules/**",
     "package.json"

@@ -10,10 +10,11 @@
     "electron/main-editor.js",
     "electron/preload.js",
     "electron/logger.js",
+    "server.js",
+    "server/**",
     "build/icon-editor.ico",
     "assets/**",
     "public/**",
-    "server.js",
     "node_modules/**",
     "package.json"
   ],

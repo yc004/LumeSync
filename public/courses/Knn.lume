@@ -1,5 +1,5 @@
 // ========================================================
-// 🎨 课程内容：特征分类的秘密 —— KNN 与 K-means
+// 🎨 课程内容：特征分类的秘密 —— KNN 与 K-means（扩展版）
 // ========================================================
 
 const { useRef } = React;
@@ -24,6 +24,8 @@ const KMEANS_COLORS = [
     { bg: '#3b82f6', cls: 'bg-blue-500', name: '第1组' },
     { bg: '#f43f5e', cls: 'bg-rose-500', name: '第2组' },
     { bg: '#10b981', cls: 'bg-emerald-500', name: '第3组' },
+    { bg: '#f59e0b', cls: 'bg-amber-500', name: '第4组' },
+    { bg: '#8b5cf6', cls: 'bg-violet-500', name: '第5组' },
 ];
 
 // K-means 演示：初始数据点生成器
@@ -31,14 +33,20 @@ const makeKMeansPoints = () => [
     { x: 18, y: 22 }, { x: 25, y: 30 }, { x: 20, y: 28 }, { x: 28, y: 20 }, { x: 22, y: 35 },
     { x: 72, y: 20 }, { x: 78, y: 28 }, { x: 65, y: 22 }, { x: 80, y: 18 }, { x: 70, y: 30 },
     { x: 46, y: 74 }, { x: 52, y: 80 }, { x: 55, y: 70 }, { x: 42, y: 72 }, { x: 58, y: 78 },
+    { x: 35, y: 50 }, { x: 45, y: 45 }, { x: 40, y: 55 }, { x: 50, y: 40 }, { x: 55, y: 52 },
 ].map(p => ({ ...p, cluster: -1 }));
 
 // K-means 演示：初始圆心生成器
-const makeKMeansCentroids = () => [
-    { x: 50, y: 50 },
-    { x: 55, y: 45 },
-    { x: 45, y: 55 },
-];
+const makeKMeansCentroids = (k = 3) => {
+    const centers = [];
+    for (let i = 0; i < k; i++) {
+        centers.push({
+            x: 20 + Math.random() * 60,
+            y: 20 + Math.random() * 60
+        });
+    }
+    return centers;
+};
 
 // 特征空间演示：示例数据点
 const FEATURE_SPACE_POINTS = [
@@ -70,10 +78,12 @@ function IntroSlide() {
             <h2 className="text-xl md:text-3xl font-bold text-slate-600 mt-4 md:mt-6 tracking-wide">
                 KNN 与 K-means —— 找邻居 vs 找圆心
             </h2>
-            <p className="max-w-3xl text-lg md:text-xl text-slate-500 mt-6 md:mt-8 leading-relaxed bg-white/80 p-6 md:p-8 rounded-2xl shadow-sm backdrop-blur-md border border-slate-100">
-                上节课，AI 已经把人脸变成了 128 个数字。<br /><br />
-                但有了这些数字后，计算机怎么判断<strong className="text-green-600">「这是谁」</strong>，或者把陌生人<strong className="text-teal-600">「自动分堆」</strong>呢？
-            </p>
+            <div className="max-w-3xl bg-white/80 p-6 md:p-8 rounded-2xl shadow-sm backdrop-blur-md border border-slate-100">
+                <p className="text-lg md:text-xl text-slate-500 mb-4 leading-relaxed">
+                    上节课，AI 已经把人脸变成了 128 个数字。<br /><br />
+                    但有了这些数字后，计算机怎么判断<strong className="text-green-600">「这是谁」</strong>，或者把陌生人<strong className="text-teal-600">「自动分堆」</strong>呢？
+                </p>
+            </div>
         </div>
     );
 }
@@ -107,6 +117,42 @@ function ReviewSlide() {
                         <span className="text-xs mt-1 opacity-80 block">（"人脸身份证"）</span>
                     </div>
                 </div>
+                
+                {/* 新增：卷积神经网络三层结构复习 */}
+                <div className="mt-6 bg-white p-5 rounded-xl border border-blue-200 shadow-sm">
+                    <h4 className="text-lg font-bold text-blue-700 mb-3 flex items-center">
+                        <i className="fas fa-sitemap mr-2 text-blue-500"></i> 卷积神经网络三层结构回顾
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400">
+                            <div className="flex items-center mb-2">
+                                <div className="bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold mr-2">1</div>
+                                <h5 className="font-bold text-blue-800">卷积层（找特征）</h5>
+                            </div>
+                            <p className="text-slate-700 text-sm">
+                                像放大镜一样在图像上滑动，检测<strong>边缘、纹理、形状</strong>等局部特征
+                            </p>
+                        </div>
+                        <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-400">
+                            <div className="flex items-center mb-2">
+                                <div className="bg-purple-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold mr-2">2</div>
+                                <h5 className="font-bold text-purple-800">池化层（降维度）</h5>
+                            </div>
+                            <p className="text-slate-700 text-sm">
+                                将特征图缩小，保留重要信息，减少计算量，增强<strong>抗干扰能力</strong>
+                            </p>
+                        </div>
+                        <div className="bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-400">
+                            <div className="flex items-center mb-2">
+                                <div className="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold mr-2">3</div>
+                                <h5 className="font-bold text-indigo-800">全连接层（做决策）</h5>
+                            </div>
+                            <p className="text-slate-700 text-sm">
+                                将提取的特征整合，输出最终的<strong>128个特征数字</strong>，形成"人脸身份证"
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="flex-1 bg-green-50 p-6 md:p-8 rounded-2xl border border-green-100 shadow-sm flex flex-col justify-center">
@@ -134,6 +180,8 @@ function ReviewSlide() {
 // ---- 3. 特征空间概念 ----
 function FeatureSpaceSlide() {
     const [showLabels, setShowLabels] = window.CourseGlobalContext.useSyncVar('feature:labels', true);
+    const [showGroups, setShowGroups] = window.CourseGlobalContext.useSyncVar('feature:groups', true);
+    const [highlightGroup, setHighlightGroup] = window.CourseGlobalContext.useSyncVar('feature:highlight', null);
 
     return (
         <div className="flex flex-col min-h-full p-6 md:p-10 bg-white overflow-hidden">
@@ -155,35 +203,65 @@ function FeatureSpaceSlide() {
                     <div className="absolute top-1/2 left-2 -translate-y-1/2 -rotate-90 text-xs md:text-sm font-bold text-slate-400 select-none whitespace-nowrap">脸型宽度 →</div>
                     
                     {/* 数据点 - 使用百分比定位 */}
-                    {FEATURE_SPACE_POINTS.map((p, i) => (
-                        <div key={i} className="absolute" style={{ left: `${p.x}%`, bottom: `${p.y}%`, transform: 'translate(-50%, 50%)' }}>
-                            <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full ${p.color} border-2 border-white shadow-md hover:scale-125 transition-transform`}></div>
-                            {showLabels && (
-                                <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] md:text-xs font-bold text-slate-700 whitespace-nowrap bg-white/80 px-1 rounded">{p.label}</div>
-                            )}
-                        </div>
-                    ))}
+                    {FEATURE_SPACE_POINTS.map((p, i) => {
+                        const isHighlighted = highlightGroup === p.color;
+                        return (
+                            <div key={i} className="absolute transition-all duration-300" style={{ left: `${p.x}%`, bottom: `${p.y}%`, transform: 'translate(-50%, 50%)' }}>
+                                <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full ${p.color} border-2 border-white shadow-md hover:scale-125 transition-transform ${isHighlighted ? 'ring-2 ring-offset-1 ring-slate-800 scale-125' : ''}`}></div>
+                                {showLabels && (
+                                    <div className={`absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] md:text-xs font-bold whitespace-nowrap bg-white/80 px-1 rounded transition-all ${isHighlighted ? 'text-slate-800 bg-yellow-100' : 'text-slate-700'}`}>{p.label}</div>
+                                )}
+                            </div>
+                        );
+                    })}
                     
                     {/* 圆形分组示意 */}
-                    <div className="absolute rounded-full border-2 border-dashed border-blue-300 opacity-70" style={{ left: '9%', bottom: '14%', width: '30%', height: '30%' }}></div>
-                    <div className="absolute rounded-full border-2 border-dashed border-rose-300 opacity-70" style={{ left: '57%', bottom: '12%', width: '30%', height: '30%' }}></div>
-                    <div className="absolute rounded-full border-2 border-dashed border-amber-300 opacity-70" style={{ left: '33%', bottom: '60%', width: '30%', height: '30%' }}></div>
+                    {showGroups && (
+                        <>
+                            <div className={`absolute rounded-full border-2 ${highlightGroup === 'bg-blue-500' ? 'border-blue-500 border-solid' : 'border-blue-300 border-dashed'} opacity-70 transition-all`} style={{ left: '9%', bottom: '14%', width: '30%', height: '30%' }}></div>
+                            <div className={`absolute rounded-full border-2 ${highlightGroup === 'bg-rose-500' ? 'border-rose-500 border-solid' : 'border-rose-300 border-dashed'} opacity-70 transition-all`} style={{ left: '57%', bottom: '12%', width: '30%', height: '30%' }}></div>
+                            <div className={`absolute rounded-full border-2 ${highlightGroup === 'bg-amber-500' ? 'border-amber-500 border-solid' : 'border-amber-300 border-dashed'} opacity-70 transition-all`} style={{ left: '33%', bottom: '60%', width: '30%', height: '30%' }}></div>
+                        </>
+                    )}
                 </div>
 
                 {/* 右侧：控制面板 */}
                 <div className="flex flex-col gap-3 w-full lg:w-56 xl:w-64 shrink-0">
-                    <button
-                        onClick={() => setShowLabels(v => !v)}
-                        className="bg-slate-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-600 transition-colors"
-                    >
-                        {showLabels ? '隐藏姓名标签' : '显示姓名标签'}
-                    </button>
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <p className="font-bold text-slate-700 mb-2 text-sm">探索控制</p>
+                        <div className="space-y-2">
+                            <button onClick={() => setShowLabels(v => !v)}
+                                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-bold text-xs transition-colors">
+                                {showLabels ? '隐藏姓名标签' : '显示姓名标签'}
+                            </button>
+                            <button onClick={() => setShowGroups(v => !v)}
+                                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-bold text-xs transition-colors">
+                                {showGroups ? '隐藏分组圆圈' : '显示分组圆圈'}
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <p className="font-bold text-slate-700 mb-2 text-sm">高亮显示</p>
+                        <div className="flex gap-2">
+                            {['bg-blue-500', 'bg-rose-500', 'bg-amber-500'].map(color => (
+                                <button key={color}
+                                    onClick={() => setHighlightGroup(highlightGroup === color ? null : color)}
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${highlightGroup === color ? 'ring-2 ring-offset-1 ring-slate-400' : ''}`}
+                                    style={{ backgroundColor: color === 'bg-blue-500' ? '#3b82f6' : color === 'bg-rose-500' ? '#f43f5e' : '#f59e0b' }}>
+                                    {color === 'bg-blue-500' ? '蓝组' : color === 'bg-rose-500' ? '红组' : '黄组'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     
                     <div className="bg-green-50 p-3 rounded-xl border border-green-100 flex-1">
-                        <p className="font-bold text-green-800 mb-2 text-sm">💡 你发现了什么？</p>
+                        <p className="font-bold text-green-800 mb-2 text-sm">💡 小组讨论（3分钟）</p>
                         <p className="text-slate-700 text-sm leading-relaxed">
-                            即使没有告诉计算机任何标签，特征相似的人在「地图」上会自然<strong>聚集在一起</strong>！<br /><br />
-                            这就是特征分类算法能工作的根本原因。
+                            观察这张「特征地图」：<br /><br />
+                            1. 为什么相似的人会聚集在一起？<br />
+                            2. 如果增加「鼻子高度」作为第三个特征，地图会变成什么样？<br />
+                            3. 计算机如何在128维的"超空间"中看到这些规律？
                         </p>
                     </div>
                     
@@ -234,6 +312,25 @@ function KNNIntroSlide() {
                         <strong>KNN = 有监督学习</strong>（Supervised Learning）：需要提前告诉计算机每个点「是谁」（打好标签），才能让它判断新来者。就像先给它看<strong>有答案的例题</strong>。
                     </p>
                 </div>
+
+                {/* 新增：互动思考题 */}
+                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                    <p className="font-bold text-yellow-800 mb-2 text-sm flex items-center">
+                        <i className="fas fa-lightbulb mr-2"></i> 思考一下：
+                    </p>
+                    <p className="text-slate-700 text-sm leading-relaxed">
+                        如果 K 值太小（比如 K=1），可能会出现什么问题？<br />
+                        如果 K 值太大（比如 K=所有同学），又会出现什么问题？
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                        <button className="text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded-lg font-bold">
+                            小组讨论
+                        </button>
+                        <button className="text-xs bg-white hover:bg-slate-100 text-slate-600 px-3 py-1 rounded-lg border border-slate-300 font-bold">
+                            写下想法
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -244,6 +341,7 @@ function KNNDemoSlide() {
     const [newPoint, setNewPoint] = window.CourseGlobalContext.useSyncVar('knn:newPoint', null);
     const [k, setK] = window.CourseGlobalContext.useSyncVar('knn:k', 3);
     const [result, setResult] = window.CourseGlobalContext.useSyncVar('knn:result', null);
+    const [showDistances, setShowDistances] = window.CourseGlobalContext.useSyncVar('knn:showDistances', false);
     const containerRef = useRef(null);
 
     const handleClick = (e) => {
@@ -259,7 +357,7 @@ function KNNDemoSlide() {
         const votes = {};
         neighbors.forEach(n => { votes[n.grp] = (votes[n.grp] || 0) + 1; });
         const winner = Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0];
-        setResult({ neighbors, winner, votes });
+        setResult({ neighbors, winner, votes, sorted });
     };
 
     return (
@@ -269,12 +367,16 @@ function KNNDemoSlide() {
             </h2>
             <div className="flex items-center gap-3 mb-4 shrink-0 flex-wrap">
                 <span className="text-slate-600 font-bold text-sm md:text-base">K 值（找几个邻居）：</span>
-                {[1, 3, 5].map(val => (
+                {[1, 2, 3, 5, 7].map(val => (
                     <button key={val} onClick={() => { setK(val); setNewPoint(null); setResult(null); }}
                         className={`px-4 py-1.5 rounded-xl font-bold text-sm border-2 transition-colors ${k === val ? 'bg-green-500 text-white border-green-500' : 'bg-white text-slate-600 border-slate-300 hover:border-green-400'}`}>
                         K={val}
                     </button>
                 ))}
+                <button onClick={() => setShowDistances(v => !v)}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-sm border-2 ${showDistances ? 'bg-blue-100 text-blue-600 border-blue-300' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                    {showDistances ? '隐藏距离' : '显示距离'}
+                </button>
                 <button onClick={() => { setNewPoint(null); setResult(null); }} className="px-3 py-1.5 rounded-xl font-bold text-sm bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 transition-colors">清除</button>
             </div>
 
@@ -294,10 +396,17 @@ function KNNDemoSlide() {
 
                     {KNN_KNOWN_POINTS.map((p, i) => {
                         const isNeighbor = result?.neighbors.some(n => n.label === p.label);
+                        const distance = result?.sorted.findIndex(item => item.label === p.label) + 1;
                         return (
                             <div key={i} className="absolute" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}>
                                 <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white shadow-md transition-all duration-300 ${isNeighbor ? 'scale-150 ring-2 ring-green-400 ring-offset-1' : ''}`}
-                                    style={{ backgroundColor: p.color }}></div>
+                                    style={{ backgroundColor: p.color }}>
+                                    {showDistances && result && !isNeighbor && distance <= 7 && (
+                                        <div className="absolute -top-3 -right-3 bg-slate-700 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                                            {distance}
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] md:text-[10px] font-bold text-slate-600 whitespace-nowrap">{p.label}</div>
                             </div>
                         );
@@ -323,28 +432,47 @@ function KNNDemoSlide() {
                     </div>
 
                     {result ? (
-                        <div className="bg-green-50 p-4 rounded-xl border border-green-200 flex-1">
-                            <p className="font-bold text-green-800 text-sm mb-2">✅ K={k} 个最近邻居：</p>
-                            <ul className="text-xs text-slate-700 space-y-1 mb-3">
-                                {result.neighbors.map((n, i) => (
-                                    <li key={i} className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: n.color }}></div>
-                                        {n.label}（{n.grp.split('(')[0]}）
-                                    </li>
-                                ))}
-                            </ul>
-                            <div className="bg-green-600 text-white p-2.5 rounded-lg text-center font-bold text-xs md:text-sm">
-                                🗳 投票结果：<br />{result.winner}
+                        <>
+                            <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                                <p className="font-bold text-green-800 text-sm mb-2">✅ K={k} 个最近邻居：</p>
+                                <ul className="text-xs text-slate-700 space-y-1 mb-3 max-h-32 overflow-y-auto">
+                                    {result.neighbors.map((n, i) => (
+                                        <li key={i} className="flex items-center gap-2 p-1 hover:bg-green-100 rounded">
+                                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: n.color }}></div>
+                                            <span className="flex-1">{n.label}（{n.grp.split('(')[0]}）</span>
+                                            <span className="text-slate-500 text-[10px]">{Math.round(calculateDistance(newPoint, n)*10)/10}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="bg-green-600 text-white p-2.5 rounded-lg text-center font-bold text-xs md:text-sm">
+                                    🗳 投票结果：<br />{result.winner}
+                                </div>
                             </div>
-                        </div>
+                            
+                            <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
+                                <p className="font-bold text-blue-800 text-sm mb-1">📊 投票详情</p>
+                                <div className="space-y-1">
+                                    {Object.entries(result.votes).map(([group, count]) => (
+                                        <div key={group} className="flex items-center text-xs">
+                                            <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: group.includes('蓝') ? '#3b82f6' : group.includes('红') ? '#f43f5e' : '#f59e0b' }}></div>
+                                            <span className="flex-1 text-slate-600">{group}</span>
+                                            <span className={`font-bold ${group === result.winner ? 'text-green-600' : 'text-slate-500'}`}>{count} 票</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
                     ) : (
                         <div className="bg-white p-4 rounded-xl border border-slate-200 text-center text-slate-400 text-sm flex-1 flex flex-col items-center justify-center">
                             <i className="fas fa-mouse-pointer text-2xl mb-2 text-slate-300"></i>
                             点击左侧画布<br />放置新人脸
                         </div>
                     )}
+                    
                     <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-200 text-xs text-yellow-800 font-bold leading-relaxed">
-                        💡 试试在不同位置点击，对比 K=1 和 K=5 的结果有什么不同！
+                        💡 实验任务：<br />
+                        1. 在不同位置点击，对比 K=1 和 K=5 的结果差异<br />
+                        2. 在边界处放置新人脸，观察投票结果的变化
                     </div>
                 </div>
             </div>
@@ -352,7 +480,185 @@ function KNNDemoSlide() {
     );
 }
 
-// ---- 6. K-means 介绍 ----
+// ---- 6. KNN 参数实验 ----
+function KNNExperimentSlide() {
+    const [newPoint, setNewPoint] = window.CourseGlobalContext.useSyncVar('knn-exp:newPoint', { x: 50, y: 50 });
+    const [k, setK] = window.CourseGlobalContext.useSyncVar('knn-exp:k', 3);
+    const [noise, setNoise] = window.CourseGlobalContext.useSyncVar('knn-exp:noise', 0);
+    
+    // 生成带噪声的数据点
+    const getNoisyPoints = () => {
+        return KNN_KNOWN_POINTS.map(p => ({
+            ...p,
+            x: p.x + (Math.random() - 0.5) * noise * 20,
+            y: p.y + (Math.random() - 0.5) * noise * 20
+        }));
+    };
+    
+    const [noisyPoints, setNoisyPoints] = useState(getNoisyPoints());
+    
+    useEffect(() => {
+        setNoisyPoints(getNoisyPoints());
+    }, [noise]);
+
+    const handlePointMove = (dx, dy) => {
+        setNewPoint(p => ({
+            x: Math.max(5, Math.min(95, p.x + dx)),
+            y: Math.max(5, Math.min(95, p.y + dy))
+        }));
+    };
+
+    // 计算KNN结果
+    const sorted = [...noisyPoints].sort((a, b) => calculateDistance(a, newPoint) - calculateDistance(b, newPoint));
+    const neighbors = sorted.slice(0, k);
+    const votes = {};
+    neighbors.forEach(n => { votes[n.grp] = (votes[n.grp] || 0) + 1; });
+    const winner = Object.entries(votes).sort((a, b) => b[1] - a[1])[0]?.[0] || '未定';
+
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
+                <i className="fas fa-flask mr-4 text-green-500"></i> KNN 参数实验：K值和噪声的影响
+            </h2>
+            <p className="text-slate-600 mb-4 text-sm shrink-0">
+                调整K值和数据噪声，观察KNN分类结果的变化规律
+            </p>
+
+            <div className="flex-1 flex flex-col md:flex-row gap-4">
+                {/* 左侧：主交互区 */}
+                <div className="flex-1 flex flex-col min-h-0">
+                    <div className="relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner flex-1 min-h-[300px]">
+                        {/* 网格背景 */}
+                        <div className="absolute inset-0 opacity-20">
+                            {Array.from({ length: 10 }).map((_, i) => (
+                                <>
+                                    <div key={`v-${i}`} className="absolute top-0 bottom-0 w-px bg-slate-300" style={{ left: `${i * 10}%` }}></div>
+                                    <div key={`h-${i}`} className="absolute left-0 right-0 h-px bg-slate-300" style={{ top: `${i * 10}%` }}></div>
+                                </>
+                            ))}
+                        </div>
+
+                        {/* 数据点 */}
+                        {noisyPoints.map((p, i) => {
+                            const isNeighbor = neighbors.some(n => n.label === p.label);
+                            return (
+                                <div key={i} className="absolute transition-all duration-300" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                    <div className={`w-5 h-5 rounded-full border-2 border-white shadow-md ${isNeighbor ? 'scale-150 ring-2 ring-green-400 ring-offset-1' : ''}`}
+                                        style={{ backgroundColor: p.color }}></div>
+                                    <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-slate-600 whitespace-nowrap">{p.label}</div>
+                                </div>
+                            );
+                        })}
+
+                        {/* 新人脸点 */}
+                        <div className="absolute" style={{ left: `${newPoint.x}%`, top: `${newPoint.y}%`, transform: 'translate(-50%, -50%)' }}>
+                            <div className="w-8 h-8 rounded-full bg-purple-500 border-4 border-white shadow-xl flex items-center justify-center">
+                                <i className="fas fa-user text-white text-xs font-black"></i>
+                            </div>
+                        </div>
+
+                        {/* 连接线 */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                            {neighbors.map((n, i) => (
+                                <line key={i} x1={`${newPoint.x}%`} y1={`${newPoint.y}%`} x2={`${n.x}%`} y2={`${n.y}%`}
+                                    stroke="#86efac" strokeWidth="2" strokeDasharray="5,3" />
+                            ))}
+                        </svg>
+                    </div>
+
+                    {/* 移动控制 */}
+                    <div className="mt-3 flex justify-center gap-2">
+                        <button onClick={() => handlePointMove(0, -5)} className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center">
+                            <i className="fas fa-arrow-up text-slate-600"></i>
+                        </button>
+                        <div className="flex flex-col gap-2">
+                            <button onClick={() => handlePointMove(-5, 0)} className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-arrow-left text-slate-600"></i>
+                            </button>
+                            <button onClick={() => handlePointMove(5, 0)} className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-arrow-right text-slate-600"></i>
+                            </button>
+                        </div>
+                        <button onClick={() => handlePointMove(0, 5)} className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center">
+                            <i className="fas fa-arrow-down text-slate-600"></i>
+                        </button>
+                    </div>
+                </div>
+
+                {/* 右侧：控制面板 */}
+                <div className="w-full md:w-64 shrink-0 flex flex-col gap-3">
+                    {/* K值控制 */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <p className="font-bold text-slate-700 mb-2 text-sm">K 值选择</p>
+                        <div className="flex gap-2 mb-2">
+                            {[1, 2, 3, 5, 7, 9].map(val => (
+                                <button key={val} onClick={() => setK(val)}
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold ${k === val ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                    K={val}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                            当前：K = {k}，找到 {neighbors.length} 个邻居
+                        </div>
+                    </div>
+
+                    {/* 噪声控制 */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <p className="font-bold text-slate-700 mb-2 text-sm">数据噪声</p>
+                        <input type="range" min="0" max="2" step="0.1" value={noise} 
+                            onChange={(e) => setNoise(parseFloat(e.target.value))}
+                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-green-500" />
+                        <div className="flex justify-between text-xs text-slate-500 mt-1">
+                            <span>无噪声</span>
+                            <span>中等噪声</span>
+                            <span>高噪声</span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                            噪声强度：{noise.toFixed(1)}
+                        </div>
+                    </div>
+
+                    {/* 结果展示 */}
+                    <div className="bg-green-50 p-3 rounded-xl border border-green-200">
+                        <p className="font-bold text-green-800 text-sm mb-2">📊 分类结果</p>
+                        <div className="mb-2">
+                            <div className="text-sm font-bold text-slate-700 mb-1">投票结果：<span className="text-green-600">{winner}</span></div>
+                            <div className="space-y-1">
+                                {Object.entries(votes).map(([group, count]) => (
+                                    <div key={group} className="flex items-center text-xs">
+                                        <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: group.includes('蓝') ? '#3b82f6' : group.includes('红') ? '#f43f5e' : '#f59e0b' }}></div>
+                                        <span className="flex-1 text-slate-600">{group}</span>
+                                        <span className={`font-bold ${group === winner ? 'text-green-600' : 'text-slate-500'}`}>{count} 票</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 实验任务 */}
+                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
+                        <p className="font-bold text-blue-800 text-sm mb-2">🧪 实验任务</p>
+                        <ul className="text-xs text-slate-700 space-y-1">
+                            <li>1. 固定K=3，逐渐增加噪声</li>
+                            <li>2. 固定噪声=1，改变K值</li>
+                            <li>3. 在边界处测试分类稳定性</li>
+                        </ul>
+                    </div>
+
+                    {/* 观察记录 */}
+                    <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-200">
+                        <p className="font-bold text-yellow-800 text-sm mb-2">📝 观察记录区</p>
+                        <textarea className="w-full h-20 text-xs p-2 border border-slate-300 rounded-lg resize-none" 
+                            placeholder="记录你的观察发现..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ---- 7. K-means 介绍 ----
 function KMeansIntroSlide() {
     return (
         <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
@@ -392,55 +698,98 @@ function KMeansIntroSlide() {
                         <strong>K-means = 无监督学习</strong>（Unsupervised Learning）：不需要任何标签，计算机自己探索数据中的规律。就像给它一堆<strong>没有答案的题目，让它自己发现规律</strong>。
                     </p>
                 </div>
+
+                {/* 新增：思考问题 */}
+                <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                    <p className="font-bold text-orange-800 mb-2 text-sm flex items-center">
+                        <i className="fas fa-question-circle mr-2"></i> 挑战性问题：
+                    </p>
+                    <p className="text-slate-700 text-sm leading-relaxed">
+                        如果一开始「组长」选的位置不好，K-means 还能正确分组吗？<br />
+                        计算机如何知道「圆心不再移动」了？
+                    </p>
+                </div>
             </div>
         </div>
     );
 }
 
-// ---- 7. K-means 互动演示 ----
+// ---- 8. K-means 互动演示 ----
 function KMeansDemoSlide() {
     const [points, setPoints] = window.CourseGlobalContext.useSyncVar('kmeans:points', makeKMeansPoints());
-    const [centroids, setCentroids] = window.CourseGlobalContext.useSyncVar('kmeans:centroids', makeKMeansCentroids());
+    const [centroids, setCentroids] = window.CourseGlobalContext.useSyncVar('kmeans:centroids', makeKMeansCentroids(3));
     const [iter, setIter] = window.CourseGlobalContext.useSyncVar('kmeans:iter', 0);
     const [phase, setPhase] = window.CourseGlobalContext.useSyncVar('kmeans:phase', 0);
     const [done, setDone] = window.CourseGlobalContext.useSyncVar('kmeans:done', false);
     const [msg, setMsg] = window.CourseGlobalContext.useSyncVar('kmeans:msg', '3 个圆心（⭐）已随机放置，点击「下一步」开始！');
+    const [showHistory, setShowHistory] = window.CourseGlobalContext.useSyncVar('kmeans:showHistory', false);
+    const [centroidHistory, setCentroidHistory] = useState([]);
 
     const nextStep = () => {
         if (done) return;
+        
+        // 记录当前圆心位置
+        const newHistory = [...centroidHistory, { iter, centroids: [...centroids] }];
+        setCentroidHistory(newHistory.slice(-5)); // 只保留最近5次
+        
         if (phase === 0 || phase === 2) {
+            // 分配阶段：每个点找到最近的圆心
             const newPts = points.map(p => ({
-                ...p, cluster: centroids.reduce((best, c, i) => calculateDistance(p, c) < calculateDistance(p, centroids[best]) ? i : best, 0)
+                ...p, 
+                cluster: centroids.reduce((best, c, i) => 
+                    calculateDistance(p, c) < calculateDistance(p, centroids[best]) ? i : best, 0)
             }));
             setPoints(newPts);
             setPhase(1);
-            setMsg(`第 ${iter + 1} 轮：每个点找到最近的圆心，完成归队！现在更新圆心位置 →`);
+            setMsg(`第 ${iter + 1} 轮分配：每个点找到最近的圆心，完成归队！`);
         } else {
+            // 更新阶段：重新计算圆心位置
             const newCents = centroids.map((_, ci) => {
-                const m = points.filter(p => p.cluster === ci);
-                if (!m.length) return centroids[ci];
-                return { x: m.reduce((s, p) => s + p.x, 0) / m.length, y: m.reduce((s, p) => s + p.y, 0) / m.length };
+                const members = points.filter(p => p.cluster === ci);
+                if (members.length === 0) return centroids[ci]; // 如果没有成员，保持原位置
+                return {
+                    x: members.reduce((sum, p) => sum + p.x, 0) / members.length,
+                    y: members.reduce((sum, p) => sum + p.y, 0) / members.length
+                };
             });
-            const moved = newCents.some((c, i) => Math.abs(c.x - centroids[i].x) > 0.1 || Math.abs(c.y - centroids[i].y) > 0.1);
+            
+            // 检查圆心是否移动
+            const moved = newCents.some((c, i) => 
+                Math.abs(c.x - centroids[i].x) > 0.5 || Math.abs(c.y - centroids[i].y) > 0.5
+            );
+            
             setCentroids(newCents);
             setIter(v => v + 1);
-            if (!moved) {
+            
+            if (!moved || iter >= 10) {
                 setDone(true);
                 setMsg('✅ 圆心不再移动！K-means 完成，分组稳定！');
             } else {
                 setPhase(2);
-                setMsg(`圆心已移到新位置（⭐），继续下一轮归队 →`);
+                setMsg(`第 ${iter + 1} 轮更新：圆心已移到新位置，继续下一轮分配 →`);
             }
         }
     };
 
     const reset = () => {
         setPoints(makeKMeansPoints());
-        setCentroids(makeKMeansCentroids());
+        setCentroids(makeKMeansCentroids(3));
         setIter(0);
         setPhase(0);
         setDone(false);
         setMsg('3 个圆心（⭐）已随机放置，点击「下一步」开始！');
+        setCentroidHistory([]);
+    };
+
+    const autoRun = () => {
+        if (done) return;
+        const runSteps = async () => {
+            for (let i = 0; i < 10 && !done; i++) {
+                nextStep();
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        };
+        runSteps();
     };
 
     return (
@@ -450,51 +799,122 @@ function KMeansDemoSlide() {
             </h2>
 
             <div className="flex-1 flex flex-col md:flex-row gap-4">
-                <div className="relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner flex-1 min-h-[260px] md:min-h-0">
+                <div className="relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner flex-1 min-h-[300px] md:min-h-0">
+                    {/* 连接线（显示点到圆心的归属关系） */}
+                    {phase === 1 && (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                            {points.map((p, i) => (
+                                <line key={i} 
+                                    x1={`${p.x}%`} y1={`${p.y}%`} 
+                                    x2={`${centroids[p.cluster]?.x || p.x}%`} y2={`${centroids[p.cluster]?.y || p.y}%`}
+                                    stroke={KMEANS_COLORS[p.cluster]?.bg || '#94a3b8'} 
+                                    strokeWidth="1" 
+                                    strokeDasharray="3,2"
+                                    opacity="0.3" />
+                            ))}
+                        </svg>
+                    )}
+
+                    {/* 数据点 */}
                     {points.map((p, i) => (
                         <div key={i} className="absolute transition-all duration-500" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}>
-                            <div className="w-4 h-4 md:w-5 md:h-5 rounded-full border-2 border-white shadow-md"
-                                style={{ backgroundColor: p.cluster >= 0 ? KMEANS_COLORS[p.cluster].bg : '#94a3b8' }}></div>
+                            <div className="w-4 h-4 md:w-5 md:h-5 rounded-full border-2 border-white shadow-md transition-all"
+                                style={{ 
+                                    backgroundColor: p.cluster >= 0 ? KMEANS_COLORS[p.cluster % KMEANS_COLORS.length].bg : '#94a3b8',
+                                    transform: phase === 1 ? 'scale(1.2)' : 'scale(1)'
+                                }}></div>
                         </div>
                     ))}
+
+                    {/* 圆心历史轨迹 */}
+                    {showHistory && centroidHistory.map((history, histIdx) => 
+                        history.centroids.map((c, ci) => (
+                            <div key={`${histIdx}-${ci}`} className="absolute transition-all duration-500" 
+                                style={{ 
+                                    left: `${c.x}%`, 
+                                    top: `${c.y}%`, 
+                                    transform: 'translate(-50%, -50%)',
+                                    opacity: 0.3 - histIdx * 0.05
+                                }}>
+                                <div className="w-2 h-2 rounded-full border border-white"
+                                    style={{ backgroundColor: KMEANS_COLORS[ci % KMEANS_COLORS.length].bg }}></div>
+                            </div>
+                        ))
+                    )}
+
+                    {/* 当前圆心 */}
                     {centroids.map((c, i) => (
                         <div key={i} className="absolute transition-all duration-700" style={{ left: `${c.x}%`, top: `${c.y}%`, transform: 'translate(-50%, -50%)' }}>
-                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white text-sm font-black"
-                                style={{ backgroundColor: KMEANS_COLORS[i].bg }}>⭐</div>
+                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white text-sm font-black animate-pulse"
+                                style={{ backgroundColor: KMEANS_COLORS[i % KMEANS_COLORS.length].bg }}>
+                                ⭐
+                            </div>
                         </div>
                     ))}
                 </div>
 
-                <div className="w-full md:w-60 shrink-0 flex flex-col gap-3">
+                <div className="w-full md:w-64 shrink-0 flex flex-col gap-3">
+                    {/* 控制按钮 */}
                     <div className="flex gap-2">
                         <button onClick={nextStep} disabled={done}
                             className="flex-1 bg-teal-500 disabled:bg-slate-300 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-teal-600 transition-colors">
-                            {done ? '已完成 ✅' : '下一步 →'}
+                            {done ? '已完成 ✅' : phase === 0 ? '开始分配' : phase === 1 ? '更新圆心' : '继续分配'}
                         </button>
-                        <button onClick={reset} className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 font-bold text-sm">重置</button>
+                        <button onClick={autoRun} disabled={done}
+                            className="px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-sm">
+                            自动运行
+                        </button>
+                    </div>
+                    
+                    <button onClick={reset} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl py-2 font-bold text-sm">
+                        重置演示
+                    </button>
+
+                    {/* 轨迹显示开关 */}
+                    <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
+                        <span className="text-sm font-bold text-slate-700">显示圆心轨迹</span>
+                        <button onClick={() => setShowHistory(v => !v)}
+                            className={`w-10 h-6 rounded-full transition-colors ${showHistory ? 'bg-teal-500' : 'bg-slate-300'}`}>
+                            <div className={`w-4 h-4 bg-white rounded-full transition-transform ${showHistory ? 'translate-x-5' : 'translate-x-1'}`}></div>
+                        </button>
                     </div>
 
-                    <div className="bg-teal-50 p-3 rounded-xl border border-teal-200 text-sm text-teal-800 font-bold leading-relaxed">
-                        📍 {msg}
+                    {/* 状态信息 */}
+                    <div className="bg-teal-50 p-3 rounded-xl border border-teal-200">
+                        <p className="font-bold text-teal-800 text-sm mb-1">📍 {msg}</p>
+                        <div className="text-xs text-teal-600">
+                            当前阶段：{phase === 0 ? '初始' : phase === 1 ? '分配点' : '更新圆心'} | 迭代次数：{iter}
+                        </div>
                     </div>
 
+                    {/* 分组统计 */}
                     <div className="flex flex-col gap-2">
-                        {KMEANS_COLORS.map((c, i) => {
+                        {KMEANS_COLORS.slice(0, 3).map((c, i) => {
                             const count = points.filter(p => p.cluster === i).length;
+                            const centroid = centroids[i];
                             return (
-                                <div key={i} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 text-xs md:text-sm">
+                                <div key={i} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200">
                                     <div className="w-4 h-4 rounded-full border-2 border-white shadow shrink-0" style={{ backgroundColor: c.bg }}></div>
-                                    <span className="font-bold text-slate-700">{c.name}</span>
-                                    <span className="ml-auto text-slate-500">{count} 个点</span>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-slate-700 text-sm">{c.name}</div>
+                                        <div className="text-xs text-slate-500">{count} 个成员</div>
+                                    </div>
+                                    {centroid && (
+                                        <div className="text-xs text-slate-500 text-right">
+                                            ({centroid.x.toFixed(1)}, {centroid.y.toFixed(1)})
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
                     </div>
 
+                    {/* 学习提示 */}
                     <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-200 leading-relaxed">
-                        <strong>第 {iter} 轮迭代</strong><br />
-                        灰色 = 未分配；⭐ = 圆心（组长）<br />
-                        💡 注意圆心是如何逐步漂移到每组中心的！
+                        <strong>观察要点：</strong><br />
+                        1. 圆心如何逐步漂移到每组中心<br />
+                        2. 边界点的归属变化<br />
+                        3. 迭代次数与收敛速度
                     </div>
                 </div>
             </div>
@@ -502,53 +922,361 @@ function KMeansDemoSlide() {
     );
 }
 
-// ---- 8. 对比 ----
+// ---- 9. K-means K值选择实验 ----
+function KMeansKSelectSlide() {
+    const [k, setK] = window.CourseGlobalContext.useSyncVar('kmeans-k:k', 3);
+    const [points] = window.CourseGlobalContext.useSyncVar('kmeans-k:points', makeKMeansPoints());
+    const [centroids, setCentroids] = window.CourseGlobalContext.useSyncVar('kmeans-k:centroids', makeKMeansCentroids(3));
+    const [iterations, setIterations] = window.CourseGlobalContext.useSyncVar('kmeans-k:iterations', 0);
+    const [autoRunning, setAutoRunning] = useState(false);
+    const [results, setResults] = useState({});
+
+    const runKMeans = () => {
+        let currentCentroids = [...centroids];
+        let currentPoints = [...points];
+        let iter = 0;
+        let moved = true;
+        
+        const runStep = () => {
+            if (iter >= 10 || !moved) {
+                setAutoRunning(false);
+                // 计算分组质量指标
+                const clusterSizes = currentPoints.reduce((acc, p) => {
+                    acc[p.cluster] = (acc[p.cluster] || 0) + 1;
+                    return acc;
+                }, {});
+                
+                const avgDistance = currentPoints.reduce((sum, p) => {
+                    const centroid = currentCentroids[p.cluster];
+                    return sum + calculateDistance(p, centroid);
+                }, 0) / currentPoints.length;
+                
+                setResults(prev => ({
+                    ...prev,
+                    [k]: { 
+                        clusters: Object.keys(clusterSizes).length,
+                        avgDistance: avgDistance.toFixed(2),
+                        distribution: clusterSizes
+                    }
+                }));
+                return;
+            }
+            
+            // 分配点
+            currentPoints = currentPoints.map(p => ({
+                ...p,
+                cluster: currentCentroids.reduce((best, c, i) => 
+                    calculateDistance(p, c) < calculateDistance(p, currentCentroids[best]) ? i : best, 0)
+            }));
+            
+            // 更新圆心
+            const newCentroids = currentCentroids.map((_, ci) => {
+                const members = currentPoints.filter(p => p.cluster === ci);
+                if (members.length === 0) return currentCentroids[ci];
+                return {
+                    x: members.reduce((sum, p) => sum + p.x, 0) / members.length,
+                    y: members.reduce((sum, p) => sum + p.y, 0) / members.length
+                };
+            });
+            
+            moved = newCentroids.some((c, i) => 
+                Math.abs(c.x - currentCentroids[i].x) > 0.5 || Math.abs(c.y - currentCentroids[i].y) > 0.5
+            );
+            
+            currentCentroids = newCentroids;
+            iter++;
+            setIterations(iter);
+            setCentroids(currentCentroids);
+            
+            setTimeout(runStep, 300);
+        };
+        
+        runStep();
+    };
+
+    const handleKChange = (newK) => {
+        setK(newK);
+        setCentroids(makeKMeansCentroids(newK));
+        setIterations(0);
+        setAutoRunning(false);
+    };
+
+    const startAutoRun = () => {
+        setAutoRunning(true);
+        runKMeans();
+    };
+
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
+                <i className="fas fa-cogs mr-4 text-teal-500"></i> K-means 关键问题：K 值怎么选？
+            </h2>
+            <p className="text-slate-600 mb-4 text-sm shrink-0">
+                K-means 需要提前指定 K（分成几组），但现实中我们往往不知道最优的 K 值是多少
+            </p>
+
+            <div className="flex-1 flex flex-col md:flex-row gap-4">
+                {/* 左侧：可视化 */}
+                <div className="flex-1 flex flex-col min-h-0">
+                    <div className="relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner flex-1 min-h-[300px]">
+                        {/* 数据点 */}
+                        {points.map((p, i) => (
+                            <div key={i} className="absolute transition-all duration-500" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                <div className="w-4 h-4 rounded-full border-2 border-white shadow-md"
+                                    style={{ 
+                                        backgroundColor: p.cluster >= 0 && p.cluster < KMEANS_COLORS.length 
+                                            ? KMEANS_COLORS[p.cluster].bg 
+                                            : '#94a3b8'
+                                    }}></div>
+                            </div>
+                        ))}
+
+                        {/* 圆心 */}
+                        {centroids.slice(0, k).map((c, i) => (
+                            <div key={i} className="absolute transition-all duration-700" style={{ left: `${c.x}%`, top: `${c.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                <div className="w-7 h-7 rounded-full border-3 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold"
+                                    style={{ backgroundColor: KMEANS_COLORS[i % KMEANS_COLORS.length].bg }}>
+                                    {i+1}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* K值选择 */}
+                    <div className="mt-3 bg-white p-3 rounded-xl border border-slate-200">
+                        <p className="font-bold text-slate-700 mb-2 text-sm">选择 K 值（分成几组）</p>
+                        <div className="flex gap-1">
+                            {[2, 3, 4, 5].map(val => (
+                                <button key={val} onClick={() => handleKChange(val)}
+                                    className={`flex-1 py-2 rounded-lg text-sm font-bold ${k === val ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                    K = {val}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 右侧：控制与分析 */}
+                <div className="w-full md:w-64 shrink-0 flex flex-col gap-3">
+                    {/* 控制按钮 */}
+                    <div className="flex gap-2">
+                        <button onClick={startAutoRun} disabled={autoRunning}
+                            className="flex-1 bg-teal-500 disabled:bg-teal-300 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-teal-600 transition-colors">
+                            {autoRunning ? '运行中...' : '运行 K-means'}
+                        </button>
+                        <button onClick={() => handleKChange(k)} 
+                            className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">
+                            重新随机
+                        </button>
+                    </div>
+
+                    {/* 状态信息 */}
+                    <div className="bg-teal-50 p-3 rounded-xl border border-teal-200">
+                        <p className="font-bold text-teal-800 text-sm mb-1">当前状态</p>
+                        <div className="text-xs text-teal-600 space-y-1">
+                            <div>K 值：{k}</div>
+                            <div>迭代次数：{iterations}</div>
+                            <div>圆心数量：{centroids.length}</div>
+                        </div>
+                    </div>
+
+                    {/* 结果对比表 */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200">
+                        <p className="font-bold text-slate-700 mb-2 text-sm">不同 K 值结果对比</p>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {Object.entries(results).map(([kVal, data]) => (
+                                <div key={kVal} className={`p-2 rounded-lg border ${parseInt(kVal) === k ? 'border-teal-300 bg-teal-50' : 'border-slate-200'}`}>
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-bold text-slate-700">K = {kVal}</span>
+                                        <span className="text-xs text-slate-500">{data.clusters} 个有效组</span>
+                                    </div>
+                                    <div className="text-xs text-slate-600 mt-1">
+                                        平均距离：{data.avgDistance}
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-1">
+                                        分布：{Object.values(data.distribution).join(', ')}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 肘部法则解释 */}
+                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
+                        <p className="font-bold text-blue-800 text-sm mb-2">📊 肘部法则（Elbow Method）</p>
+                        <p className="text-xs text-slate-700 leading-relaxed">
+                            通过尝试不同 K 值，计算每个点到其圆心的平均距离。<br />
+                            当 K 增加到某个值时，距离下降变缓，形成"肘部"，这就是最佳 K 值。
+                        </p>
+                    </div>
+
+                    {/* 小组任务 */}
+                    <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-200">
+                        <p className="font-bold text-yellow-800 text-sm mb-2">🧪 小组实验任务</p>
+                        <ul className="text-xs text-slate-700 space-y-1">
+                            <li>1. 分别测试 K=2,3,4,5 的结果</li>
+                            <li>2. 记录平均距离的变化</li>
+                            <li>3. 讨论：哪个 K 值最合理？</li>
+                            <li>4. 思考：肘部在哪里？</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ---- 10. 对比总结 ----
 function CompareSlide() {
+    const [selectedScenario, setSelectedScenario] = window.CourseGlobalContext.useSyncVar('compare:scenario', null);
+
+    const scenarios = [
+        {
+            id: 'school',
+            title: '校园场景',
+            description: '新生入学，需要快速认识同学和组织活动',
+            knn: '用KNN识别已知同学，快速建立联系',
+            kmeans: '用K-means把新生按兴趣自动分学习小组',
+            icon: 'fa-school'
+        },
+        {
+            id: 'shopping',
+            title: '商场场景',
+            description: '顾客分析，提升购物体验',
+            knn: '用KNN识别VIP客户，提供个性化服务',
+            kmeans: '用K-means把顾客按购物习惯自动分类',
+            icon: 'fa-shopping-cart'
+        },
+        {
+            id: 'hospital',
+            title: '医疗场景',
+            description: '疾病诊断和患者管理',
+            knn: '用KNN根据症状判断已知疾病',
+            kmeans: '用K-means发现新的患者亚型或疾病模式',
+            icon: 'fa-hospital'
+        }
+    ];
+
     return (
         <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6 flex items-center shrink-0">
                 <i className="fas fa-balance-scale mr-4 text-purple-500"></i> 两招对比：什么时候用哪个？
             </h2>
 
-            <div className="flex-1 overflow-x-auto flex items-start justify-center no-scrollbar">
-                <table className="w-full min-w-[600px] max-w-5xl text-left border-collapse rounded-xl overflow-hidden shadow-xl border border-slate-200 text-sm md:text-base">
-                    <thead>
-                        <tr className="text-white text-base md:text-lg">
-                            <th className="p-4 md:p-5 bg-slate-600 w-1/4">对比项</th>
-                            <th className="p-4 md:p-5 bg-green-600">KNN（找邻居）</th>
-                            <th className="p-4 md:p-5 bg-teal-600 border-l border-white/20">K-means（找圆心）</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white">
-                        {[
-                            ['学习方式', '有监督（需要标签）', '无监督（不需要标签）'],
-                            ['做什么', '给新数据判断它属于哪个已知类别', '把一堆数据自动分成 K 堆'],
-                            ['需要提前准备', '带标签的训练数据（例题+答案）', '只需原始数据，指定 K 值'],
-                            ['人脸应用场景', '认出「这是哪位同学」', '把陌生顾客自动分成「几类人群」'],
-                            ['生活比喻', '新同学问周围邻座：你们喜欢啥？', '老师把全班按兴趣自动分成学习小组'],
-                        ].map(([item, knn, km], i) => (
-                            <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-100/60'} transition-colors`}>
-                                <td className="p-4 font-bold text-slate-700">{item}</td>
-                                <td className="p-4 text-slate-600 border-l border-slate-100 bg-green-50/40">{knn}</td>
-                                <td className="p-4 text-slate-600 border-l border-slate-100 bg-teal-50/40">{km}</td>
+            <div className="flex-1 flex flex-col lg:flex-row gap-6">
+                {/* 左侧：对比表格 */}
+                <div className="flex-1 overflow-x-auto">
+                    <table className="w-full min-w-[600px] text-left border-collapse rounded-xl overflow-hidden shadow-lg border border-slate-200 text-sm md:text-base">
+                        <thead>
+                            <tr className="text-white text-base md:text-lg">
+                                <th className="p-4 md:p-5 bg-slate-600 w-1/4">对比项</th>
+                                <th className="p-4 md:p-5 bg-green-600">KNN（找邻居）</th>
+                                <th className="p-4 md:p-5 bg-teal-600 border-l border-white/20">K-means（找圆心）</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody className="bg-white">
+                            {[
+                                ['学习方式', '有监督（需要标签）', '无监督（不需要标签）'],
+                                ['做什么', '给新数据判断它属于哪个已知类别', '把一堆数据自动分成 K 堆'],
+                                ['需要提前准备', '带标签的训练数据（例题+答案）', '只需原始数据，指定 K 值'],
+                                ['人脸应用场景', '认出「这是哪位同学」', '把陌生顾客自动分成「几类人群」'],
+                                ['生活比喻', '新同学问周围邻座：你们喜欢啥？', '老师把全班按兴趣自动分成学习小组'],
+                                ['优缺点', '简单直观，但需要大量存储和计算距离', '自动发现规律，但需要指定K且对初始值敏感'],
+                            ].map(([item, knn, km], i) => (
+                                <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-100/60'} transition-colors`}>
+                                    <td className="p-4 font-bold text-slate-700">{item}</td>
+                                    <td className="p-4 text-slate-600 border-l border-slate-100 bg-green-50/40">{knn}</td>
+                                    <td className="p-4 text-slate-600 border-l border-slate-100 bg-teal-50/40">{km}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
 
-            <div className="mt-5 bg-purple-50 p-4 md:p-5 rounded-xl border border-purple-100 text-center shrink-0">
-                <p className="text-purple-800 font-bold text-base md:text-xl">
-                    🔗 两者都在「特征空间」里计算「距离」——这就是为什么上节课 CNN 输出的 128 个数字那么关键！<br />
-                    <span className="font-normal text-slate-600 text-sm md:text-base">数字代表了位置，距离近 = 越相似。</span>
-                </p>
+                    <div className="mt-5 bg-purple-50 p-4 md:p-5 rounded-xl border border-purple-100 text-center">
+                        <p className="text-purple-800 font-bold text-base md:text-xl">
+                            🔗 两者都在「特征空间」里计算「距离」——这就是为什么上节课 CNN 输出的 128 个数字那么关键！<br />
+                            <span className="font-normal text-slate-600 text-sm md:text-base">数字代表了位置，距离近 = 越相似。</span>
+                        </p>
+                    </div>
+                </div>
+
+                {/* 右侧：场景选择 */}
+                <div className="w-full lg:w-80 shrink-0">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4">
+                        <h3 className="font-bold text-slate-800 mb-3 text-lg">🎯 场景应用挑战</h3>
+                        <p className="text-slate-600 text-sm mb-3">选择以下场景，思考应该使用哪种算法：</p>
+                        
+                        <div className="space-y-3">
+                            {scenarios.map(scenario => (
+                                <button key={scenario.id}
+                                    onClick={() => setSelectedScenario(scenario.id === selectedScenario ? null : scenario.id)}
+                                    className={`w-full p-3 rounded-lg text-left transition-all ${selectedScenario === scenario.id ? 'ring-2 ring-purple-500 bg-purple-50' : 'bg-slate-50 hover:bg-slate-100'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <i className={`fas ${scenario.icon} ${selectedScenario === scenario.id ? 'text-purple-500' : 'text-slate-400'}`}></i>
+                                        <span className="font-bold text-slate-700">{scenario.title}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 mb-2">{scenario.description}</p>
+                                    {selectedScenario === scenario.id && (
+                                        <div className="text-xs space-y-1">
+                                            <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                <span className="text-green-700 font-bold">KNN：</span>
+                                                <span>{scenario.knn}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 rounded-full bg-teal-500"></div>
+                                                <span className="text-teal-700 font-bold">K-means：</span>
+                                                <span>{scenario.kmeans}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 小组讨论区 */}
+                    <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                        <h3 className="font-bold text-yellow-800 mb-2 text-sm">💬 小组讨论（5分钟）</h3>
+                        <p className="text-slate-700 text-sm mb-3">
+                            讨论问题：<br />
+                            1. 在什么情况下应该选择 KNN？<br />
+                            2. 在什么情况下应该选择 K-means？<br />
+                            3. 两种算法可以结合使用吗？如何结合？
+                        </p>
+                        <textarea className="w-full h-24 text-xs p-2 border border-yellow-300 rounded-lg resize-none bg-white" 
+                            placeholder="记录小组讨论结果..."></textarea>
+                    </div>
+
+                    {/* 快速测验 */}
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mt-3">
+                        <h3 className="font-bold text-blue-800 mb-2 text-sm">📝 快速测验</h3>
+                        <div className="space-y-2">
+                            <div className="text-xs text-slate-700">
+                                <p className="font-bold mb-1">问题：超市想分析顾客购物习惯，应该用？</p>
+                                <div className="space-y-1">
+                                    <label className="flex items-center gap-2">
+                                        <input type="radio" name="quiz1" className="text-blue-500" />
+                                        <span>KNN（需要知道每个顾客是谁）</span>
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input type="radio" name="quiz1" className="text-blue-500" />
+                                        <span>K-means（自动发现顾客群体）</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
 
-// ---- 9. 总结页 ----
+// ---- 11. 总结页 ----
 function SummarySlide() {
+    const [feedback, setFeedback] = useState('');
+
     return (
         <div className="flex flex-col h-full p-8 md:p-12 bg-gradient-to-br from-slate-50 via-white to-green-50 overflow-y-auto no-scrollbar">
             <h2 className="text-4xl md:text-5xl font-extrabold text-slate-800 mb-8 md:mb-10 text-center mt-4 tracking-wide">知识大丰收</h2>
@@ -556,31 +1284,39 @@ function SummarySlide() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 max-w-5xl mx-auto w-full">
                 <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg border-l-8 border-green-500 hover:-translate-y-2 transition-transform">
                     <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mb-4 flex items-center">
-                        <i className="fas fa-users mr-3 text-green-500 text-2xl md:text-3xl"></i> KNN
+                        <i className="fas fa-users mr-3 text-green-500 text-2xl md:text-3xl"></i> KNN - 有监督学习
                     </h3>
-                    <ul className="list-disc list-inside text-slate-600 space-y-3 leading-relaxed text-base md:text-xl">
-                        <li>有监督学习，需要<strong>提前打好标签</strong>。</li>
-                        <li>找 K 个最近邻居，<strong>投票决定分类</strong>。</li>
-                        <li>适合：认出已知的人或类别。</li>
+                    <ul className="list-disc list-inside text-slate-600 space-y-3 leading-relaxed text-base md:text-lg">
+                        <li>需要<strong>提前打好标签</strong>的训练数据</li>
+                        <li>找 K 个最近邻居，<strong>投票决定分类</strong></li>
+                        <li>适合：认出已知的人或类别</li>
+                        <li>关键参数：K 值的选择影响结果稳定性</li>
                     </ul>
+                    <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                        <p className="text-sm text-green-700 font-bold">💡 记住：KNN = "K Nearest Neighbors" = 找K个最近邻居</p>
+                    </div>
                 </div>
 
                 <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg border-l-8 border-teal-500 hover:-translate-y-2 transition-transform">
                     <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mb-4 flex items-center">
-                        <i className="fas fa-bullseye mr-3 text-teal-500 text-2xl md:text-3xl"></i> K-means
+                        <i className="fas fa-bullseye mr-3 text-teal-500 text-2xl md:text-3xl"></i> K-means - 无监督学习
                     </h3>
-                    <ul className="list-disc list-inside text-slate-600 space-y-3 leading-relaxed text-base md:text-xl">
-                        <li>无监督学习，<strong>不需要任何标签</strong>。</li>
-                        <li>迭代更新圆心，直到分组<strong>自然稳定</strong>。</li>
-                        <li>适合：对陌生数据自动分堆探索。</li>
+                    <ul className="list-disc list-inside text-slate-600 space-y-3 leading-relaxed text-base md:text-lg">
+                        <li><strong>不需要任何标签</strong>，自动发现规律</li>
+                        <li>迭代更新圆心，直到分组<strong>自然稳定</strong></li>
+                        <li>适合：对陌生数据自动分堆探索</li>
+                        <li>关键问题：如何选择最佳的 K 值</li>
                     </ul>
+                    <div className="mt-4 p-3 bg-teal-50 rounded-lg">
+                        <p className="text-sm text-teal-700 font-bold">💡 记住：K-means = "K个平均值" = 找K个圆心</p>
+                    </div>
                 </div>
 
                 <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg border-l-8 border-purple-500 hover:-translate-y-2 transition-transform lg:col-span-2">
                     <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mb-4 flex items-center">
                         <i className="fas fa-link mr-3 text-purple-500 text-2xl md:text-3xl"></i> 两节课的完整 AI 视觉流程
                     </h3>
-                    <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-3 text-sm md:text-base font-bold text-slate-700">
+                    <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-3 text-sm md:text-base font-bold text-slate-700 mb-6">
                         <div className="bg-blue-50 px-4 py-2 rounded-xl border border-blue-200 text-center">📷<br />图像输入</div>
                         <i className="fas fa-arrow-right text-slate-300 text-xl hidden md:block"></i>
                         <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-200 text-center">🧠<br />CNN 提取<br />128个特征</div>
@@ -589,17 +1325,71 @@ function SummarySlide() {
                         <span className="text-slate-400 font-normal text-sm">或</span>
                         <div className="bg-teal-50 px-4 py-2 rounded-xl border border-teal-200 text-center">🎯<br />K-means<br />自动分群</div>
                     </div>
+                    
+                    <div className="bg-gray-50 p-4 rounded-xl">
+                        <h4 className="font-bold text-slate-700 mb-2">🎯 本节课核心收获</h4>
+                        <ul className="list-disc list-inside text-slate-600 text-sm space-y-1">
+                            <li>理解了特征空间的概念和重要性</li>
+                            <li>掌握了KNN的原理、应用场景和参数影响</li>
+                            <li>掌握了K-means的原理、迭代过程和K值选择</li>
+                            <li>能够根据实际问题选择合适的分类算法</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
 
-            <div className="mt-8 md:mt-10 text-center max-w-4xl mx-auto bg-gradient-to-r from-green-600 to-teal-600 text-white p-6 md:p-8 rounded-2xl shadow-2xl">
-                <h3 className="text-2xl md:text-3xl font-extrabold mb-3 flex items-center justify-center">
-                    课后思考 <i className="fas fa-brain ml-3 text-yellow-300"></i>
-                </h3>
-                <p className="opacity-95 text-lg md:text-xl leading-relaxed font-medium">
-                    K-means 可以在没有人告诉它「正确答案」的情况下自动发现规律。<br />
-                    除了人脸分群，你觉得这种「自动发现规律」的能力还能用在生活中的哪些地方？
-                </p>
+            {/* 课后思考与反馈 */}
+            <div className="mt-8 md:mt-10 max-w-4xl mx-auto">
+                <div className="bg-gradient-to-r from-green-600 to-teal-600 text-white p-6 md:p-8 rounded-2xl shadow-2xl mb-6">
+                    <h3 className="text-2xl md:text-3xl font-extrabold mb-3 flex items-center justify-center">
+                        课后思考 <i className="fas fa-brain ml-3 text-yellow-300"></i>
+                    </h3>
+                    <p className="opacity-95 text-lg md:text-xl leading-relaxed font-medium mb-4">
+                        K-means 可以在没有人告诉它「正确答案」的情况下自动发现规律。<br />
+                        除了人脸分群，你觉得这种「自动发现规律」的能力还能用在生活中的哪些地方？
+                    </p>
+                    <div className="bg-white/20 p-4 rounded-lg">
+                        <p className="font-bold mb-2">💭 思考方向：</p>
+                        <ul className="text-sm space-y-1 opacity-90">
+                            <li>• 音乐推荐：根据听歌习惯自动分组用户</li>
+                            <li>• 新闻分类：自动把新闻分成不同主题</li>
+                            <li>• 城市交通：根据出行模式自动发现交通热点</li>
+                            <li>• 你的想法：__________________</li>
+                        </ul>
+                    </div>
+                </div>
+
+                {/* 课堂反馈 */}
+                <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                    <h3 className="text-xl font-bold text-slate-800 mb-3">📋 课堂反馈与总结</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p className="font-bold text-slate-700 mb-2">本节课你最喜欢哪个部分？</p>
+                            <div className="space-y-2">
+                                {['特征空间可视化', 'KNN互动演示', 'K-means分步演示', '参数实验', '场景讨论'].map(item => (
+                                    <label key={item} className="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" className="text-green-500" />
+                                        <span>{item}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <p className="font-bold text-slate-700 mb-2">还有什么疑问或建议？</p>
+                            <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)}
+                                className="w-full h-32 p-3 border border-slate-300 rounded-lg text-sm resize-none"
+                                placeholder="写下你的想法..."></textarea>
+                        </div>
+                    </div>
+                    <div className="mt-4 flex justify-between items-center">
+                        <div className="text-sm text-slate-500">
+                            ⏱️ 本节课时长：40分钟 | 互动环节：6个
+                        </div>
+                        <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold">
+                            提交反馈
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -610,21 +1400,23 @@ function SummarySlide() {
 // ========================================================
 
 const mySlides = [
-    { id: 'intro',         component: <IntroSlide /> },
-    { id: 'review',        component: <ReviewSlide /> },
-    { id: 'feature-space', component: <FeatureSpaceSlide /> },
-    { id: 'knn-intro',     component: <KNNIntroSlide /> },
-    { id: 'knn-demo',      component: <KNNDemoSlide /> },
-    { id: 'kmeans-intro',  component: <KMeansIntroSlide /> },
-    { id: 'kmeans-demo',   component: <KMeansDemoSlide /> },
-    { id: 'compare',       component: <CompareSlide /> },
-    { id: 'summary',       component: <SummarySlide /> },
+    { id: 'intro',             component: <IntroSlide /> },
+    { id: 'review',            component: <ReviewSlide /> },
+    { id: 'feature-space',     component: <FeatureSpaceSlide /> },
+    { id: 'knn-intro',         component: <KNNIntroSlide /> },
+    { id: 'knn-demo',          component: <KNNDemoSlide /> },
+    { id: 'knn-experiment',    component: <KNNExperimentSlide /> },
+    { id: 'kmeans-intro',      component: <KMeansIntroSlide /> },
+    { id: 'kmeans-demo',       component: <KMeansDemoSlide /> },
+    { id: 'kmeans-k-select',   component: <KMeansKSelectSlide /> },
+    { id: 'compare',           component: <CompareSlide /> },
+    { id: 'summary',           component: <SummarySlide /> },
 ];
 
 window.CourseData = {
-    title: "KNN 与 K-means 特征分类",
+    title: "KNN 与 K-means 特征分类（扩展版）",
     icon: "🎯",
-    desc: "从特征空间出发，理解有监督的 KNN 与无监督的 K-means 分类算法",
+    desc: "40分钟完整课程，包含特征空间探索、KNN参数实验、K-means K值选择等6个互动环节",
     color: "from-green-500 to-teal-600",
     dependencies: [],
     slides: mySlides

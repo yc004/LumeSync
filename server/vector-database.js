@@ -562,6 +562,7 @@ function closeDatabase() {
 module.exports = {
     initializeDatabase,
     getDatabase,
+    generateId,
     insertKnowledge,
     batchInsertKnowledge,
     getKnowledge,

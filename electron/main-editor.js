@@ -18,7 +18,13 @@ let EmbeddingService = null;
 function loadKnowledgeModules() {
     try {
         VectorDatabase = require('../server/vector-database');
-        EmbeddingService = require('../server/vector-embedding');
+        const embeddingModule = require('../server/vector-embedding');
+        EmbeddingService = embeddingModule?.EmbeddingService || embeddingModule;
+
+        if (typeof EmbeddingService !== 'function') {
+            throw new Error('EmbeddingService export is invalid');
+        }
+
         logger.info('APP', 'Knowledge modules loaded successfully');
         return true;
     } catch (error) {
@@ -733,21 +739,29 @@ ipcMain.handle('knowledge-stats', async () => {
 });
 
 // RAG 搜索
-ipcMain.handle('knowledge-search', async (event, { query, topK = 5, useHybrid = true }) => {
+ipcMain.handle('knowledge-search', async (event, { query, topK = 5, threshold = 0, useHybrid = true }) => {
     try {
         await ensureKnowledgeBaseInitialized();
+
+        const safeTopK = Math.max(1, Number(topK) || 5);
+        const safeThreshold = Math.max(0, Math.min(1, Number(threshold) || 0));
 
         let results;
         if (useHybrid && embeddingService) {
             // 使用混合搜索（需要生成查询向量）
             const queryVector = await embeddingService.embed(query);
-            results = VectorDatabase.hybridSearch(queryVector, query, topK);
+            results = VectorDatabase.hybridSearch(queryVector, query, safeTopK * 3);
         } else {
             // 只使用全文搜索
-            results = VectorDatabase.fullTextSearch(query, topK);
+            results = VectorDatabase.fullTextSearch(query, safeTopK * 3);
         }
 
-        return { success: true, results, query, useHybrid };
+        const filteredResults = (results || []).filter(item => {
+            if (typeof item.similarity !== 'number') return true;
+            return item.similarity >= safeThreshold;
+        }).slice(0, safeTopK);
+
+        return { success: true, results: filteredResults, query, useHybrid, topK: safeTopK, threshold: safeThreshold };
     } catch (error) {
         logger.error('KNOWLEDGE', 'Search failed', { error: error.message });
         return { success: false, error: error.message };
@@ -904,7 +918,7 @@ ipcMain.handle('knowledge-batch-add', async (event, { documents }) => {
 // 获取分类列表
 ipcMain.handle('knowledge-categories', async () => {
     try {
-        ensureKnowledgeBaseInitialized();
+        await ensureKnowledgeBaseInitialized();
         const documents = VectorDatabase.getAllKnowledge();
         const categories = [...new Set(documents.map(d => d.category).filter(Boolean))];
         return { success: true, categories };

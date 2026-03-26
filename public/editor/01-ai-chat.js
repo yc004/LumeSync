@@ -31,7 +31,15 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
     const [ragDecision, setRagDecision] = useState(null);
     const chatEndRef = useRef(null);
     const fileInputRef = useRef(null);
+    const partialStatusHideTimerRef = useRef(null);
     const [selectedCode, setSelectedCode] = useState(null); // 选中的代码片段
+    const [partialEditStatus, setPartialEditStatus] = useState({
+        visible: false,
+        phase: 'idle',
+        text: '',
+        detectedCount: 0,
+        applyCount: 0
+    });
     const REQUEST_TIMEOUT_MS = 30000;
     const MAX_FILES = 6;
     const MAX_TOTAL_BYTES = 6 * 1024 * 1024;
@@ -75,19 +83,27 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
     };
 
     // RAG 检索：根据查询返回最相关的知识块（使用向量数据库）
-    const retrieveKnowledge = async (query, topK = 3) => {
+    const retrieveKnowledge = async (query, topK = 5, threshold = 0.3) => {
         if (!query) return [];
+
+        const safeTopK = Math.max(1, Number(topK) || 5);
+        const safeThreshold = Math.max(0, Math.min(1, Number(threshold) || 0));
 
         // 使用向量数据库检索
         if (window.electronAPI?.knowledgeSearch) {
             try {
                 const result = await window.electronAPI.knowledgeSearch({
                     query,
-                    topK,
+                    topK: safeTopK,
+                    threshold: safeThreshold,
                     useHybrid: true
                 });
                 if (result.success && result.results) {
-                    return result.results;
+                    const filtered = result.results.filter(item => {
+                        if (typeof item.similarity !== 'number') return true;
+                        return item.similarity >= safeThreshold;
+                    });
+                    return filtered.slice(0, safeTopK);
                 }
             } catch (error) {
                 console.error('[RAG] 向量检索失败:', error);
@@ -113,9 +129,12 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
             return { ...item, score };
         });
 
-        return scored
+        const maxScore = Math.max(1, ...scored.map(s => s.score || 0));
+        const filteredFallback = scored.filter(item => (item.score || 0) / maxScore >= safeThreshold);
+
+        return filteredFallback
             .sort((a, b) => b.score - a.score)
-            .slice(0, topK)
+            .slice(0, safeTopK)
             .map(({ score, ...rest }) => rest);
     };
 
@@ -123,22 +142,32 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         loadKnowledgeBase();
     }, []);
 
+    useEffect(() => () => {
+        if (partialStatusHideTimerRef.current) {
+            clearTimeout(partialStatusHideTimerRef.current);
+            partialStatusHideTimerRef.current = null;
+        }
+    }, []);
+
     // RAG决策：判断是否需要查询知识库
     const shouldRetrieveKnowledge = async (userQuery) => {
         if (!userQuery) {
-            return { shouldRetrieve: false, relevantItems: [] };
+            return { shouldRetrieve: false, relevantItems: [], topK: config.knowledgeTopK, threshold: config.knowledgeThreshold };
         }
+
+        const topK = Math.max(1, Number(config.knowledgeTopK) || 5);
+        const threshold = Math.max(0, Math.min(1, Number(config.knowledgeThreshold) || 0));
 
         // 使用向量数据库检索
-        const relevantItems = await retrieveKnowledge(userQuery, 3);
+        const relevantItems = await retrieveKnowledge(userQuery, topK, threshold);
 
         if (relevantItems.length === 0) {
-            console.log('[RAG] 未匹配到相关知识');
-            return { shouldRetrieve: false, relevantItems: [] };
+            console.log('[RAG] 未匹配到相关知识', { topK, threshold });
+            return { shouldRetrieve: false, relevantItems: [], topK, threshold };
         }
 
-        console.log('[RAG] 匹配到', relevantItems.length, '条相关知识:', relevantItems.map(i => i.title));
-        return { shouldRetrieve: true, relevantItems };
+        console.log('[RAG] 匹配到', relevantItems.length, '条相关知识:', relevantItems.map(i => i.title), { topK, threshold });
+        return { shouldRetrieve: true, relevantItems, topK, threshold };
     };
 
     // 智能识别与用户请求相关的代码段
@@ -258,65 +287,70 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         if (!instructions || !fullCode) return null;
 
         const lines = fullCode.split('\n');
-        const instructionLines = instructions.split('\n');
-        
-        // 解析指令格式
-        // 支持以下格式：
-        // 1. 替换: 行号 -> 新代码
-        // 2. 删除: 行号
-        // 3. 插入: 行号 -> 新代码
-        // 4. 搜索替换: 搜索文本 -> 替换文本
-        // 注意：行号是相对于代码片段的，需要映射到完整代码
-        
         let resultLines = [...lines];
-        
-        for (const instr of instructionLines) {
-            const trimmed = instr.trim();
-            if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue;
 
-            if (trimmed.startsWith('替换:') || trimmed.startsWith('Replace:')) {
-                const parts = trimmed.split(/[:：]/);
-                if (parts.length >= 2) {
-                    const relativeLineNum = parseInt(parts[1].trim()) - 1;
-                    const newCode = parts.slice(2).join(':').trim();
-                    const absoluteLineNum = snippetStartLine + relativeLineNum;
-                    if (!isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum < resultLines.length) {
-                        resultLines[absoluteLineNum] = newCode;
-                    }
+        const decodeCode = (code = '') => String(code)
+            .replace(/\\n/g, '\n')
+            .replace(/\\t/g, '\t');
+
+        const normalizeInstruction = (line) => String(line || '')
+            .trim()
+            .replace(/^[-*]\s+/, '');
+
+        const instructionLines = String(instructions)
+            .replace(/\r\n/g, '\n')
+            .split('\n')
+            .map(normalizeInstruction)
+            .filter(line => line && !line.startsWith('//') && !line.startsWith('#'));
+
+        for (const instr of instructionLines) {
+            let m;
+
+            m = instr.match(/^(?:替换|Replace)\s*[:：]\s*(\d+)\s*(?:->|=>|→)\s*([\s\S]*)$/i);
+            if (m) {
+                const relativeLineNum = Number(m[1]) - 1;
+                const absoluteLineNum = snippetStartLine + relativeLineNum;
+                const newCode = decodeCode(m[2]);
+                if (!Number.isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum < resultLines.length) {
+                    resultLines[absoluteLineNum] = newCode;
                 }
-            } else if (trimmed.startsWith('删除:') || trimmed.startsWith('Delete:')) {
-                const parts = trimmed.split(/[:：]/);
-                if (parts.length >= 2) {
-                    const relativeLineNum = parseInt(parts[1].trim()) - 1;
-                    const absoluteLineNum = snippetStartLine + relativeLineNum;
-                    if (!isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum < resultLines.length) {
-                        resultLines.splice(absoluteLineNum, 1);
-                    }
+                continue;
+            }
+
+            m = instr.match(/^(?:删除|Delete)\s*[:：]\s*(\d+)\s*$/i);
+            if (m) {
+                const relativeLineNum = Number(m[1]) - 1;
+                const absoluteLineNum = snippetStartLine + relativeLineNum;
+                if (!Number.isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum < resultLines.length) {
+                    resultLines.splice(absoluteLineNum, 1);
                 }
-            } else if (trimmed.startsWith('插入:') || trimmed.startsWith('Insert:')) {
-                const parts = trimmed.split(/[:：]/);
-                if (parts.length >= 2) {
-                    const relativeLineNum = parseInt(parts[1].trim()) - 1;
-                    const newCode = parts.slice(2).join(':').trim();
-                    const absoluteLineNum = snippetStartLine + relativeLineNum;
-                    if (!isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum <= resultLines.length) {
-                        resultLines.splice(absoluteLineNum, 0, newCode);
-                    }
+                continue;
+            }
+
+            m = instr.match(/^(?:插入|Insert)\s*[:：]\s*(\d+)\s*(?:->|=>|→)\s*([\s\S]*)$/i);
+            if (m) {
+                const relativeLineNum = Number(m[1]) - 1;
+                const absoluteLineNum = snippetStartLine + relativeLineNum;
+                const newCode = decodeCode(m[2]);
+                if (!Number.isNaN(relativeLineNum) && absoluteLineNum >= 0 && absoluteLineNum <= resultLines.length) {
+                    resultLines.splice(absoluteLineNum, 0, newCode);
                 }
-            } else if (trimmed.startsWith('搜索替换:') || trimmed.startsWith('FindAndReplace:')) {
-                const parts = trimmed.split(/[:：]/);
-                if (parts.length >= 3) {
-                    const searchText = parts[1].trim();
-                    const replaceText = parts[2].trim();
-                    for (let i = 0; i < resultLines.length; i++) {
-                        if (resultLines[i].includes(searchText)) {
-                            resultLines[i] = resultLines[i].replace(searchText, replaceText);
-                        }
+                continue;
+            }
+
+            m = instr.match(/^(?:搜索替换|FindAndReplace)\s*[:：]\s*(.*?)\s*(?:->|=>|→)\s*(.*)$/i);
+            if (m) {
+                const searchText = decodeCode(m[1]);
+                const replaceText = decodeCode(m[2]);
+                if (!searchText) continue;
+                for (let i = 0; i < resultLines.length; i++) {
+                    if (resultLines[i].includes(searchText)) {
+                        resultLines[i] = resultLines[i].split(searchText).join(replaceText);
                     }
                 }
             }
         }
-        
+
         return resultLines.join('\n');
     };
 
@@ -343,7 +377,7 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
     useEffect(() => {
         if (window.electronAPI?.getAIConfig) {
             window.electronAPI.getAIConfig().then(c => {
-                if (c && c.apiKey) setConfig(c);
+                if (c && c.apiKey) setConfig(prev => ({ ...prev, ...c }));
                 else setShowConfig(true);
             });
         }
@@ -576,6 +610,15 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         }
     };
 
+    const countEditInstructions = (text) => {
+        if (!text) return 0;
+        return String(text)
+            .replace(/\r\n/g, '\n')
+            .split('\n')
+            .map(line => line.trim().replace(/^[-*]\s+/, ''))
+            .filter(line => /^(?:替换|Replace|删除|Delete|插入|Insert|搜索替换|FindAndReplace)\s*[:：]/i.test(line)).length;
+    };
+
     const handleSend = async (overrideInput = null) => {
         const messageText = overrideInput || input;
         const hasAttachmentOnly = !overrideInput && attachments.length > 0 && !String(messageText || '').trim();
@@ -595,6 +638,25 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         const usePartialEdit = shouldUsePartialEdit(messageText, currentCode);
         const relevantCodeInfo = usePartialEdit ? extractRelevantCode(currentCode, messageText) : null;
         const relevantCode = relevantCodeInfo?.code || null;
+        let streamApplyCount = 0;
+        let maxDetectedInstructionCount = 0;
+
+        if (partialStatusHideTimerRef.current) {
+            clearTimeout(partialStatusHideTimerRef.current);
+            partialStatusHideTimerRef.current = null;
+        }
+
+        if (usePartialEdit) {
+            setPartialEditStatus({
+                visible: true,
+                phase: 'analyzing',
+                text: '正在识别局部修改指令...',
+                detectedCount: 0,
+                applyCount: 0
+            });
+        } else {
+            setPartialEditStatus(prev => ({ ...prev, visible: false, phase: 'idle', text: '' }));
+        }
         
         // 检测模型是否支持多模态（图片）输入
         const visionSupportedModels = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-vision-preview', 'gpt-4-turbo', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3.5-sonnet', 'claude-3.5-opus'];
@@ -632,7 +694,8 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         console.log('[RAG] 决策结果:', {
             shouldRetrieve: ragResult.shouldRetrieve,
             relevantItemsCount: ragResult.relevantItems.length,
-            matchedKeywords: ragResult.matchedKeywords
+            topK: ragResult.topK,
+            threshold: ragResult.threshold
         });
 
         // 如果是部分修改模式，修改提示词
@@ -664,38 +727,32 @@ ${knowledgeBaseText}
         if (usePartialEdit && relevantCode) {
             systemPrompt += `
 
-【部分修改模式（重要）】
-用户要求对现有代码进行修改，而不是重新生成整个课件。
+【部分修改模式（最高优先级）】
+用户要求对现有代码进行“局部修改”，不是整段重写。
+在本模式下，忽略上文中“输出完整 TSX 代码块”的要求，只输出可执行的修改指令。
+
 当前代码片段如下：
 \`\`\`javascript
 ${relevantCode}
 \`\`\`
 
-**你的任务：**
-1. 分析用户的修改请求
-2. 只对相关代码段进行修改，不要重新生成整个课件
-3. 输出修改指令，而不是完整代码
+【只允许以下4种指令（每行一条）】
+替换: 行号 -> 新代码
+删除: 行号
+插入: 行号 -> 新代码
+搜索替换: 搜索文本 -> 替换文本
 
-**修改指令格式：**
-使用以下格式之一来描述修改：
-- 替换: 行号 -> 新代码内容
-- 删除: 行号
-- 插入: 行号 -> 新代码内容
-- 搜索替换: 搜索文本 -> 替换文本
+【硬性输出约束】
+1. 只输出指令行，不要解释、不要标题、不要序号、不要 markdown 代码块
+2. 行号基于当前代码片段（从 1 开始）
+3. 多行代码用 \\n 表示换行
+4. 若需要多处修改，连续输出多行指令
+5. 不确定时优先使用“搜索替换”而不是臆造行号
 
-**示例：**
-\`\`\`
+【示例】
 替换: 15 -> const [count, setCount] = window.CourseGlobalContext.useSyncVar('example:count', 0);
 插入: 16 -> useEffect(() => { console.log('Count changed:', count); }, [count]);
 搜索替换: setCount(count + 1) -> setCount(prev => prev + 1)
-\`\`\`
-
-**注意事项：**
-- 行号是相对于当前代码片段的（从1开始）
-- 如果需要多行代码，使用 "替换" 或 "插入"，代码中可以包含换行
-- 只输出修改指令，不要输出其他解释
-- 如果修改涉及多个地方，可以输出多个指令（每行一个）
-- 代码中的换行符请在指令中用 \\n 表示
 `;
         }
 
@@ -755,16 +812,43 @@ ${relevantCode}
 
                         // 部分修改模式：检查是否有修改指令
                         if (usePartialEdit) {
-                            const hasEditInstruction = 
-                                currentFullText.includes('替换:') || 
-                                currentFullText.includes('删除:') || 
+                            const detectedCount = countEditInstructions(currentFullText);
+                            if (detectedCount > maxDetectedInstructionCount) {
+                                maxDetectedInstructionCount = detectedCount;
+                                setPartialEditStatus(prev => ({
+                                    ...prev,
+                                    visible: true,
+                                    phase: 'detected',
+                                    text: `已识别 ${detectedCount} 条修改指令，准备应用...`,
+                                    detectedCount
+                                }));
+                            }
+
+                            const hasEditInstruction =
+                                currentFullText.includes('替换:') ||
+                                currentFullText.includes('删除:') ||
                                 currentFullText.includes('插入:') ||
                                 currentFullText.includes('搜索替换:');
                             if (hasEditInstruction && (currentFullText.length - lastAppliedLen >= 50)) {
                                 lastAppliedLen = currentFullText.length;
+                                setPartialEditStatus(prev => ({
+                                    ...prev,
+                                    visible: true,
+                                    phase: 'applying',
+                                    text: `正在应用修改...（已识别 ${Math.max(prev.detectedCount || 0, detectedCount)} 条）`,
+                                    detectedCount: Math.max(prev.detectedCount || 0, detectedCount)
+                                }));
                                 const editedCode = applyEditInstructions(currentCode, currentFullText, relevantCodeInfo?.startLine);
                                 if (editedCode && editedCode !== currentCode) {
+                                    streamApplyCount += 1;
                                     onCodeGenerated(editedCode);
+                                    setPartialEditStatus(prev => ({
+                                        ...prev,
+                                        visible: true,
+                                        phase: 'applying',
+                                        text: `正在应用修改...（已更新 ${streamApplyCount} 次）`,
+                                        applyCount: streamApplyCount
+                                    }));
                                 }
                             }
                         } else {
@@ -806,12 +890,28 @@ ${relevantCode}
                 if (usePartialEdit && relevantCodeInfo) {
                     const editedCode = applyEditInstructions(currentCode, currentFullText, relevantCodeInfo.startLine);
                     if (editedCode && editedCode !== currentCode) {
+                        streamApplyCount += 1;
                         onCodeGenerated(editedCode);
                     }
+                    const finalDetectedCount = Math.max(maxDetectedInstructionCount, countEditInstructions(currentFullText));
+                    setPartialEditStatus({
+                        visible: true,
+                        phase: 'completed',
+                        text: streamApplyCount > 0
+                            ? `局部修改完成：识别 ${finalDetectedCount} 条指令，已更新代码`
+                            : '局部修改完成：未检测到可应用的变更',
+                        detectedCount: finalDetectedCount,
+                        applyCount: streamApplyCount
+                    });
+                    partialStatusHideTimerRef.current = setTimeout(() => {
+                        setPartialEditStatus(prev => ({ ...prev, visible: false }));
+                        partialStatusHideTimerRef.current = null;
+                    }, 3000);
                 } else {
                     applyGeneratedCode(currentFullText);
                 }
             }
+
 
         } catch (error) {
             console.error('[AIChat] Error:', error.message);
@@ -825,9 +925,20 @@ ${relevantCode}
                 else next.push({ role: 'assistant', content });
                 return next;
             });
+            if (usePartialEdit) {
+                setPartialEditStatus(prev => ({
+                    ...prev,
+                    visible: true,
+                    phase: 'error',
+                    text: `局部修改失败：${errMsg}`
+                }));
+            }
             if (currentFullText) applyGeneratedCode(currentFullText);
         } finally {
             setLoading(false);
+            if (!usePartialEdit) {
+                setPartialEditStatus(prev => ({ ...prev, visible: false, phase: 'idle', text: '' }));
+            }
             if (onGeneratingStatusChange) onGeneratingStatusChange(false);
         }
     };
@@ -844,6 +955,32 @@ ${relevantCode}
                     <i className="fas fa-cog"></i>
                 </button>
             </div>
+
+            {partialEditStatus.visible && (
+                <div className={`px-4 py-2 border-b text-xs flex items-center justify-between ${
+                    partialEditStatus.phase === 'error'
+                        ? 'bg-red-900/30 border-red-900/40 text-red-200'
+                        : partialEditStatus.phase === 'completed'
+                            ? 'bg-emerald-900/30 border-emerald-900/40 text-emerald-200'
+                            : 'bg-blue-900/20 border-blue-900/40 text-blue-200'
+                }`}>
+                    <div className="flex items-center gap-2">
+                        <i className={`fas ${
+                            partialEditStatus.phase === 'error'
+                                ? 'fa-triangle-exclamation'
+                                : partialEditStatus.phase === 'completed'
+                                    ? 'fa-circle-check'
+                                    : 'fa-wand-magic-sparkles fa-spin'
+                        }`}></i>
+                        <span className="font-medium">{partialEditStatus.text || '正在处理局部修改...'}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-300">
+                        {partialEditStatus.detectedCount > 0 && <span>指令 {partialEditStatus.detectedCount}</span>}
+                        {partialEditStatus.detectedCount > 0 && partialEditStatus.applyCount > 0 && <span className="mx-1">·</span>}
+                        {partialEditStatus.applyCount > 0 && <span>更新 {partialEditStatus.applyCount}</span>}
+                    </div>
+                </div>
+            )}
 
             {/* Config Modal */}
             {showConfig && (

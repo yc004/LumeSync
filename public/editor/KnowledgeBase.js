@@ -7,7 +7,7 @@ const KnowledgeBase = () => {
     const [show, setShow] = useState(false);
     const [knowledgeItems, setKnowledgeItems] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [editingItem, setEditingItem] = useState(null);
+    const [editingItem, setEditingItem] = useState(undefined);
     const [formData, setFormData] = useState({ title: '', category: '', content: '', tags: '' });
     const [filteredItems, setFilteredItems] = useState([]);
     const [selectedCategories, setSelectedCategories] = useState([]);
@@ -46,12 +46,13 @@ const KnowledgeBase = () => {
             let allData = [];
             if (window.electronAPI?.knowledgeDocuments) {
                 const result = await window.electronAPI.knowledgeDocuments({ limit: 1000 });
-                if (result.success) {
-                    allData = result.documents || [];
-                    const builtinCount = allData.filter(d => d.isBuiltin).length;
-                    const customCount = allData.filter(d => !d.isBuiltin).length;
-                    console.log(`[KnowledgeBase] 知识库已加载: 总计 ${allData.length} 条 (内置 ${builtinCount} 条, 自定义 ${customCount} 条)`);
+                if (!result?.success) {
+                    throw new Error(result?.error || '知识库接口返回失败');
                 }
+                allData = result.documents || [];
+                const builtinCount = allData.filter(d => d.isBuiltin).length;
+                const customCount = allData.filter(d => !d.isBuiltin).length;
+                console.log(`[KnowledgeBase] 知识库已加载: 总计 ${allData.length} 条 (内置 ${builtinCount} 条, 自定义 ${customCount} 条)`);
             } else {
                 // 降级到旧的加载方式
                 const builtinData = loadBuiltinKnowledge();
@@ -71,6 +72,12 @@ const KnowledgeBase = () => {
     useEffect(() => {
         loadKnowledge();
     }, []);
+
+    useEffect(() => {
+        if (show) {
+            loadKnowledge();
+        }
+    }, [show]);
 
     // 排序和过滤知识项
     useEffect(() => {
@@ -174,7 +181,7 @@ const KnowledgeBase = () => {
             }
 
             await loadKnowledge();
-            setEditingItem(null);
+            setEditingItem(undefined);
             setFormData({ title: '', category: '', content: '', tags: '' });
         } catch (error) {
             alert('保存失败: ' + error.message);
@@ -295,22 +302,11 @@ const KnowledgeBase = () => {
             }
         } catch (error) {
             console.error('文件处理失败: ' + error.message);
+            alert('文件处理失败: ' + error.message);
         } finally {
+            setUploading(false);
             if (event.target) event.target.value = '';
         }
-    };
-
-    // 格式化时间
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
     };
 
     // 获取分类对应的颜色
@@ -654,10 +650,7 @@ const KnowledgeBase = () => {
                                                         <p className="text-sm text-slate-400 line-clamp-3 mb-3 whitespace-pre-wrap">
                                                             {item.content}
                                                         </p>
-                                                        <div className="flex items-center justify-between">
-                                                            <p className="text-xs text-slate-500">
-                                                                {item.updatedAt && formatDate(item.updatedAt)}
-                                                            </p>
+                                                        <div className="flex items-center justify-end">
                                                             {!item.isBuiltin && !batchMode && (
                                                                 <div className="flex gap-1">
                                                                     <button
@@ -735,10 +728,6 @@ const KnowledgeBase = () => {
                                                                     {item.content}
                                                                 </p>
                                                                 <div className="flex items-center gap-3 mt-2">
-                                                                    <p className="text-xs text-slate-500">
-                                                                        <i className="fas fa-clock mr-1"></i>
-                                                                        {item.updatedAt && formatDate(item.updatedAt)}
-                                                                    </p>
                                                                     {item.fileName && (
                                                                         <p className="text-xs text-green-400">
                                                                             <i className="fas fa-file-alt mr-1"></i>
@@ -864,11 +853,7 @@ const KnowledgeBase = () => {
                                                         {viewingItem.category}
                                                     </span>
                                                 )}
-                                                {viewingItem.updatedAt && (
-                                                    <span className="text-xs text-slate-500">
-                                                        {formatDate(viewingItem.updatedAt)}
-                                                    </span>
-                                                )}
+
                                             </div>
                                         </div>
                                     </div>
@@ -922,7 +907,7 @@ const KnowledgeBase = () => {
                     )}
 
                     {/* 编辑/新建模态框 */}
-                    {editingItem !== null && (
+                    {editingItem !== undefined && (
                         <div className="fixed inset-0 z-[60] bg-slate-900/80 flex items-center justify-center p-4">
                             <div className="bg-slate-800 rounded-2xl w-full max-w-2xl border border-slate-600 shadow-2xl">
                                 <div className="flex items-center justify-between p-5 border-b border-slate-700">
@@ -931,7 +916,7 @@ const KnowledgeBase = () => {
                                         {editingItem ? '编辑知识' : '添加知识'}
                                     </h3>
                                     <button
-                                        onClick={() => setEditingItem(null)}
+                                        onClick={() => setEditingItem(undefined)}
                                         className="p-2 rounded-full bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white transition-colors"
                                     >
                                         <i className="fas fa-times"></i>
@@ -992,7 +977,7 @@ const KnowledgeBase = () => {
 
                                 <div className="flex justify-end gap-3 p-5 border-t border-slate-700">
                                     <button
-                                        onClick={() => setEditingItem(null)}
+                                        onClick={() => setEditingItem(undefined)}
                                         className="px-5 py-2.5 bg-slate-700 text-white rounded-xl hover:bg-slate-600 transition-colors text-sm font-bold"
                                     >
                                         取消

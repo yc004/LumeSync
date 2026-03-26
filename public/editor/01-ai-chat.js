@@ -265,21 +265,17 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
     // 判断是否应该使用部分修改模式
     const shouldUsePartialEdit = (userRequest, currentCode) => {
         if (!currentCode) return false;
-        
+
         const partialEditKeywords = [
-            '修改', '更改', '调整', '增加', '添加', '删除', '移除', 
+            '修改', '更改', '调整', '增加', '添加', '删除', '移除',
             '改为', '变成', '让', '把', '让...变成', '让...改为',
             '优化', '改进', '修复', 'bug', '错误', '问题',
-            '改成', '换成', '替换'
+            '改成', '换成', '替换', '局部', 'patch', 'diff',
+            'replace', 'insert', 'delete', 'find and replace'
         ];
 
-        const requestLower = userRequest.toLowerCase();
-        const isPartialEdit = partialEditKeywords.some(kw => requestLower.includes(kw));
-        
-        // 检查是否能找到相关代码
-        const relevantCodeInfo = extractRelevantCode(currentCode, userRequest);
-        
-        return isPartialEdit && relevantCodeInfo;
+        const requestLower = String(userRequest || '').toLowerCase();
+        return partialEditKeywords.some(kw => requestLower.includes(kw));
     };
 
     // 应用 AI 返回的修改指令
@@ -619,9 +615,18 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
             .filter(line => /^(?:替换|Replace|删除|Delete|插入|Insert|搜索替换|FindAndReplace)\s*[:：]/i.test(line)).length;
     };
 
+    const buildFallbackRelevantCodeInfo = (fullCode) => {
+        const lines = String(fullCode || '').split('\n');
+        const maxLines = 220;
+        return {
+            code: lines.slice(0, maxLines).join('\n'),
+            startLine: 0
+        };
+    };
+
     const handleSend = async (overrideInput = null) => {
-        const messageText = overrideInput || input;
-        const hasAttachmentOnly = !overrideInput && attachments.length > 0 && !String(messageText || '').trim();
+        const messageText = String(overrideInput || input || '');
+        const hasAttachmentOnly = !overrideInput && attachments.length > 0 && !messageText.trim();
         if ((!messageText.trim() && !hasAttachmentOnly) || loading || !config.apiKey) {
             if (!config.apiKey) setShowConfig(true);
             return;
@@ -636,7 +641,10 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         
         // 检测是否使用部分修改模式
         const usePartialEdit = shouldUsePartialEdit(messageText, currentCode);
-        const relevantCodeInfo = usePartialEdit ? extractRelevantCode(currentCode, messageText) : null;
+        const extractedRelevantCodeInfo = usePartialEdit ? extractRelevantCode(currentCode, messageText) : null;
+        const relevantCodeInfo = (usePartialEdit && !extractedRelevantCodeInfo)
+            ? buildFallbackRelevantCodeInfo(currentCode)
+            : extractedRelevantCodeInfo;
         const relevantCode = relevantCodeInfo?.code || null;
         let streamApplyCount = 0;
         let maxDetectedInstructionCount = 0;
@@ -824,11 +832,7 @@ ${relevantCode}
                                 }));
                             }
 
-                            const hasEditInstruction =
-                                currentFullText.includes('替换:') ||
-                                currentFullText.includes('删除:') ||
-                                currentFullText.includes('插入:') ||
-                                currentFullText.includes('搜索替换:');
+                            const hasEditInstruction = detectedCount > 0;
                             if (hasEditInstruction && (currentFullText.length - lastAppliedLen >= 50)) {
                                 lastAppliedLen = currentFullText.length;
                                 setPartialEditStatus(prev => ({

@@ -531,10 +531,10 @@ function KNNExperimentSlide() {
                         {/* 网格背景 */}
                         <div className="absolute inset-0 opacity-20">
                             {Array.from({ length: 10 }).map((_, i) => (
-                                <>
-                                    <div key={`v-${i}`} className="absolute top-0 bottom-0 w-px bg-slate-300" style={{ left: `${i * 10}%` }}></div>
-                                    <div key={`h-${i}`} className="absolute left-0 right-0 h-px bg-slate-300" style={{ top: `${i * 10}%` }}></div>
-                                </>
+                                <React.Fragment key={`grid-${i}`}>
+                                    <div className="absolute top-0 bottom-0 w-px bg-slate-300" style={{ left: `${i * 10}%` }}></div>
+                                    <div className="absolute left-0 right-0 h-px bg-slate-300" style={{ top: `${i * 10}%` }}></div>
+                                </React.Fragment>
                             ))}
                         </div>
 
@@ -827,20 +827,22 @@ function KMeansDemoSlide() {
                     ))}
 
                     {/* 圆心历史轨迹 */}
-                    {showHistory && centroidHistory.map((history, histIdx) => 
-                        history.centroids.map((c, ci) => (
-                            <div key={`${histIdx}-${ci}`} className="absolute transition-all duration-500" 
-                                style={{ 
-                                    left: `${c.x}%`, 
-                                    top: `${c.y}%`, 
-                                    transform: 'translate(-50%, -50%)',
-                                    opacity: 0.3 - histIdx * 0.05
-                                }}>
-                                <div className="w-2 h-2 rounded-full border border-white"
-                                    style={{ backgroundColor: KMEANS_COLORS[ci % KMEANS_COLORS.length].bg }}></div>
-                            </div>
-                        ))
-                    )}
+                    {showHistory && centroidHistory.map((history, histIdx) => (
+                        <React.Fragment key={`history-${histIdx}`}>
+                            {history.centroids.map((c, ci) => (
+                                <div key={`${histIdx}-${ci}`} className="absolute transition-all duration-500"
+                                    style={{
+                                        left: `${c.x}%`,
+                                        top: `${c.y}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                        opacity: 0.3 - histIdx * 0.05
+                                    }}>
+                                    <div className="w-2 h-2 rounded-full border border-white"
+                                        style={{ backgroundColor: KMEANS_COLORS[ci % KMEANS_COLORS.length].bg }}></div>
+                                </div>
+                            ))}
+                        </React.Fragment>
+                    ))}
 
                     {/* 当前圆心 */}
                     {centroids.map((c, i) => (
@@ -1395,6 +1397,7 @@ function SummarySlide() {
     );
 }
 
+
 // ========================================================
 // 🎯 课程配置
 // ========================================================
@@ -1411,12 +1414,13 @@ const mySlides = [
     { id: 'kmeans-k-select',   component: <KMeansKSelectSlide /> },
     { id: 'compare',           component: <CompareSlide /> },
     { id: 'summary',           component: <SummarySlide /> },
+    { id: 'survey',            component: <WebPageSlide title="课后问卷" url="https://v.wjx.cn/vm/tG7qQ4d.aspx# " openLabel="打开问卷" /> }, // 新增问卷页
 ];
 
 window.CourseData = {
     title: "KNN 与 K-means 特征分类（扩展版）",
     icon: "🎯",
-    desc: "40分钟完整课程，包含特征空间探索、KNN参数实验、K-means K值选择等6个互动环节",
+    desc: "40分钟完整课程，包含特征空间探索、KNN参数实验、K-means K值选择等6个互动环节，最后包含课后问卷",
     color: "from-green-500 to-teal-600",
     dependencies: [],
     slides: mySlides

@@ -3,6 +3,8 @@
 // ========================================================
 
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const { config, getSubmissionsDir, setSubmissionsDir } = require('./config');
 const { scanCourses, deleteCourse } = require('./courses');
 const {
@@ -37,6 +39,25 @@ router.get('/courses', (req, res) => {
         currentCourseId: currentCourseId,
         currentSlideIndex: currentSlideIndex
     });
+});
+
+// 获取组件清单（用于编辑器自动加载 public/components 下所有组件）
+router.get('/components-manifest', (req, res) => {
+    try {
+        const componentsDir = path.join(__dirname, '..', 'public', 'components');
+        if (!fs.existsSync(componentsDir)) {
+            return res.json({ success: true, files: [] });
+        }
+
+        const files = fs.readdirSync(componentsDir)
+            .filter(name => /\.js$/i.test(name))
+            .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+            .map(name => `/components/${name}`);
+
+        res.json({ success: true, files });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message, files: [] });
+    }
 });
 
 // 获取当前课程状态

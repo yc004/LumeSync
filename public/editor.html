@@ -40,6 +40,14 @@
     <!-- marked -->
     <script src="lib/marked.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/marked@9/marked.min.js'"></script>
 
+    <!-- Prism.js (语法高亮) -->
+    <link rel="stylesheet" href="lib/prism.min.css" onerror="this.href='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css'">
+    <script src="lib/prism.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js'"></script>
+    <script src="lib/components/prism-javascript.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js'"></script>
+    <script src="lib/components/prism-typescript.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js'"></script>
+    <script src="lib/components/prism-jsx.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-jsx.min.js'"></script>
+    <script src="lib/components/prism-tsx.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-tsx.min.js'"></script>
+
     <!-- Monaco Editor (可选，如果以后想加高级代码编辑。这里我们先用普通 textarea，保证不依赖复杂外网资源) -->
 
     <style>
@@ -60,6 +68,101 @@
         .markdown-body code { font-family: 'Consolas', monospace; font-size: 0.85em; }
         .code-editor { font-family: 'Consolas', monospace; user-select: text; -webkit-user-select: text; tab-size: 4; }
         .chat-selectable { user-select: text; -webkit-user-select: text; }
+        
+        /* Prism.js 语法高亮样式调整 */
+        .syntax-highlight-wrapper { position: relative; }
+        .syntax-highlight-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.625;
+            padding: 24px 16px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            tab-size: 4;
+        }
+        .syntax-highlight-overlay code,
+        .syntax-highlight-overlay code[class*="language-"] {
+            display: block;
+            font-family: 'Consolas', monospace !important;
+            background: none !important;
+            font-size: inherit;
+            line-height: inherit;
+            white-space: pre-wrap !important;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            margin: 0;
+        }
+        textarea.code-editor {
+            caret-color: #e2e8f0;
+            color: transparent;
+            background: transparent;
+            resize: none;
+        }
+        textarea.code-editor::selection {
+            background: rgba(59, 130, 246, 0.3);
+            color: transparent;
+        }
+        
+        /* 适配深色主题的 Prism 语法高亮 */
+        .token.comment,
+        .token.prolog,
+        .token.doctype,
+        .token.cdata {
+            color: #6b7280;
+        }
+        .token.punctuation {
+            color: #94a3b8;
+        }
+        .token.property,
+        .token.tag,
+        .token.boolean,
+        .token.number,
+        .token.constant,
+        .token.symbol,
+        .token.deleted {
+            color: #f472b6;
+        }
+        .token.selector,
+        .token.attr-name,
+        .token.string,
+        .token.char,
+        .token.builtin,
+        .token.inserted {
+            color: #86efac;
+        }
+        .token.operator,
+        .token.entity,
+        .token.url,
+        .language-css .token.string,
+        .style .token.string {
+            color: #93c5fd;
+        }
+        .token.atrule,
+        .token.attr-value,
+        .token.keyword {
+            color: #c084fc;
+        }
+        .token.function,
+        .token.class-name {
+            color: #60a5fa;
+        }
+        .token.regex,
+        .token.important,
+        .token.variable {
+            color: #fbbf24;
+        }
+        .namespace {
+            opacity: .7;
+        }
         
         /* Markdown 样式优化 */
         .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: bold; margin-top: 0.5em; margin-bottom: 0.3em; }
@@ -130,8 +233,30 @@
         window.addEventListener('DOMContentLoaded', updateContainerScale);
     </script>
 
-    <!-- 窗口控制组件 (复用) -->
-    <script type="text/babel" src="components/WindowControls.js"></script>
+    <!-- 组件库：自动扫描并加载 components 目录下所有组件 -->
+    <script>
+        (function autoLoadComponents() {
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/components-manifest', false);
+                xhr.send(null);
+
+                if (xhr.status < 200 || xhr.status >= 300) {
+                    throw new Error('manifest request failed: ' + xhr.status);
+                }
+
+                const payload = JSON.parse(xhr.responseText || '{}');
+                const files = Array.isArray(payload.files) ? payload.files : [];
+
+                files.forEach((src) => {
+                    if (!src) return;
+                    document.write(`<script type="text/babel" src="${src}"><\/script>`);
+                });
+            } catch (err) {
+                console.error('[Editor] 自动加载 components 失败:', err);
+            }
+        })();
+    </script>
 
     <!-- 模拟 Socket.io 用于编辑器内联预览 -->
     <script>
@@ -188,7 +313,7 @@
     <script type="text/babel" src="editor/01-ai-chat.js"></script>
     <script type="text/babel" src="editor/02-editor-app.js"></script>
 
-    <!-- 问卷组件 -->
-    <script type="text/babel" src="components/SurveySlide.js"></script>
+
 </body>
 </html>
+

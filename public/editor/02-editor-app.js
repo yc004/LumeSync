@@ -2,38 +2,78 @@
 // 萤火课件编辑器 - 主应用程序
 // ========================================================
 
+class PreviewRuntimeBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { error };
+    }
+
+    componentDidCatch(error) {
+        console.error('[PreviewRuntimeBoundary] 课件运行时异常:', error);
+    }
+
+    componentDidUpdate(prevProps) {
+        if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
+            this.setState({ error: null });
+        }
+    }
+
+    render() {
+        if (this.state.error) {
+            return (
+                <div className="h-full flex flex-col items-center justify-center px-8 text-center bg-red-950/20 border border-red-900/40 rounded-xl">
+                    <i className="fas fa-triangle-exclamation text-4xl text-red-400 mb-3"></i>
+                    <h3 className="text-lg font-bold text-red-200 mb-2">课件运行时崩溃（已隔离）</h3>
+                    <p className="text-sm text-red-300 mb-4 max-w-2xl break-all">{String(this.state.error?.message || this.state.error || '未知运行错误')}</p>
+                    <p className="text-xs text-slate-300">你可以继续编辑代码，修复后会自动恢复预览，不会影响编辑器主界面。</p>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
 // 复用教师端引擎的预览组件
 function EnginePreview({ title, slides, contentScale = 0.96, uiScale = 1.0 }) {
+    const previewResetKey = slides;
+
     // 使用教师端引擎的 SyncClassroom 组件（离线预览模式，隐藏顶栏但保留底栏翻页）
     return (
         <div className="flex flex-col h-full bg-slate-900">
             <div className="flex-1 relative flex items-center justify-center p-4 overflow-hidden bg-slate-950">
                 <div className="w-full h-full flex flex-col">
-                    <SyncClassroom
-                        title={title || '预览'}
-                        slides={slides}
-                        isHost={true}
-                        initialSlide={0}
-                        settings={{
-                            forceFullscreen: false,
-                            syncFollow: false,
-                            allowInteract: true,
-                            podiumAtTop: true,
-                            renderScale: contentScale || 0.96,
-                            uiScale: uiScale || 1.0,
-                            alertJoin: false,
-                            alertLeave: false,
-                            alertFullscreenExit: false,
-                            alertTabHidden: false,
-                        }}
-                        onSettingsChange={() => {}}
-                        socket={null}
-                        studentCount={0}
-                        studentLog={[]}
-                        onEndCourse={() => {}}
-                        hideTopBar={true}
-                        hideBottomBar={false}
-                    />
+                    <PreviewRuntimeBoundary resetKey={previewResetKey}>
+                        <SyncClassroom
+                            title={title || '预览'}
+                            slides={slides}
+                            isHost={true}
+                            initialSlide={0}
+                            settings={{
+                                forceFullscreen: false,
+                                syncFollow: false,
+                                allowInteract: true,
+                                podiumAtTop: true,
+                                renderScale: contentScale || 0.96,
+                                uiScale: uiScale || 1.0,
+                                alertJoin: false,
+                                alertLeave: false,
+                                alertFullscreenExit: false,
+                                alertTabHidden: false,
+                            }}
+                            onSettingsChange={() => {}}
+                            socket={null}
+                            studentCount={0}
+                            studentLog={[]}
+                            onEndCourse={() => {}}
+                            hideTopBar={true}
+                            hideBottomBar={false}
+                        />
+                    </PreviewRuntimeBoundary>
                 </div>
             </div>
         </div>
@@ -315,6 +355,7 @@ window.CourseData = {
     const aiChatRef = useRef(null);
     const autoScrollRef = useRef(true);
     const compileTokenRef = useRef(0);
+    const syntaxOverlayRef = useRef(null);
 
     const showToast = (message, type = 'info') => {
         const id = Date.now() + Math.random();
@@ -323,6 +364,8 @@ window.CourseData = {
             setToasts(prev => prev.filter(t => t.id !== id));
         }, 2500);
     };
+
+
 
     useEffect(() => {
         try {
@@ -365,6 +408,11 @@ window.CourseData = {
     const handleScroll = () => {
         if (textareaRef.current && lineNumbersRef.current) {
             lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
+            lineNumbersRef.current.scrollLeft = textareaRef.current.scrollLeft;
+        }
+        if (textareaRef.current && syntaxOverlayRef.current) {
+            syntaxOverlayRef.current.scrollTop = textareaRef.current.scrollTop;
+            syntaxOverlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
         }
         if (textareaRef.current) {
             const el = textareaRef.current;
@@ -392,11 +440,34 @@ window.CourseData = {
             if (lineNumbersRef.current) {
                 lineNumbersRef.current.scrollTop = el.scrollTop;
             }
+            if (syntaxOverlayRef.current) {
+                syntaxOverlayRef.current.scrollTop = el.scrollTop;
+            }
         });
     }, [code, viewMode, isAIGenerating]);
 
     const lineCount = code.split('\n').length;
     const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
+
+    // 更新语法高亮
+    const updateSyntaxHighlight = () => {
+        if (!syntaxOverlayRef.current || typeof Prism === 'undefined') return;
+
+        // 检测语言类型
+        const isTSX = code.includes('interface ') || code.includes(': ') || code.match(/:\s*(string|number|boolean|any)\b/);
+        const isJSX = code.includes('className=') || code.includes('<div') || code.includes('React');
+        let language = 'javascript';
+        if (isTSX) language = 'tsx';
+        else if (isJSX) language = 'jsx';
+
+        // 使用 Prism.js 进行语法高亮
+        const highlighted = Prism.highlight(code, Prism.languages[language] || Prism.languages.javascript, language);
+        syntaxOverlayRef.current.innerHTML = `<code class="language-${language}">${highlighted}</code>`;
+    };
+
+    useEffect(() => {
+        updateSyntaxHighlight();
+    }, [code]);
 
     const getDefaultFilename = () => {
         let defaultFilename = 'untitled.lume';
@@ -898,16 +969,27 @@ window.CourseData = {
                                 <div key={n}>{n}</div>
                             ))}
                         </div>
-                        {/* 编辑器主体 */}
-                        <textarea
-                            ref={textareaRef}
-                            value={code}
-                            onScroll={handleScroll}
-                            onChange={(e) => setCode(e.target.value)}
-                            className="flex-1 bg-slate-900 text-slate-300 py-6 px-4 font-mono text-sm resize-none focus:outline-none show-scrollbar code-editor border-none outline-none"
-                            spellCheck="false"
-                            style={{ whiteSpace: 'pre', overflowX: 'auto', lineHeight: '1.625' }}
-                        />
+                        {/* 编辑器主体 - 带语法高亮 */}
+                        <div className="flex-1 relative bg-slate-900 overflow-hidden">
+                            {/* 语法高亮层 */}
+                            <div
+                                ref={syntaxOverlayRef}
+                                className="syntax-highlight-overlay show-scrollbar"
+                                style={{ pointerEvents: 'none' }}
+                            >
+                                <code></code>
+                            </div>
+                            {/* 编辑输入层 */}
+                            <textarea
+                                ref={textareaRef}
+                                value={code}
+                                onScroll={handleScroll}
+                                onChange={(e) => setCode(e.target.value)}
+                                className="code-editor absolute top-0 left-0 w-full h-full py-6 px-4 font-mono text-sm resize-none focus:outline-none show-scrollbar border-none outline-none bg-transparent"
+                                spellCheck="false"
+                                style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', overflowWrap: 'anywhere', overflowX: 'hidden', lineHeight: '1.625' }}
+                            />
+                        </div>
                     </div>
 
                     {/* 实时预览模式 */}

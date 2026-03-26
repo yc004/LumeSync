@@ -81,42 +81,49 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
 
             // 初始化存储（如果不存在）
             if (!syncVarsRef.current.has(key)) {
+                const resolvedInitialValue = typeof initialValue === 'function' ? initialValue() : initialValue;
                 syncVarsRef.current.set(key, {
-                    value: initialValue,
+                    value: resolvedInitialValue,
                     sync: true,
+                    onChange,
                     listeners: new Set()
                 });
             } else {
-                syncVarsRef.current.get(key).sync = true;
+                const existed = syncVarsRef.current.get(key);
+                existed.sync = true;
+                existed.onChange = onChange;
             }
 
             const varData = syncVarsRef.current.get(key);
-            
+
             // 使用 React state 让组件能重新渲染
-            const [localVal, setLocalVal] = useState(varData.value);
+            const [localVal, setLocalVal] = useState(() => varData.value);
 
             // 监听外部（同步或其它组件）的变化
             useEffect(() => {
                 const listener = (newVal) => setLocalVal(newVal);
                 varData.listeners.add(listener);
-                
+
                 // 初次挂载时同步一次值
                 setLocalVal(varData.value);
-                
+
                 return () => varData.listeners.delete(listener);
             }, [varData]);
 
             // 设置新值并同步
-            const setValue = React.useCallback((newValue) => {
+            const setValue = React.useCallback((newValueOrUpdater) => {
                 const oldValue = varData.value;
-                varData.value = newValue;
+                const nextValue = (typeof newValueOrUpdater === 'function')
+                    ? newValueOrUpdater(oldValue)
+                    : newValueOrUpdater;
+                varData.value = nextValue;
 
                 // 通知所有使用这个 key 的组件更新
-                varData.listeners.forEach(l => l(newValue));
+                varData.listeners.forEach(l => l(nextValue));
 
                 // 本地触发 onChange
                 if (typeof onChange === 'function') {
-                    onChange(newValue, oldValue);
+                    onChange(nextValue, oldValue);
                 }
 
                 // 教师端自动同步到学生端
@@ -125,7 +132,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                         courseId,
                         slideIndex: currentSlide,
                         key,
-                        value: newValue
+                        value: nextValue
                     });
                 }
             }, [key, onChange, isHost, currentSlide]);
@@ -138,17 +145,21 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             const { onChange = null } = options;
 
             if (!syncVarsRef.current.has(key)) {
+                const resolvedInitialValue = typeof initialValue === 'function' ? initialValue() : initialValue;
                 syncVarsRef.current.set(key, {
-                    value: initialValue,
+                    value: resolvedInitialValue,
                     sync: false,
+                    onChange,
                     listeners: new Set()
                 });
             } else {
-                syncVarsRef.current.get(key).sync = false;
+                const existed = syncVarsRef.current.get(key);
+                existed.sync = false;
+                existed.onChange = onChange;
             }
 
             const varData = syncVarsRef.current.get(key);
-            const [localVal, setLocalVal] = useState(varData.value);
+            const [localVal, setLocalVal] = useState(() => varData.value);
 
             useEffect(() => {
                 const listener = (newVal) => setLocalVal(newVal);
@@ -157,13 +168,16 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                 return () => varData.listeners.delete(listener);
             }, [varData]);
 
-            const setValue = React.useCallback((newValue) => {
+            const setValue = React.useCallback((newValueOrUpdater) => {
                 const oldValue = varData.value;
-                varData.value = newValue;
-                varData.listeners.forEach(l => l(newValue));
+                const nextValue = (typeof newValueOrUpdater === 'function')
+                    ? newValueOrUpdater(oldValue)
+                    : newValueOrUpdater;
+                varData.value = nextValue;
+                varData.listeners.forEach(l => l(nextValue));
 
                 if (typeof onChange === 'function') {
-                    onChange(newValue, oldValue);
+                    onChange(nextValue, oldValue);
                 }
             }, [key, onChange]);
 

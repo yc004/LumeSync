@@ -14,7 +14,14 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
     }]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [config, setConfig] = useState({ apiKey: '', baseURL: 'https://api.openai.com/v1', model: 'gpt-4o' });
+    const [config, setConfig] = useState({
+        apiKey: '',
+        baseURL: 'https://api.openai.com/v1',
+        model: 'gpt-4o',
+        knowledgeTopK: 5,
+        knowledgeThreshold: 0.3,
+        showKnowledgeSource: true
+    });
     const [showConfig, setShowConfig] = useState(false);
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState({ type: '', message: '' });
@@ -31,30 +38,34 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
     const MAX_TEXT_BYTES = 500 * 1024;
     const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 
-    // 从统一的知识库文件加载内置知识（通过 window.builtinKnowledgeBase）
+    // 从统一的知识库文件加载内置知识（通过 window.builtinKnowledgeBase，已废弃）
     const loadBuiltinKnowledge = () => {
-        // 知识库已在 editor.html 中通过 script 标签加载到 window.builtinKnowledgeBase
+        // 知识库已迁移到数据库，此函数仅用于降级
         return window.builtinKnowledgeBase || [];
     };
 
-    // RAG系统：加载知识库
+    // RAG系统：加载知识库（使用向量数据库）
     const loadKnowledgeBase = async () => {
         try {
-            // 加载内置知识库（直接从 window 获取）
-            const builtinData = loadBuiltinKnowledge();
-            console.log('[RAG] 内置知识已加载:', builtinData.length, '条');
-
-            // 加载用户自定义知识库
-            let userData = [];
-            if (window.electronAPI?.loadKnowledgeBase) {
-                userData = await window.electronAPI.loadKnowledgeBase();
-                // console.log('[RAG] 用户知识已加载:', userData.length, '条');
+            // 从数据库加载所有知识（包括内置和用户知识）
+            let allData = [];
+            if (window.electronAPI?.knowledgeDocuments) {
+                const result = await window.electronAPI.knowledgeDocuments({ limit: 1000 });
+                if (result.success) {
+                    allData = result.documents || [];
+                    const builtinCount = allData.filter(d => d.isBuiltin).length;
+                    const customCount = allData.filter(d => !d.isBuiltin).length;
+                    console.log(`[RAG] 知识库已加载: 总计 ${allData.length} 条 (内置 ${builtinCount} 条, 自定义 ${customCount} 条)`);
+                }
+            } else {
+                // 降级到旧的加载方式
+                const builtinData = loadBuiltinKnowledge();
+                console.warn('[RAG] Electron API 不可用，使用旧方式加载内置知识');
+                setKnowledgeItems(builtinData);
+                return;
             }
 
-            // 合并内置知识和用户知识
-            const allKnowledge = [...builtinData, ...(userData || [])];
-            setKnowledgeItems(allKnowledge);
-            // console.log('[RAG] 知识库总计:', allKnowledge.length, '条');
+            setKnowledgeItems(allData);
         } catch (error) {
             console.error('[RAG] 加载知识库失败:', error);
             // 如果加载失败，尝试至少加载内置知识
@@ -63,16 +74,29 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         }
     };
 
-    // RAG 检索：根据查询返回最相关的知识块
-    const retrieveKnowledge = (query, topK = 3) => {
-        if (!query || !knowledgeItems.length) return [];
+    // RAG 检索：根据查询返回最相关的知识块（使用向量数据库）
+    const retrieveKnowledge = async (query, topK = 3) => {
+        if (!query) return [];
 
-        // 使用内置的检索函数（如果可用），否则使用简单的关键词匹配
-        if (typeof window.retrieveKnowledge === 'function') {
-            return window.retrieveKnowledge(query, topK);
+        // 使用向量数据库检索
+        if (window.electronAPI?.knowledgeSearch) {
+            try {
+                const result = await window.electronAPI.knowledgeSearch({
+                    query,
+                    topK,
+                    useHybrid: true
+                });
+                if (result.success && result.results) {
+                    return result.results;
+                }
+            } catch (error) {
+                console.error('[RAG] 向量检索失败:', error);
+            }
         }
 
-        // 简单的关键词匹配（备用方案）
+        // 备用方案：使用内置知识库的关键词匹配
+        if (!knowledgeItems.length) return [];
+
         const keywords = query
             .toLowerCase()
             .replace(/[^\w\u4e00-\u9fa5]+/g, ' ')
@@ -101,15 +125,12 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
 
     // RAG决策：判断是否需要查询知识库
     const shouldRetrieveKnowledge = async (userQuery) => {
-        // console.log('[RAG] 开始检索, 知识库条目数:', knowledgeItems.length, '用户查询:', userQuery);
-
-        if (!userQuery || !knowledgeItems.length) {
-            // console.log('[RAG] 检索失败: 缺少查询或知识库为空');
+        if (!userQuery) {
             return { shouldRetrieve: false, relevantItems: [] };
         }
 
-        // 使用新的检索函数
-        const relevantItems = retrieveKnowledge(userQuery, 3);
+        // 使用向量数据库检索
+        const relevantItems = await retrieveKnowledge(userQuery, 3);
 
         if (relevantItems.length === 0) {
             console.log('[RAG] 未匹配到相关知识');
@@ -117,7 +138,7 @@ const AIChat = React.forwardRef(({ onCodeGenerated, onGeneratingStatusChange, cu
         }
 
         console.log('[RAG] 匹配到', relevantItems.length, '条相关知识:', relevantItems.map(i => i.title));
-        return { shouldRetrieve: true, relevantItems, matchedKeywords: [] };
+        return { shouldRetrieve: true, relevantItems };
     };
 
     // 智能识别与用户请求相关的代码段
@@ -827,18 +848,80 @@ ${relevantCode}
             {/* Config Modal */}
             {showConfig && (
                 <div className="absolute inset-0 z-50 bg-slate-900/80 flex items-center justify-center p-4">
-                    <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm border border-slate-600 shadow-2xl">
-                        <h3 className="text-lg font-bold mb-4 text-white">AI API 设置</h3>
-                        
-                        <label className="block text-xs font-bold text-slate-400 mb-1">Base URL</label>
-                        <input type="text" value={config.baseURL} onChange={e => setConfig({...config, baseURL: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 mb-4" />
-                        
-                        <label className="block text-xs font-bold text-slate-400 mb-1">API Key</label>
-                        <input type="password" value={config.apiKey} onChange={e => setConfig({...config, apiKey: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 mb-4" placeholder="sk-..." />
-                        
-                        <label className="block text-xs font-bold text-slate-400 mb-1">Model</label>
-                        <input type="text" value={config.model} onChange={e => setConfig({...config, model: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 mb-6" />
-                        
+                    <div className="bg-slate-800 rounded-xl p-6 w-full max-w-md border border-slate-600 shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-lg font-bold mb-4 text-white flex items-center gap-2">
+                            <i className="fas fa-cog text-blue-400"></i>
+                            AI 设置
+                        </h3>
+
+                        {/* 大模型 API 配置 */}
+                        <div className="mb-6">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                                <i className="fas fa-robot w-4 mr-2"></i>
+                                大模型 API
+                            </p>
+                            <label className="block text-xs font-bold text-slate-400 mb-1">Base URL</label>
+                            <input type="text" value={config.baseURL} onChange={e => setConfig({...config, baseURL: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 mb-3" />
+
+                            <label className="block text-xs font-bold text-slate-400 mb-1">API Key</label>
+                            <input type="password" value={config.apiKey} onChange={e => setConfig({...config, apiKey: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 mb-3" placeholder="sk-..." />
+
+                            <label className="block text-xs font-bold text-slate-400 mb-1">Model</label>
+                            <input type="text" value={config.model} onChange={e => setConfig({...config, model: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+                        </div>
+
+                        {/* 知识库设置 */}
+                        <div className="border-t border-slate-700 pt-4 mb-4">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                                <i className="fas fa-brain w-4 mr-2"></i>
+                                知识库检索
+                            </p>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-sm font-medium text-slate-300">检索结果数量</span>
+                                        <p className="text-xs text-slate-500 mt-0.5">每次检索返回的知识条数</p>
+                                    </div>
+                                    <select
+                                        value={config.knowledgeTopK || 5}
+                                        onChange={(e) => setConfig({...config, knowledgeTopK: Number(e.target.value)})}
+                                        className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    >
+                                        {[3, 5, 8, 10].map(n => (
+                                            <option key={n} value={n}>{n} 条</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-sm font-medium text-slate-300">相似度阈值</span>
+                                        <p className="text-xs text-slate-500 mt-0.5">知识匹配的最低相似度 (0-1)</p>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="1"
+                                        step="0.1"
+                                        value={config.knowledgeThreshold || 0.3}
+                                        onChange={(e) => setConfig({...config, knowledgeThreshold: Number(e.target.value)})}
+                                        className="w-20 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-300 text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-sm font-medium text-slate-300">显示知识来源</span>
+                                        <p className="text-xs text-slate-500 mt-0.5">在 AI 回答中标注引用的知识</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setConfig({...config, showKnowledgeSource: !config.showKnowledgeSource})}
+                                        className={`relative w-12 h-6 rounded-full transition-colors ${config.showKnowledgeSource ? 'bg-blue-500' : 'bg-slate-600'}`}
+                                    >
+                                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${config.showKnowledgeSource ? 'left-7' : 'left-1'}`}></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         {testResult.message && (
                             <div className={`text-xs mb-4 ${testResult.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {testResult.message}

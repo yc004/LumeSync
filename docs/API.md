@@ -98,6 +98,125 @@ window.CourseGlobalContext = {
 引擎会在全局注册一组可复用组件，供课件直接使用（无需 import）。当前可用组件：
 
 - `WebPageSlide`：将一个 URL 作为"纯网页页"嵌入到课件中，并提供"刷新 / 在新窗口打开"的兜底。
+- `VoteSlide`：通用投票组件，支持发起投票、实时计票、结果展示。
+
+### window.VoteSlide（投票组件）
+
+**通用投票组件**，支持发起投票、实时计票、时长控制、结果展示。
+
+#### 功能特性
+
+- ✅ 教师端发起投票，设置投票时长
+- ✅ 学生端接收投票，提交选项
+- ✅ 实时统计投票结果
+- ✅ 支持匿名/实名投票
+- ✅ 可视化进度条展示
+- ✅ 倒计时显示
+
+#### 配置格式
+
+```tsx
+const voteConfig = {
+    id: 'vote-001',
+    question: '你最喜欢的编程语言是什么？',
+    anonymous: false,  // 是否匿名投票
+    theme: {
+        primary: 'blue',
+        background: 'slate'
+    },
+    options: [
+        { id: 'opt1', label: 'JavaScript' },
+        { id: 'opt2', label: 'Python' },
+        { id: 'opt3', label: 'Java' },
+        { id: 'opt4', label: 'C++' }
+    ]
+};
+```
+
+#### 教师端功能
+
+- **发起投票**：设置投票时长（默认60秒），发送给所有学生端
+- **实时查看**：实时显示每个选项的投票数和百分比
+- **结束投票**：随时结束投票并公布最终结果
+- **重新投票**：重新发起相同题目的投票
+
+#### 学生端功能
+
+- **接收投票**：收到教师端发起的投票后弹出投票窗口
+- **提交选项**：选择后立即提交（无法修改）
+- **查看结果**：投票结束后自动显示结果统计
+
+#### 基本用法
+
+```tsx
+function VotePage() {
+    const voteConfig = {
+        id: 'course-001:vote',
+        question: '你对今天课程的满意度如何？',
+        anonymous: true,
+        theme: {
+            primary: 'green'
+        },
+        options: [
+            { id: 'very-good', label: '非常满意' },
+            { id: 'good', label: '满意' },
+            { id: 'normal', label: '一般' },
+            { id: 'bad', label: '不满意' }
+        ]
+    };
+
+    return <VoteSlide config={voteConfig} />;
+}
+```
+
+#### 完整示例
+
+```tsx
+window.CourseData = {
+    title: '课堂投票示例',
+    icon: '📊',
+    desc: '演示投票组件的使用',
+    color: 'from-blue-500 to-indigo-600',
+    slides: [
+        {
+            id: 'intro',
+            component: <div className="p-8">
+                <h1 className="text-3xl font-bold mb-4">欢迎来到课堂</h1>
+                <p className="text-xl">今天我们将学习...</p>
+                <p className="mt-4 text-gray-600">点击下一页开始投票</p>
+            </div>
+        },
+        {
+            id: 'vote',
+            component: (
+                <VoteSlide config={{
+                    id: 'daily-poll',
+                    question: '你更喜欢哪种学习方式？',
+                    anonymous: false,
+                    theme: { primary: 'purple' },
+                    options: [
+                        { id: 'video', label: '视频教学' },
+                        { id: 'text', label: '文字资料' },
+                        { id: 'practice', label: '实战练习' },
+                        { id: 'discuss', label: '小组讨论' }
+                    ]
+                }} />
+            )
+        }
+    ]
+};
+```
+
+#### Socket 事件
+
+| 事件名 | 方向 | 说明 | 数据格式 |
+|--------|------|------|----------|
+| `vote:start` | 教师→服务端 | 发起投票 | `{voteId, startTime, duration, question, options, anonymous}` |
+| `vote:start` | 服务端→学生 | 接收投票 | `{startTime, duration, question, options, anonymous}` |
+| `vote:submit` | 学生→服务端 | 提交投票 | `{voteId, socketId, optionId, timestamp}` |
+| `vote:result` | 服务端→教师 | 投票结果 | `{voteId, results: [{optionId, count}]}` |
+| `vote:end` | 教师→服务端 | 结束投票 | `{voteId, results}` |
+| `vote:end` | 服务端→全部 | 投票结束 | `{voteId, results}` |
 
 ### window.SurveySlide（问卷组件）
 

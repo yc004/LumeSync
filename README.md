@@ -153,6 +153,7 @@ window.CourseData = {
 - [docs/API.md](./docs/API.md) - 课件 API 完整文档
 - [docs/interaction-sync-guide.md](./docs/interaction-sync-guide.md) - 交互同步系统
 - [docs/knowledge-base-guide.md](./docs/knowledge-base-guide.md) - 知识库系统
+- [docs/knowledge-update-guide.md](./docs/knowledge-update-guide.md) - 知识库更新指南
 - [public/knowledge/categories/README.md](./public/knowledge/categories/README.md) - 知识库管理说明
 
 ## 项目结构

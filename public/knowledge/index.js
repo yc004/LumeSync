@@ -1,23 +1,12 @@
 // ========================================================
 // 萤火课件编辑器 - 知识库向量存储（RAG 格式）
 // ========================================================
-// 遵循标准 RAG 系统的设计：
-// 1. 知识分块（chunk）：将长文本按主题分割成小块
-// 2. 元数据（metadata）：每块包含 id、title、category、tags
-// 3. 相似度检索（retrieval）：基于关键词匹配最相关的知识块
-// 
-// 知识库按分类拆分到 categories/ 目录下：
-// - system-api.js: 系统API
-// - interactive-components.js: 互动组件
-// - teaching-strategies.js: 教学策略
-// - animations.js: 动画效果
-// - styling.js: 样式系统
-// - state-management.js: 状态管理
-// - multimedia.js: 多媒体
-// - best-practices.js: 最佳实践
+// 注意：内置知识已迁移到 SQLite 数据库中
+// 此文件保留用于向后兼容，但不再加载分类文件
+// 内置知识通过 Electron IPC 从后端数据库获取
 
 // ========================================================
-// 加载所有分类知识
+// 加载所有分类知识（已废弃，使用数据库）
 // ========================================================
 
 let builtinKnowledgeBase = [];
@@ -28,18 +17,23 @@ function loadCategory(categoryName, globalVarName) {
         // 浏览器环境：从全局变量获取
         return window[globalVarName] || [];
     } else if (typeof require !== 'undefined') {
-        // Node.js 环境：动态加载模块
+        // Node.js 环境：动态加载模块（如果文件存在）
         try {
-            return require(`./categories/${categoryName}.js`);
+            const path = require('path');
+            const fs = require('fs');
+            const filePath = path.join(__dirname, 'categories', `${categoryName}.js`);
+            if (fs.existsSync(filePath)) {
+                return require(filePath);
+            }
         } catch (e) {
-            console.warn(`无法加载分类模块: ${categoryName}`, e.message);
+            // 文件不存在或加载失败，返回空数组
             return [];
         }
     }
     return [];
 }
 
-// 合并所有分类
+// 合并所有分类（仅加载存在的分类）
 builtinKnowledgeBase = [
     ...loadCategory('system-api', 'systemAPIKnowledge'),
     ...loadCategory('interactive-components', 'interactiveComponentsKnowledge'),

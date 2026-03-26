@@ -72,4 +72,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // 知识库功能
     loadKnowledgeBase: () => ipcRenderer.invoke('load-knowledge-base'),
     saveKnowledgeBase: (items) => ipcRenderer.invoke('save-knowledge-base', items),
+    // RAG 知识库接口（编辑器专用）
+    knowledgeStats: () => ipcRenderer.invoke('knowledge-stats'),
+    knowledgeSearch: (params) => ipcRenderer.invoke('knowledge-search', params),
+    knowledgeDocuments: (params) => ipcRenderer.invoke('knowledge-documents', params),
+    knowledgeDocument: (params) => ipcRenderer.invoke('knowledge-document', params),
+    knowledgeAdd: (params) => ipcRenderer.invoke('knowledge-add', params),
+    knowledgeUpdate: (params) => ipcRenderer.invoke('knowledge-update', params),
+    knowledgeDelete: (params) => ipcRenderer.invoke('knowledge-delete', params),
+    knowledgeBatchAdd: (params) => ipcRenderer.invoke('knowledge-batch-add', params),
+    knowledgeRetrain: () => ipcRenderer.invoke('knowledge-retrain'),
+    knowledgeCategories: () => ipcRenderer.invoke('knowledge-categories'),
+    knowledgeExport: () => ipcRenderer.invoke('knowledge-export'),
+    knowledgeImport: (data) => ipcRenderer.invoke('knowledge-import', data),
 });

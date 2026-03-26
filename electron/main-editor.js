@@ -11,6 +11,158 @@ const logger = new Logger('LumeSync-Editor');
 let serverProcess = null;
 const PORT = 3001;
 
+// 延迟加载 VectorDatabase 和 EmbeddingService 以避免导入时初始化失败
+let VectorDatabase = null;
+let EmbeddingService = null;
+
+function loadKnowledgeModules() {
+    try {
+        VectorDatabase = require('../server/vector-database');
+        EmbeddingService = require('../server/vector-embedding');
+        logger.info('APP', 'Knowledge modules loaded successfully');
+        return true;
+    } catch (error) {
+        logger.error('APP', 'Failed to load knowledge modules', { error: error.message, stack: error.stack });
+        return false;
+    }
+}
+
+// ========================================================
+// 编辑器专用 RAG 知识库系统
+// ========================================================
+
+let db = null;
+let embeddingService = null;
+let isKnowledgeBaseInitialized = false;
+
+// 确保知识库已初始化
+async function ensureKnowledgeBaseInitialized() {
+    if (!isKnowledgeBaseInitialized) {
+        logger.warn('KNOWLEDGE', 'Knowledge base not initialized, attempting to initialize...');
+        const result = await initKnowledgeBase();
+        if (!result.success) {
+            logger.error('KNOWLEDGE', 'Knowledge base initialization check failed', {
+                isKnowledgeBaseInitialized,
+                reason: 'Initialization failed'
+            });
+            throw new Error(`Knowledge base not initialized (initialization failed: ${result.error})`);
+        }
+        logger.info('KNOWLEDGE', 'Knowledge base initialized successfully via ensureKnowledgeBaseInitialized');
+    }
+    if (!db) {
+        logger.error('KNOWLEDGE', 'Knowledge base initialization check failed', {
+            db: !!db,
+            reason: 'Database instance is null'
+        });
+        throw new Error('Knowledge base not initialized (db=null)');
+    }
+}
+
+async function initKnowledgeBase() {
+    try {
+        logger.info('KNOWLEDGE', 'Starting RAG knowledge base initialization...');
+
+        // 加载模块（如果尚未加载）
+        if (!VectorDatabase || !EmbeddingService) {
+            logger.info('KNOWLEDGE', 'Loading knowledge modules...');
+            if (!loadKnowledgeModules()) {
+                throw new Error('Failed to load knowledge modules');
+            }
+            logger.info('KNOWLEDGE', 'Knowledge modules loaded successfully');
+        }
+
+        // 初始化数据库
+        logger.info('KNOWLEDGE', 'Calling VectorDatabase.initializeDatabase()...');
+        try {
+            VectorDatabase.initializeDatabase();
+            logger.info('KNOWLEDGE', 'Database initialized');
+        } catch (dbError) {
+            logger.error('KNOWLEDGE', 'Database initialization failed', { error: dbError.message, stack: dbError.stack });
+            throw dbError;
+        }
+
+        logger.info('KNOWLEDGE', 'Getting database instance...');
+        try {
+            db = VectorDatabase.getDatabase();
+            logger.info('KNOWLEDGE', 'Database instance obtained:', { hasDb: !!db });
+        } catch (getDbError) {
+            logger.error('KNOWLEDGE', 'Failed to get database instance', { error: getDbError.message });
+            throw getDbError;
+        }
+
+        // 初始化嵌入服务（使用本地TF-IDF，256维）
+        logger.info('KNOWLEDGE', 'Initializing embedding service...');
+        try {
+            embeddingService = new EmbeddingService();
+            embeddingService.setMode('tfidf');
+            logger.info('KNOWLEDGE', 'Embedding service created, mode: tfidf');
+        } catch (embedError) {
+            logger.error('KNOWLEDGE', 'Failed to create embedding service', { error: embedError.message });
+            throw embedError;
+        }
+
+        const allKnowledge = VectorDatabase.getAllKnowledge();
+        logger.info('KNOWLEDGE', 'Loading existing knowledge...', { count: allKnowledge.length });
+
+        // 提取知识内容的文本，用于训练 TF-IDF
+        const knowledgeTexts = allKnowledge.map(k => k.content || '');
+        logger.info('KNOWLEDGE', 'Extracted texts for TF-IDF:', { count: knowledgeTexts.length, sampleLength: knowledgeTexts[0]?.length || 0 });
+
+        logger.info('KNOWLEDGE', 'Initializing TF-IDF model...');
+        try {
+            // 注意：initializeTFIDF 是同步方法，不需要 await
+            embeddingService.initializeTFIDF(knowledgeTexts);
+            logger.info('KNOWLEDGE', 'TF-IDF model initialized successfully');
+        } catch (tfidfError) {
+            logger.error('KNOWLEDGE', 'Failed to initialize TF-IDF model', { error: tfidfError.message, stack: tfidfError.stack });
+            throw new Error(`TF-IDF initialization failed: ${tfidfError.message}`);
+        }
+
+        // 为所有没有向量的知识生成向量
+        logger.info('KNOWLEDGE', 'Generating vectors for knowledge without embeddings...');
+        let vectorCount = 0;
+        let errorCount = 0;
+        for (const knowledge of allKnowledge) {
+            try {
+                const db = VectorDatabase.getDatabase();
+                const existingVector = db.prepare('SELECT knowledgeId FROM vectors WHERE knowledgeId = ?').get(knowledge.id);
+                if (!existingVector) {
+                    const textToEmbed = `${knowledge.title || ''} ${knowledge.content || ''}`;
+                    const embedding = await embeddingService.embed(textToEmbed);
+                    VectorDatabase.updateKnowledgeVector(knowledge.id, embedding);
+                    vectorCount++;
+                }
+            } catch (error) {
+                logger.warn('KNOWLEDGE', 'Failed to generate vector for knowledge', { id: knowledge.id, error: error.message });
+                errorCount++;
+            }
+        }
+        logger.info('KNOWLEDGE', 'Vector generation completed', { success: vectorCount, errors: errorCount });
+
+        isKnowledgeBaseInitialized = true;
+        logger.info('KNOWLEDGE', 'Set isKnowledgeBaseInitialized = true');
+
+        logger.info('KNOWLEDGE', 'RAG knowledge base initialized successfully', {
+            stats: VectorDatabase.getStats(),
+            embeddingMode: 'tfidf',
+            vectorDim: 256
+        });
+
+        return { success: true };
+    } catch (error) {
+        logger.error('KNOWLEDGE', 'Failed to initialize knowledge base', { error: error.message, stack: error.stack });
+        isKnowledgeBaseInitialized = false;
+        return { success: false, error: error.message };
+    }
+}
+
+function closeKnowledgeBase() {
+    VectorDatabase.closeDatabase();
+    db = null;
+    embeddingService = null;
+    logger.info('KNOWLEDGE', 'Knowledge base closed');
+}
+
 // 切换 Windows 控制台代码页为 UTF-8
 if (process.platform === 'win32') {
     require('child_process').spawnSync('chcp', ['65001'], { shell: true, stdio: 'ignore' });
@@ -125,7 +277,14 @@ async function ensureServer() {
 
 app.whenReady().then(async () => {
     logger.info('APP', 'Editor app ready');
-    
+
+    // 初始化编辑器专用 RAG 知识库
+    const initResult = await initKnowledgeBase();
+    if (!initResult.success) {
+        logger.error('APP', 'Failed to initialize knowledge base', { error: initResult.error });
+        // 即使初始化失败也继续运行，但会提示用户
+    }
+
     // 清除应用缓存，避免加载到以前下载失败/损坏的资源（如被缓存的 404 字体）
     const { session } = require('electron');
     await session.defaultSession.clearCache();
@@ -166,6 +325,7 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
     try { globalShortcut && globalShortcut.unregisterAll(); } catch (_) {}
     try { serverProcess && serverProcess.kill(); } catch (_) {}
+    try { closeKnowledgeBase(); } catch (_) {}
 });
 
 process.on('uncaughtException', (err) => {
@@ -554,5 +714,255 @@ ipcMain.handle('save-knowledge-base', (event, items) => {
     } catch (e) {
         console.error('Save knowledge base error:', e);
         return { success: false, error: e.message };
+    }
+});
+
+// ========================================================
+// RAG 知识库 IPC 接口（编辑器专用）
+// ========================================================
+
+// 获取知识库统计信息
+ipcMain.handle('knowledge-stats', async () => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+        const stats = VectorDatabase.getStats();
+        return { success: true, stats };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// RAG 搜索
+ipcMain.handle('knowledge-search', async (event, { query, topK = 5, useHybrid = true }) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+
+        let results;
+        if (useHybrid && embeddingService) {
+            // 使用混合搜索（需要生成查询向量）
+            const queryVector = await embeddingService.embed(query);
+            results = VectorDatabase.hybridSearch(queryVector, query, topK);
+        } else {
+            // 只使用全文搜索
+            results = VectorDatabase.fullTextSearch(query, topK);
+        }
+
+        return { success: true, results, query, useHybrid };
+    } catch (error) {
+        logger.error('KNOWLEDGE', 'Search failed', { error: error.message });
+        return { success: false, error: error.message };
+    }
+});
+
+// 获取所有文档
+ipcMain.handle('knowledge-documents', async (event, { category = null, limit = 100 }) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+        const allDocuments = VectorDatabase.getAllKnowledge();
+        const documents = category
+            ? allDocuments.filter(d => d.category === category).slice(0, limit)
+            : allDocuments.slice(0, limit);
+        return { success: true, documents, total: documents.length };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// 获取单个文档
+ipcMain.handle('knowledge-document', async (event, { id }) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+        const documents = VectorDatabase.getAllKnowledge();
+        const doc = documents.find(d => d.id === id);
+        if (!doc) return { success: false, error: 'Document not found' };
+        return { success: true, document: doc };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// 添加文档
+ipcMain.handle('knowledge-add', async (event, { title, content, category = 'custom', tags = [], metadata = {} }) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+
+        // 生成查询向量
+        const textToEmbed = `${title} ${content}`;
+        const embedding = await embeddingService.embed(textToEmbed);
+
+        const id = VectorDatabase.generateId();
+        VectorDatabase.insertKnowledge({
+            id,
+            title,
+            content,
+            category,
+            tags,
+            isBuiltin: false,
+            createdAt: new Date().toISOString(),
+            ...metadata
+        }, embedding);
+
+        // 重新训练嵌入模型
+        const allKnowledge = VectorDatabase.getAllKnowledge();
+        const knowledgeTexts = allKnowledge.map(k => k.content || '');
+        embeddingService.initializeTFIDF(knowledgeTexts);
+
+        return { success: true, id };
+    } catch (error) {
+        logger.error('KNOWLEDGE', 'Add document failed', { error: error.message });
+        return { success: false, error: error.message };
+    }
+});
+
+// 更新文档
+ipcMain.handle('knowledge-update', async (event, { id, title, content, category, tags, metadata }) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+
+        const updated = VectorDatabase.updateKnowledge(id, {
+            title, content, category, tags, updatedAt: new Date().toISOString(), ...metadata
+        });
+        if (!updated) return { success: false, error: 'Document not found' };
+
+        // 如果更新了标题或内容，需要更新向量
+        if (title !== undefined || content !== undefined) {
+            const doc = VectorDatabase.getKnowledge(id);
+            if (doc) {
+                const textToEmbed = `${doc.title || ''} ${doc.content || ''}`;
+                const embedding = await embeddingService.embed(textToEmbed);
+                VectorDatabase.updateKnowledgeVector(id, embedding);
+            }
+        }
+
+        // 重新训练嵌入模型
+        const allKnowledge = VectorDatabase.getAllKnowledge();
+        const knowledgeTexts = allKnowledge.map(k => k.content || '');
+        embeddingService.initializeTFIDF(knowledgeTexts);
+
+        logger.info('KNOWLEDGE', 'Document updated', { id });
+        return { success: true };
+    } catch (error) {
+        logger.error('KNOWLEDGE', 'Update document failed', { error: error.message });
+        return { success: false, error: error.message };
+    }
+});
+
+// 删除文档
+ipcMain.handle('knowledge-delete', async (event, { id }) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+        const deleted = VectorDatabase.deleteKnowledge(id);
+        if (!deleted) return { success: false, error: 'Document not found' };
+        logger.info('KNOWLEDGE', 'Document deleted', { id });
+        return { success: true, id };
+    } catch (error) {
+        logger.error('KNOWLEDGE', 'Delete document failed', { error: error.message });
+        return { success: false, error: error.message };
+    }
+});
+
+// 批量添加文档
+ipcMain.handle('knowledge-batch-add', async (event, { documents }) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+
+        logger.info('KNOWLEDGE', 'Batch add request received', { documentCount: documents.length });
+
+        const results = [];
+        for (const doc of documents) {
+            // 生成查询向量
+            const textToEmbed = `${doc.title} ${doc.content}`;
+            const embedding = await embeddingService.embed(textToEmbed);
+
+            const id = VectorDatabase.generateId();
+            VectorDatabase.insertKnowledge({
+                id,
+                title: doc.title,
+                content: doc.content,
+                category: doc.category || 'custom',
+                tags: doc.tags || [],
+                isBuiltin: false,
+                createdAt: new Date().toISOString(),
+                ...doc.metadata
+            }, embedding);
+            results.push({ ...doc, id });
+        }
+
+        // 重新训练嵌入模型
+        const allKnowledge = VectorDatabase.getAllKnowledge();
+        const knowledgeTexts = allKnowledge.map(k => k.content || '');
+        embeddingService.initializeTFIDF(knowledgeTexts);
+
+        logger.info('KNOWLEDGE', 'Batch add documents completed', { success: results.length, total: documents.length });
+        return { success: true, documents: results, total: results.length };
+    } catch (error) {
+        logger.error('KNOWLEDGE', 'Batch add failed', { error: error.message, stack: error.stack });
+        return { success: false, error: error.message };
+    }
+});
+
+// 获取分类列表
+ipcMain.handle('knowledge-categories', async () => {
+    try {
+        ensureKnowledgeBaseInitialized();
+        const documents = VectorDatabase.getAllKnowledge();
+        const categories = [...new Set(documents.map(d => d.category).filter(Boolean))];
+        return { success: true, categories };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// 导出知识库
+ipcMain.handle('knowledge-export', async (event) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+        const documents = VectorDatabase.getAllKnowledge();
+        const exportData = {
+            version: '1.0',
+            exportedAt: new Date().toISOString(),
+            documents: documents
+        };
+        logger.info('KNOWLEDGE', 'Knowledge base exported', { docCount: exportData.documents.length });
+        return { success: true, data: exportData };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+
+// 导入知识库
+ipcMain.handle('knowledge-import', async (event, { data }) => {
+    try {
+        await ensureKnowledgeBaseInitialized();
+        let count = 0;
+        for (const doc of data) {
+            // 生成查询向量
+            const textToEmbed = `${doc.title} ${doc.content}`;
+            const embedding = await embeddingService.embed(textToEmbed);
+
+            const id = VectorDatabase.generateId();
+            VectorDatabase.insertKnowledge({
+                id,
+                title: doc.title,
+                content: doc.content,
+                category: doc.category || 'imported',
+                tags: doc.tags || [],
+                isBuiltin: doc.isBuiltin || false,
+                createdAt: new Date().toISOString()
+            }, embedding);
+            count++;
+        }
+
+        // 重新训练嵌入模型
+        const allKnowledge = VectorDatabase.getAllKnowledge();
+        const knowledgeTexts = allKnowledge.map(k => k.content || '');
+        embeddingService.initializeTFIDF(knowledgeTexts);
+
+        logger.info('KNOWLEDGE', 'Knowledge base imported', { docCount: count });
+        return { success: true, importedCount: count };
+    } catch (error) {
+        logger.error('KNOWLEDGE', 'Import failed', { error: error.message });
+        return { success: false, error: error.message };
     }
 });

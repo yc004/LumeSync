@@ -849,7 +849,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                 <div className="flex items-center space-x-3 md:space-x-4" style={{WebkitAppRegion:'no-drag'}}>
                     {isHost && onEndCourse && (
                         <button onClick={onEndCourse} className="flex items-center px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg border border-red-200 transition-colors text-sm font-bold" title="结束课程">
-                            <i className="fas fa-stop mr-2"></i><span className="hidden md:inline">结束课程</span>
+                            <i className="fas fa-stop"></i>
                         </button>
                     )}
                     {isHost && (

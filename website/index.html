@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LumeSync (萤火课堂) - 轻量化局域网 AI 互动教学平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定义色彩与动画，体现“微光同步”意象 */
+        :root {
+            --tech-blue: #0A192F; /* 深科技蓝 */
+            --amber-glow: #F59E0B; /* 琥珀金 (Tailwind amber-500) */
+        }
+        body {
+            background-color: var(--tech-blue);
+            color: #E2E8F0; /* 浅灰文字 */
+            font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        }
+        /* 微光呼吸动画 */
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 0 25px rgba(245, 158, 11, 0.8); }
+        }
+        .firefly-glow {
+            animation: glow 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <nav class="sticky top-0 z-50 bg-[#0A192F]/90 backdrop-blur-sm border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 text-amber-500 text-2xl font-bold tracking-tight firefly-glow rounded-full p-2 bg-gray-900">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <span class="ml-3 text-white text-xl font-bold">LumeSync <span class="text-xs text-gray-400 font-normal">(萤火课堂)</span></span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4 text-sm">
+                        <a href="#features" class="text-gray-300 hover:text-amber-400 px-3 py-2 rounded-md transition">作品特性</a>
+                        <a href="#install" class="text-gray-300 hover:text-amber-400 px-3 py-2 rounded-md transition">作品安装</a>
+                        <a href="#design" class="text-gray-300 hover:text-amber-400 px-3 py-2 rounded-md transition">设计思路</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <a id="github-repo-link" href="#" target="_blank" class="text-gray-400 hover:text-white transition flex items-center space-x-1.5 bg-gray-900 px-4 py-1.5 rounded-full border border-gray-700 text-sm">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg>
+                        <span>GitHub</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <header class="relative bg-gray-900 border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 py-24 sm:px-6 lg:px-8 flex flex-col items-center text-center">
+            <h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter text-white leading-tight">
+                打破僵化广播，<span class="text-amber-500">点亮</span>互动自由
+            </h1>
+            <p class="mt-6 max-w-2xl text-xl text-gray-400">
+                LumeSync (萤火课堂)——轻量化局域网 AI 互动教学平台。
+                <br>
+                基于数据指令同步架构，实现教师端零门槛 AI 创作与学生端深度沉浸交互。
+            </p>
+            
+            <div id="release-loading" class="mt-12 text-sm text-amber-400 flex items-center space-x-2">
+                <svg class="animate-spin h-4 w-4 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span>正在检查 GitHub 最新版本...</span>
+            </div>
+
+            <div id="release-loaded" class="mt-12 hidden space-y-3">
+                <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                    <a id="download-teacher" href="#" target="_blank" class="firefly-glow px-8 py-3 bg-amber-500 text-gray-900 font-semibold rounded-lg hover:bg-amber-400 transition transform hover:-translate-y-1">
+                        下载教师端 Setup.exe
+                    </a>
+                    <a id="download-student" href="#" target="_blank" class="px-8 py-3 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition">
+                        下载学生端 Setup.exe
+                    </a>
+                </div>
+                <div class="text-xs text-gray-500 pt-2">
+                    最新版本: <span id="latest-version" class="font-mono text-gray-300">v-.-.-</span> | 
+                    发布时间: <span id="publish-date" class="font-mono text-gray-300">----/--/--</span>
+                </div>
+            </div>
+
+            <div id="release-error" class="mt-12 hidden text-sm text-red-400 bg-red-900/30 px-4 py-2 rounded-lg">
+                无法自动从 GitHub 拉取下载链接，请前往仓库手动下载或检查配置。
+            </div>
+        </div>
+    </header>
+
+    <section id="features" class="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-bold text-white tracking-tight text-center mb-16">核心创新点与特性</h2>
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div class="bg-gray-900 p-8 rounded-2xl border border-gray-800 hover:border-amber-900/50 transition">
+                <div class="w-12 h-12 text-amber-500 bg-gray-800 rounded-xl p-3 mb-6 flex items-center justify-center">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 012 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                </div>
+                <h3 class="text-xl font-semibold text-white">AI 零门槛创作</h3>
+                <p class="mt-4 text-gray-400 text-sm leading-relaxed">内置专属 AI Skill。教师通过自然语言描述需求，AI 秒级生成互动课件 (.tsx)，彻底消弭技术鸿沟。</p>
+            </div>
+            <div class="bg-gray-900 p-8 rounded-2xl border border-gray-800 hover:border-amber-900/50 transition">
+                <div class="w-12 h-12 text-amber-500 bg-gray-800 rounded-xl p-3 mb-6 flex items-center justify-center">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </div>
+                <h3 class="text-xl font-semibold text-white">深度交互同步引擎</h3>
+                <p class="mt-4 text-gray-400 text-sm leading-relaxed">基于指令驱动同步模型，服务器仅传输 JSON 状态指令，学生端本地引擎即时还原 scenes，保留组件交互活性。</p>
+            </div>
+            <div class="bg-gray-900 p-8 rounded-2xl border border-gray-800 hover:border-amber-900/50 transition">
+                <div class="w-12 h-12 text-amber-500 bg-gray-800 rounded-xl p-3 mb-6 flex items-center justify-center">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <h3 class="text-xl font-semibold text-white">智能化离线保障</h3>
+                <p class="mt-4 text-gray-400 text-sm leading-relaxed">内置 CDN 缓存代理。系统在教师端首次启动时从公网下载依赖并持久化，确保局域网“主动隔网”后依然稳定运行。</p>
+            </div>
+            <div class="bg-gray-900 p-8 rounded-2xl border border-gray-800 hover:border-amber-900/50 transition">
+                <div class="w-12 h-12 text-amber-500 bg-gray-800 rounded-xl p-3 mb-6 flex items-center justify-center">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </div>
+                <h3 class="text-xl font-semibold text-white">系统级安全防护</h3>
+                <p class="mt-4 text-gray-400 text-sm leading-relaxed">学生端封装为 Windows 服务，支持管理员密码验证卸载。实现课堂秩序管理“放得开、管得住”。</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="design" class="bg-gray-900 py-24 border-t border-gray-800">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl font-bold text-white tracking-tight mb-10">设计思路：微光与同步的协同</h2>
+            <p class="text-lg text-gray-300 leading-relaxed max-w-3xl mx-auto">
+                LumeSync 品牌取自拉丁语“Lume”（光）与“Sync”（同步）。我们的核心设计初衷即是响应人工智能高速发展的时代要求，将 AI 的辅助教学功能真正落地到一线机房场景中。我们摒弃了传统的“像素广播”模式，转而构建了一个高效的“群落同步”框架。
+                <br><br>
+                我们希望在物理物理隔离的机房中，每一台学生终端都是一只具备独立发光能力（本地渲染）的“萤火虫”。通过教师端的微光指引，全场终端实现同频共振，汇聚成照亮智慧课堂的星海。
+            </p>
+        </div>
+    </section>
+
+    <footer class="py-12 bg-gray-950 text-center border-t border-gray-800 text-sm text-gray-600">
+        <p>&copy; 2024 LumeSync 团队. 基于 MIT 协议开源.</p>
+        <p class="mt-1">符合第 17 届中国大学生计算机设计大赛参赛要求.</p>
+        <div class="mt-4 flex justify-center space-x-4">
+            <a href="#" class="github-link hover:text-amber-400">项目源码</a>
+            <a href="#" class="github-link-issues hover:text-amber-400">问题反馈</a>
+        </div>
+    </footer>
+
+    <script>
+        // === 关键配置：请填入您的 GitHub 仓库信息 ===
+        const GITHUB_CONFIG = {
+            username: 'yc004', // 例如: 'LumeSyncOrg'
+            repository: 'SyncClassroom' // 例如: 'LumeSync-Core'
+        };
+        // ===========================================
+
+        const API_URL = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repository}/releases/latest`;
+        const REPO_URL = `https://github.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repository}`;
+
+        // 初始化 GitHub 链接
+        document.getElementById('github-repo-link').href = REPO_URL;
+        document.querySelectorAll('.github-link').forEach(a => a.href = REPO_URL);
+        document.querySelectorAll('.github-link-issues').forEach(a => a.href = `${REPO_URL}/issues`);
+
+        // DOM 元素
+        const elLoading = document.getElementById('release-loading');
+        const elLoaded = document.getElementById('release-loaded');
+        const elError = document.getElementById('release-error');
+        const elTeacherBtn = document.getElementById('download-teacher');
+        const elStudentBtn = document.getElementById('download-student');
+        const elVersion = document.getElementById('latest-version');
+        const elPublishDate = document.getElementById('publish-date');
+
+        // 命名规则校对函数 (根据文档：*-教师端-* and *-学生端-*)
+        function isTeacherAsset(name) { return name.includes('教师端') && name.endsWith('.exe'); }
+        function isStudentAsset(name) { return name.includes('学生端') && name.endsWith('.exe'); }
+
+        async function fetchLatestRelease() {
+            // 如果未修改配置，显示错误
+            if (GITHUB_CONFIG.username === 'YOUR_GITHUB_USER') {
+                elLoading.classList.add('hidden');
+                elError.innerText = '请修改 index.html 中的 GITHUB_CONFIG 配置后再试。';
+                elError.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('网络响应异常');
+                
+                const releaseData = await response.json();
+                
+                // 绑定资源数据
+                elVersion.innerText = releaseData.tag_name;
+                elPublishDate.innerText = new Date(releaseData.published_at).toISOString().split('T')[0];
+
+                let teacherAssetUrl = '#';
+                let studentAssetUrl = '#';
+
+                // 遍历 Assets 寻找匹配文件
+                releaseData.assets.forEach(asset => {
+                    if (isTeacherAsset(asset.name)) {
+                        teacherAssetUrl = asset.browser_download_url;
+                    } else if (isStudentAsset(asset.name)) {
+                        studentAssetUrl = asset.browser_download_url;
+                    }
+                });
+
+                // 更新按钮链接
+                elTeacherBtn.href = teacherAssetUrl;
+                elStudentBtn.href = studentAssetUrl;
+
+                // 处理未找到文件的情况
+                if(teacherAssetUrl === '#') elTeacherBtn.innerText = '教师端未发布';
+                if(studentAssetUrl === '#') elStudentBtn.innerText = '学生端未发布';
+
+                // 界面切换
+                elLoading.classList.add('hidden');
+                elLoaded.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('无法自动获取 Release:', error);
+                elLoading.classList.add('hidden');
+                elError.classList.remove('hidden');
+                // 确保至少把链接指向 GitHub Releases 页面作为兜底
+                elError.innerHTML = `无法自动拉取下载链接。请前往 <a href="${REPO_URL}/releases" target="_blank" class="underline text-amber-400">GitHub Releases</a> 手动下载。`;
+            }
+        }
+
+        // 页面加载完成后执行
+        window.addEventListener('load', fetchLatestRelease);
+    </script>
+
+</body>
+</html>

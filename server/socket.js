@@ -9,7 +9,7 @@ let studentIPs = new Map(); // IP -> socket数量，同一IP只计一个学生
 
 // 教师端当前设置（服务端缓存，用于新连接学生同步）
 let currentHostSettings = {
-    forceFullscreen: true,
+    forceFullscreen: false,
     syncFollow: true,
     syncInteraction: false,  // 默认关闭教师交互同步
     allowInteract: true,
@@ -66,17 +66,25 @@ function setupSocketHandlers(io, {
         // 加入房间
         if (role === 'host') {
             socket.join('hosts');
+            // 教师端连接时发送初始学生数量
+            socket.emit('student-status', { count: studentIPs.size, action: 'init' });
         } else {
             socket.join('viewers');
-            // 学生连接时发送日志给所有教师
-            pushLog('join', clientIp);
+            // 统计在线学生
+            const prev = studentIPs.get(clientIp) || 0;
+            studentIPs.set(clientIp, prev + 1);
+            // 只有该 IP 的第一个连接才触发 join 通知
+            if (prev === 0) {
+                pushLog('join', clientIp);
+                io.to('hosts').emit('student-status', { count: studentIPs.size, action: 'join', ip: clientIp });
+            }
         }
 
-        // 统计在线学生
-        if (role === 'viewer') {
-            studentIPs.set(clientIp, (studentIPs.get(clientIp) || 0) + 1);
-            io.to('hosts').emit('student-count', studentIPs.size);
-        }
+        // 获取学生数量（教师端主动查询）
+        socket.on('get-student-count', () => {
+            if (role !== 'host') return;
+            socket.emit('student-status', { count: studentIPs.size, action: 'init' });
+        });
 
         // ========================================================
         // 教师端事件处理
@@ -89,24 +97,40 @@ function setupSocketHandlers(io, {
             console.log(`[select-course] courseId=${courseId}`);
             setCurrentCourseId(courseId);
             setCurrentSlideIndex(0);
-            io.emit('course-changed', { courseId, slideIndex: 0 });
+            io.emit('course-changed', { courseId, slideIndex: 0, hostSettings: currentHostSettings });
         });
 
         // 切换幻灯片
-        socket.on('slide-change', (data) => {
+        socket.on('sync-slide', (data) => {
             if (role !== 'host') return;
             const { slideIndex } = data;
-            console.log(`[slide-change] slideIndex=${slideIndex}`);
+            console.log(`[sync-slide] slideIndex=${slideIndex}`);
             setCurrentSlideIndex(slideIndex);
-            io.emit('slide-changed', { slideIndex });
+            // 发送给所有学生端（学生端监听 sync-slide）
+            io.to('viewers').emit('sync-slide', { slideIndex });
         });
 
-        // 同步设置
+        // 同步设置（前端发送的事件名是 host-settings）
         socket.on('update-settings', (data) => {
             if (role !== 'host') return;
             currentHostSettings = { ...currentHostSettings, ...data };
             // 通知所有学生更新设置
-            io.to('viewers').emit('settings-updated', currentHostSettings);
+            io.to('viewers').emit('host-settings', currentHostSettings);
+        });
+
+        socket.on('host-settings', (data) => {
+            if (role !== 'host') return;
+            const prevSyncFollow = currentHostSettings.syncFollow;
+            currentHostSettings = { ...currentHostSettings, ...data };
+            // 通知所有学生更新设置，同时广播给其他教师端
+            io.emit('host-settings', currentHostSettings);
+            // 如果开启了学生跟随翻页，立即同步当前页面
+            if (!prevSyncFollow && currentHostSettings.syncFollow) {
+                const currentSlide = getCurrentSlideIndex();
+                if (currentSlide !== undefined && currentSlide !== null) {
+                    io.to('viewers').emit('sync-slide', { slideIndex: currentSlide });
+                }
+            }
         });
 
         // 刷新课程列表
@@ -118,17 +142,96 @@ function setupSocketHandlers(io, {
             io.to('hosts').emit('course-catalog-updated', { courses: catalog });
         });
 
-        // 同步交互
-        socket.on('sync-interaction', (data) => {
+        // 结束课程（返回课程选择界面）
+        socket.on('end-course', () => {
+            if (role !== 'host') return;
+            const courseId = getCurrentCourseId();
+            setCurrentCourseId(null);
+            setCurrentSlideIndex(0);
+            annotationStore.clear();
+            console.log(`[end-course] courseId=${courseId}`);
+            io.emit('course-ended');
+        });
+
+        // 注册课件依赖映射
+        socket.on('register-dependencies', (deps) => {
+            if (!Array.isArray(deps)) return;
+            deps.forEach(({ filename, publicSrc }) => {
+                if (filename && publicSrc) {
+                    console.log(`[register-dependencies] ${filename} -> ${publicSrc}`);
+                }
+            });
+        });
+
+        // 学生端上报异常行为
+        socket.on('student-alert', (data) => {
+            if (role !== 'viewer') return;
+            const { type } = data;
+            pushLog(type, clientIp, {});
+            io.to('hosts').emit('student-alert', { ip: clientIp, type });
+        });
+
+        // 教师端推送管理员密码
+        socket.on('set-admin-password', (data) => {
+            if (role !== 'host' || !data?.hash) return;
+            console.log('[set-admin-password] password update pushed to students');
+            io.to('viewers').emit('set-admin-password', { hash: data.hash });
+        });
+
+        // 学生端请求同步状态
+        socket.on('request-sync-state', (data) => {
+            if (role !== 'viewer') return;
+            const { courseId, slideIndex } = data;
+            console.log(`[request-sync-state] courseId=${courseId} slideIndex=${slideIndex} ip=${clientIp}`);
+            io.to('hosts').emit('request-sync-state', { courseId, slideIndex, requesterId: socket.id });
+        });
+
+        // 教师端发送完整同步数据
+        socket.on('full-sync-state', (data) => {
+            if (role !== 'host') return;
+            const { targetId, courseId, slideIndex, state } = data;
+            if (targetId) {
+                io.to(targetId).emit('full-sync-state', { courseId, slideIndex, state });
+            } else {
+                io.to('viewers').emit('full-sync-state', { courseId, slideIndex, state });
+            }
+        });
+
+        // 学生提交作业
+        socket.on('student:submit', (data) => {
+            if (role !== 'viewer') return;
+            const { courseId, submission } = data;
+            console.log(`[student:submit] IP=${clientIp} courseId=${courseId}`);
+            // 这里可以添加保存到文件系统的逻辑
+            socket.emit('student:submit:ack', { success: true });
+        });
+
+        // 同步交互（CourseGlobalContext.syncInteraction）
+        socket.on('interaction:sync', (data) => {
             if (role !== 'host' || !currentHostSettings.syncInteraction) return;
-            io.to('viewers').emit('sync-interaction', data);
+            // 补充 courseId 和 slideIndex 信息
+            const courseId = getCurrentCourseId();
+            const slideIndex = getCurrentSlideIndex();
+            io.to('viewers').emit('interaction:sync', {
+                ...data,
+                courseId,
+                slideIndex
+            });
+        });
+
+        // 同步变量（useSyncVar）
+        socket.on('sync-var', (data) => {
+            console.log(`[sync-var] data=${JSON.stringify(data)} syncInteraction=${currentHostSettings.syncInteraction} role=${role}`);
+            if (role !== 'host' || !currentHostSettings.syncInteraction) return;
+            // 转发给所有学生端
+            io.to('viewers').emit('sync-var', data);
         });
 
         // ========================================================
         // 标注同步
         // ========================================================
 
-        // 添加标注段
+        // 添加标注段（旧版本，兼容）
         socket.on('annotation-add', (data) => {
             const { courseId, slideIndex, segment } = data;
             const key = getAnnoKey(courseId, slideIndex);
@@ -145,15 +248,50 @@ function setupSocketHandlers(io, {
             io.emit('annotation-add', { courseId, slideIndex, segment });
         });
 
+        // 绘制线段（实时）
+        socket.on('annotation:segment', (data) => {
+            if (role !== 'host') return;
+            // 转发给所有学生端
+            io.to('viewers').emit('annotation:segment', data);
+        });
+
+        // 完成一笔
+        socket.on('annotation:stroke', (data) => {
+            if (role !== 'host') return;
+            // 存储到服务器
+            const { courseId, slideIndex, tool, color, width, alpha, points } = data;
+            const key = getAnnoKey(courseId, slideIndex);
+            const segments = annotationStore.get(key) || [];
+
+            // 限制每张幻灯片最多 N 段
+            if (segments.length >= config.annotationMaxSegmentsPerSlide) {
+                segments.shift();
+            }
+            segments.push({ tool, color, width, alpha, points });
+            annotationStore.set(key, segments);
+
+            // 广播给所有学生端
+            io.to('viewers').emit('annotation:stroke', data);
+        });
+
         // 清除标注
-        socket.on('annotation-clear', (data) => {
+        socket.on('annotation:clear', (data) => {
+            if (role !== 'host') return;
             const { courseId, slideIndex } = data;
             const key = getAnnoKey(courseId, slideIndex);
             annotationStore.delete(key);
-            io.emit('annotation-clear', { courseId, slideIndex });
+            io.to('viewers').emit('annotation:clear', { courseId, slideIndex });
         });
 
-        // 加载标注
+        // 获取标注（学生端请求）
+        socket.on('annotation:get', (data) => {
+            const { courseId, slideIndex } = data;
+            const key = getAnnoKey(courseId, slideIndex);
+            const segments = annotationStore.get(key) || [];
+            socket.emit('annotation:state', { courseId, slideIndex, segments });
+        });
+
+        // 加载标注（旧版本，兼容）
         socket.on('annotation-load', (data) => {
             const { courseId, slideIndex } = data;
             const key = getAnnoKey(courseId, slideIndex);
@@ -184,10 +322,10 @@ function setupSocketHandlers(io, {
                 if (count <= 1) {
                     studentIPs.delete(clientIp);
                     pushLog('leave', clientIp);
+                    io.to('hosts').emit('student-status', { count: studentIPs.size, action: 'leave', ip: clientIp });
                 } else {
                     studentIPs.set(clientIp, count - 1);
                 }
-                io.to('hosts').emit('student-count', studentIPs.size);
             }
         });
     });

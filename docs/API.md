@@ -98,125 +98,40 @@ window.CourseGlobalContext = {
 引擎会在全局注册一组可复用组件，供课件直接使用（无需 import）。当前可用组件：
 
 - `WebPageSlide`：将一个 URL 作为"纯网页页"嵌入到课件中，并提供"刷新 / 在新窗口打开"的兜底。
-- `VoteSlide`：通用投票组件，支持发起投票、实时计票、结果展示。
+- `SurveySlide`：问卷组件，支持多种题型和数据收集。
 
-### window.VoteSlide（投票组件）
+### window.WebPageSlide（网页嵌入组件）
 
-**通用投票组件**，支持发起投票、实时计票、时长控制、结果展示。
+**网页嵌入组件**，用于在课件中嵌入外部网页，并提供刷新和新窗口打开功能。
 
-#### 功能特性
+#### Props
 
-- ✅ 教师端发起投票，设置投票时长
-- ✅ 学生端接收投票，提交选项
-- ✅ 实时统计投票结果
-- ✅ 支持匿名/实名投票
-- ✅ 可视化进度条展示
-- ✅ 倒计时显示
-
-#### 配置格式
-
-```tsx
-const voteConfig = {
-    id: 'vote-001',
-    question: '你最喜欢的编程语言是什么？',
-    anonymous: false,  // 是否匿名投票
-    theme: {
-        primary: 'blue',
-        background: 'slate'
-    },
-    options: [
-        { id: 'opt1', label: 'JavaScript' },
-        { id: 'opt2', label: 'Python' },
-        { id: 'opt3', label: 'Java' },
-        { id: 'opt4', label: 'C++' }
-    ]
-};
-```
-
-#### 教师端功能
-
-- **发起投票**：设置投票时长（默认60秒），发送给所有学生端
-- **实时查看**：实时显示每个选项的投票数和百分比
-- **结束投票**：随时结束投票并公布最终结果
-- **重新投票**：重新发起相同题目的投票
-
-#### 学生端功能
-
-- **接收投票**：收到教师端发起的投票后弹出投票窗口
-- **提交选项**：选择后立即提交（无法修改）
-- **查看结果**：投票结束后自动显示结果统计
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `url` | `string` | 必填 | 要嵌入的网页 URL |
+| `title` | `string` | `'网页'` | 页面标题 |
+| `openLabel` | `string` | `'打开网页'` | 新窗口打开按钮的文本 |
+| `allow` | `string` | `'clipboard-read; clipboard-write'` | iframe 的 allow 权限 |
+| `referrerPolicy` | `string` | `'no-referrer'` | iframe 的 referrerPolicy |
 
 #### 基本用法
 
 ```tsx
-function VotePage() {
-    const voteConfig = {
-        id: 'course-001:vote',
-        question: '你对今天课程的满意度如何？',
-        anonymous: true,
-        theme: {
-            primary: 'green'
-        },
-        options: [
-            { id: 'very-good', label: '非常满意' },
-            { id: 'good', label: '满意' },
-            { id: 'normal', label: '一般' },
-            { id: 'bad', label: '不满意' }
-        ]
-    };
-
-    return <VoteSlide config={voteConfig} />;
+function ExternalPageSlide() {
+    return (
+        <WebPageSlide
+            url="https://example.com/survey"
+            title="课后问卷"
+            openLabel="打开问卷"
+        />
+    );
 }
 ```
 
-#### 完整示例
+#### 注意事项
 
-```tsx
-window.CourseData = {
-    title: '课堂投票示例',
-    icon: '📊',
-    desc: '演示投票组件的使用',
-    color: 'from-blue-500 to-indigo-600',
-    slides: [
-        {
-            id: 'intro',
-            component: <div className="p-8">
-                <h1 className="text-3xl font-bold mb-4">欢迎来到课堂</h1>
-                <p className="text-xl">今天我们将学习...</p>
-                <p className="mt-4 text-gray-600">点击下一页开始投票</p>
-            </div>
-        },
-        {
-            id: 'vote',
-            component: (
-                <VoteSlide config={{
-                    id: 'daily-poll',
-                    question: '你更喜欢哪种学习方式？',
-                    anonymous: false,
-                    theme: { primary: 'purple' },
-                    options: [
-                        { id: 'video', label: '视频教学' },
-                        { id: 'text', label: '文字资料' },
-                        { id: 'practice', label: '实战练习' },
-                        { id: 'discuss', label: '小组讨论' }
-                    ]
-                }} />
-            )
-        }
-    ]
-};
-```
-
-#### Socket 事件
-
-| 事件名 | 方向 | 说明 | 数据格式 |
-|--------|------|------|----------|
-| `vote:start` | 教师→服务端 | 发起投票 | `{voteId, startTime, duration, question, options, anonymous}` |
-| `vote:start` | 服务端→学生 | 接收投票 | `{startTime, duration, question, options, anonymous}` |
-| `vote:submit` | 学生→服务端 | 提交投票 | `{voteId, socketId, optionId, timestamp}` |
-| `vote:result` | 服务端→教师 | 投票结果 | `{voteId, results: [{optionId, count}]}` |
-| `vote:end` | 教师→服务端 | 结束投票 | `{voteId, results}` |
-| `vote:end` | 服务端→全部 | 投票结束 | `{voteId, results}` |
+- 不是所有网站都允许被 iframe 内嵌（可能有 `X-Frame-Options` / `CSP frame-ancestors` 限制）
+- 遇到内嵌限制时，可点击"打开"按钮在新窗口打开
 
 ### window.SurveySlide（问卷组件）
 
@@ -231,33 +146,35 @@ window.CourseData = {
 - ✅ 实时进度显示
 - ✅ 自定义主题色
 
-#### 基本用法
+#### 配置格式
 
 ```tsx
-// 1. 加载问卷组件（在课件开头）
-// 组件位置：public/components/SurveySlide.js
+interface SurveyConfig {
+    // 必填字段
+    id: string;           // 问卷唯一标识
+    title: string;        // 问卷标题
+    questions: Question[]; // 问题数组
 
-// 2. 配置问卷
-const surveyConfig = {
-    id: 'course-001:survey',
-    title: '课程反馈问卷',
-    description: '请真实填写，帮助我们改进课程质量',
-    required: true,
-    showProgress: true,
-    theme: {
-        primary: 'blue',
-        background: 'slate'
-    },
-    questions: [
-        {
-            id: 'q1',
-            type: 'single',
-            title: '你对课程的满意度如何？',
-            options: [
-                { value: 'very-satisfied', label: '非常满意' },
-                { value: 'satisfied', label: '满意' },
-                { value: 'neutral', label: '一般' },
-                { value: 'dissatisfied', label: '不满意' }
+    // 可选字段
+    description?: string;  // 问卷描述
+    required?: boolean;    // 是否必须完成
+    showProgress?: boolean; // 是否显示进度
+    theme?: {
+        primary?: string;   // 主色调
+        background?: string; // 背景色
+    };
+}
+
+interface Question {
+    id: string;          // 问题唯一标识
+    type: 'single' | 'multiple' | 'text' | 'rating' | 'ranking'; // 题型
+    title: string;        // 问题标题
+    options?: Option[];   // 选项（单选、多选、评分、排序需要）
+    min?: number;         // 最小值（评分）
+    max?: number;         // 最大值（评分）
+    required?: boolean;   // 是否必答
+}
+```
             ],
             required: true
         }
@@ -471,6 +388,126 @@ const openHelper = () => {
 ```tsx
 window.closeWindow();
 ```
+
+---
+
+## 内置组件（系统级）
+
+以下组件主要用于系统界面，而非课件内容。
+
+### WindowControls（窗口控制组件）
+
+**窗口控制按钮组件**，提供最小化、最大化/还原、关闭功能。主要用于 Electron 应用的标题栏。
+
+#### Props
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `forceFullscreen` | `boolean` | `false` | 是否强制全屏模式（隐藏窗口控制按钮） |
+
+#### 功能特性
+
+- ✅ 最小化窗口
+- ✅ 最大化/还原窗口
+- ✅ 关闭窗口
+- ✅ 自动监听窗口状态变化
+
+#### 使用场景
+
+- 教师端课程选择器标题栏
+- 编辑器窗口标题栏
+- 等待页面标题栏
+
+#### 基本用法
+
+```tsx
+function AppHeader() {
+    return (
+        <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold">萤火课堂</h1>
+            <WindowControls />
+        </div>
+    );
+}
+
+// 强制全屏模式（隐藏按钮）
+function FullscreenView() {
+    return <WindowControls forceFullscreen={true} />; // 返回 null
+}
+```
+
+#### 注意事项
+
+- 此组件仅在 Electron 环境中有效
+- 需要 `window.electronAPI` 支持
+- 强制全屏时组件返回 `null`
+
+### LogViewer（日志查看器组件）
+
+**系统日志查看器**，用于显示和过滤应用运行日志。
+
+#### Props
+
+| 属性 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `visible` | `boolean` | 必填 | 是否显示日志查看器 |
+| `onClose` | `() => void` | 必填 | 关闭回调函数 |
+| `onOpenLogDir` | `() => void` | 必填 | 打开日志目录回调函数 |
+
+#### 功能特性
+
+- ✅ 日志级别过滤（全部/错误/警告/信息/调试）
+- ✅ 关键词搜索
+- ✅ 自动滚动到最新日志
+- ✅ 手动刷新日志
+- ✅ 打开日志文件所在目录
+- ✅ 彩色日志显示（不同级别不同颜色）
+- ✅ 模态窗口显示
+
+#### 日志数据格式
+
+```tsx
+interface LogEntry {
+    timestamp: string;    // ISO 时间戳
+    level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+    category: string;     // 日志分类（APP、SERVER、COURSE 等）
+    message: string;      // 日志内容
+}
+```
+
+#### 基本用法
+
+```tsx
+function App() {
+    const [showLogs, setShowLogs] = useState(false);
+
+    const handleOpenLogDir = () => {
+        if (window.electronAPI?.openLogDirectory) {
+            window.electronAPI.openLogDirectory();
+        }
+    };
+
+    return (
+        <div>
+            <button onClick={() => setShowLogs(true)}>
+                查看日志
+            </button>
+
+            <LogViewer
+                visible={showLogs}
+                onClose={() => setShowLogs(false)}
+                onOpenLogDir={handleOpenLogDir}
+            />
+        </div>
+    );
+}
+```
+
+#### 注意事项
+
+- 当前版本使用模拟数据，实际日志需要通过 IPC 从主进程读取
+- 建议每 2 秒自动刷新一次日志
+- 日志查看器默认占据屏幕 80% 高度
 
 ---
 
@@ -1554,155 +1591,45 @@ useEffect(() => {
 3. **页面限制**：同步事件仅在当前幻灯片页面内生效
 4. **性能考虑**：避免同步大量数据或高频触发的事件
 
----
 
-## RAG 知识库
+## AI 编辑器配置
 
-萤火课件编辑器内置了 RAG（Retrieval-Augmented Generation）知识库系统，为 AI 生成课件提供专业的教学知识和编程指导。
+萤火课件编辑器的 AI 聊天功能使用 Coze API v3。
 
-### 知识库全局对象
+### 配置参数
 
-#### window.builtinKnowledgeBase
+在编辑器设置中需要配置以下参数：
 
-内置知识库数组，包含所有预置的知识条目。
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| Base URL | Coze API 服务器地址 | `https://api.coze.cn` |
+| API Key | Coze 个人访问令牌 (PAT) | `pat_xxxxx` |
+| Model | 模型名称 | `coze-chat-v3.5` |
 
-```tsx
-console.log('知识库总数:', window.builtinKnowledgeBase.length);
-```
+### API 端点
 
-#### window.retrieveKnowledge(query, topK, category)
+- **聊天端点：** `/v3/chat/completions`
+- **流式响应：** 支持 SSE (Server-Sent Events)
+- **请求格式：** 符合 OpenAI 兼容格式
 
-RAG 智能检索函数，根据查询返回最相关的知识块。
+### 请求示例
 
-**参数：**
-- `query` (string): 用户查询关键词
-- `topK` (number): 返回前 K 个结果，默认 3
-- `category` (string): 可选，按分类过滤
-
-**返回：** 知识条目数组
-
-**示例：**
-```tsx
-// 检索关于"选择题"的知识
-const quizKnowledge = window.retrieveKnowledge('选择题', 3);
-console.log('相关知识:', quizKnowledge);
-
-// 按分类检索
-const apiDocs = window.retrieveKnowledge('同步变量', 5, '系统API');
-```
-
-#### window.getKnowledgeByCategory(category)
-
-获取指定分类下的所有知识。
-
-**参数：**
-- `category` (string): 分类名称
-
-**返回：** 该分类下的所有知识数组
-
-**示例：**
-```tsx
-const teachingStrategies = window.getKnowledgeByCategory('教学策略');
-console.log('教学策略数量:', teachingStrategies.length);
-```
-
-#### window.getAllCategories()
-
-获取所有可用分类。
-
-**返回：** 分类名称数组
-
-**示例：**
-```tsx
-const categories = window.getAllCategories();
-console.log('所有分类:', categories);
-// 输出: ["系统API", "互动组件", "教学策略", "动画效果", ...]
-```
-
-#### window.reloadKnowledgeBase(options)
-
-重新加载知识库。
-
-**参数：**
-- `options` (object): 配置选项
-  - `force` (boolean): 是否强制重新加载，默认 false
-
-**示例：**
-```tsx
-// 重新加载知识库
-window.reloadKnowledgeBase({ force: true });
-```
-
-### 知识库分类
-
-编辑器内置以下知识分类：
-
-| 分类 | 说明 | 适用场景 |
-|------|------|----------|
-| 系统API | 萤火课件系统的API和接口 | 使用 useSyncVar、摄像头、提交功能等 |
-| 互动组件 | 选择题、填空题、拖拽等交互组件 | 创建互动课件 |
-| 教学策略 | 不同年龄段教学策略、设计原则 | 根据学生特点设计课件 |
-| 动画效果 | CSS 动画和过渡效果 | 添加动画效果 |
-| 样式系统 | Tailwind CSS 使用指南 | 页面样式设计 |
-| 状态管理 | React Hooks 状态管理 | 组件状态管理 |
-| 多媒体 | 图片、视频等媒体处理 | 添加媒体内容 |
-| 最佳实践 | 性能优化和代码规范 | 提高课件质量 |
-
-### 在课件中使用知识库
-
-虽然知识库主要供 AI 编辑器使用，但开发者也可以在课件中访问：
-
-```tsx
-function KnowledgeSlide() {
-    const [searchQuery, setSearchQuery] = useState('');
-
-    const handleSearch = () => {
-        // 检索相关知识
-        const results = window.retrieveKnowledge(searchQuery, 5);
-        console.log('检索结果:', results);
-    };
-
-    return (
-        <div className="p-8">
-            <h2>知识库检索</h2>
-            <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="输入关键词..."
-                className="px-4 py-2 border rounded"
-            />
-            <button onClick={handleSearch} className="ml-2 px-4 py-2 bg-blue-500 text-white rounded">
-                搜索
-            </button>
-
-            <div className="mt-4">
-                <h3>所有分类:</h3>
-                <ul>
-                    {window.getAllCategories().map(cat => (
-                        <li key={cat}>{cat}</li>
-                    ))}
-                </ul>
-            </div>
-        </div>
-    );
+```json
+{
+  "model": "coze-chat-v3.5",
+  "messages": [
+    { "role": "user", "content": "帮我创建一个选择题课件" }
+  ],
+  "temperature": 0.7,
+  "stream": true
 }
 ```
 
-### 注意事项
-
-1. **只读访问**：知识库在课件运行时为只读，不能修改内置知识
-2. **性能考虑**：频繁检索可能影响性能，建议缓存结果
-3. **编辑器专用**：知识库功能主要在 AI 编辑器中使用，普通课件中不常需要
-
-详细文档请参考：[知识库系统指南](./knowledge-base-guide.md)
-
----
-
-## 技术支持
+### 技术支持
 
 如有问题，请查看：
 - [课件开发模板](./course-template.md)
 - [日志系统文档](./LOGGING.md)
-- [知识库系统指南](./knowledge-base-guide.md)
+- [Coze API v3 迁移指南](./coze-api-v3-migration.md)
+- [Agent 系统最佳实践](./agent-knowledge-best-practices.md)
 - 在教师端控制台查看浏览器控制台日志

@@ -15,8 +15,6 @@
     "build/icon-editor.ico",
     "assets/**",
     "public/**",
-    "docs/**",
-    "data/**",
     "node_modules/**",
     "package.json"
   ],

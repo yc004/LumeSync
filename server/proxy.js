@@ -23,7 +23,15 @@ const KNOWN_FILE_URLS = {
     'pdf.min.js': 'https://fastly.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
     'pdf.worker.min.js': 'https://fastly.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js',
     'face-api.min.js': 'https://fastly.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js',
+    'prism.min.js': 'https://fastly.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js',
+    'prism.min.css': 'https://fastly.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css',
     'katex.min.css': 'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css',
+    'lodash.min.js': 'https://fastly.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js',
+    'lodash.core.min.js': 'https://fastly.jsdelivr.net/npm/lodash@4.17.21/lodash.core.min.js',
+    'lodash.fp.min.js': 'https://fastly.jsdelivr.net/npm/lodash@4.17.21/lodash.fp.min.js',
+    'marked.min.js': 'https://fastly.jsdelivr.net/npm/marked@12.0.0/marked.min.js',
+    'dayjs.min.js': 'https://fastly.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js',
+    'chart.umd.min.js': 'https://fastly.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
     'KaTeX_AMS-Regular.woff2': 'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_AMS-Regular.woff2',
     'KaTeX_Caligraphic-Bold.woff2': 'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Caligraphic-Bold.woff2',
     'KaTeX_Caligraphic-Regular.woff2': 'https://fastly.jsdelivr.net/npm/katex@0.16.11/dist/fonts/KaTeX_Caligraphic-Regular.woff2',
@@ -125,6 +133,22 @@ function handleLibRequest(req, res) {
         return res.status(404).send(`not found: ${fileName}`);
     }
 
+    // 优先：若本地已缓存该文件，直接返回（不触发任何下载）
+    if (fs.existsSync(localPath) && fs.statSync(localPath).isFile()) {
+        const ext = path.extname(fileName).toLowerCase();
+        const mimeMap = {
+            '.js': 'application/javascript',
+            '.css': 'text/css',
+            '.woff2': 'font/woff2',
+            '.woff': 'font/woff',
+            '.ttf': 'font/ttf',
+        };
+        res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        return res.sendFile(localPath);
+    }
+
+    // 以下为下载链路（仅当本地不存在时触发）
     // 优先级：固定映射表 > 课件注册的 publicSrc > npm 包名猜测
     let possibleUrls = [];
 

@@ -60,6 +60,69 @@ router.get('/components-manifest', (req, res) => {
     }
 });
 
+const CozeAPI = require('@coze/api');
+
+// AI 助手代理接口（用于云端智能体调用，使用 Coze SDK）
+router.post('/ai/proxy', async (req, res) => {
+    try {
+        const { apiKey, model, messages, temperature, maxTokens } = req.body;
+        const baseURL = normalizeCozeBaseURL(req.body?.baseURL);
+
+        if (!baseURL || !apiKey || !model || !messages) {
+            return res.status(400).json({
+                success: false,
+                error: '缺少必需参数: baseURL, apiKey, model, messages'
+            });
+        }
+
+        const cozeClient = new CozeAPI({
+            baseURL,
+            token: apiKey
+        });
+
+        // 转换消息格式
+        const additionalMessages = messages.map(m => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+        }));
+
+        const chatOptions = {
+            bot_id: model,
+            additional_messages: additionalMessages,
+            auto_save_history: false
+        };
+
+        // 添加可选参数
+        if (temperature !== undefined) {
+            chatOptions.temperature = temperature;
+        }
+
+        const response = await cozeClient.chat.stream(chatOptions);
+
+        let fullContent = '';
+        let usage = null;
+
+        for await (const chunk of response) {
+            if (chunk.event === 'conversation.message.delta') {
+                fullContent += chunk.data.content;
+            } else if (chunk.event === 'conversation.message.completed') {
+                usage = chunk.data.usage;
+            }
+        }
+
+        res.json({
+            success: true,
+            content: fullContent,
+            usage: usage
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message || '代理请求失败'
+        });
+    }
+});
+
 // 获取当前课程状态
 router.get('/course-status', (req, res) => {
     res.json({

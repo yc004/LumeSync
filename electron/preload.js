@@ -51,38 +51,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeWindowMaximizedListener: (callback) => ipcRenderer.removeListener('window-maximized', callback),
     removeWindowUnmaximizedListener: (callback) => ipcRenderer.removeListener('window-unmaximized', callback),
     // AI 课件编辑器功能
-    getAIConfig: () => ipcRenderer.invoke('get-ai-config'),
-    saveAIConfig: (config) => ipcRenderer.invoke('save-ai-config', config),
     saveCourse: (data) => ipcRenderer.invoke('save-course', data),
     openCourseFile: () => ipcRenderer.invoke('open-course-file'),
     saveCourseFile: (data) => ipcRenderer.invoke('save-course-file', data),
     editorLog: (payload) => ipcRenderer.invoke('editor-log', payload),
+    // AI 配置
+    getAIConfig: () => ipcRenderer.invoke('get-ai-config'),
+    saveAIConfig: (config) => ipcRenderer.invoke('save-ai-config', config),
     testAIConnection: (payload) => ipcRenderer.invoke('test-ai-connection', payload),
+    // AI 聊天
     proxyAIChat: (payload) => ipcRenderer.send('proxy-ai-chat', payload),
-    onAIChatData: (requestId, callback) => {
-        const listener = (event, data) => callback(data);
-        ipcRenderer.on(`ai-chat-data-${requestId}`, listener);
-        return () => ipcRenderer.removeListener(`ai-chat-data-${requestId}`, listener);
-    },
-    onAIChatError: (requestId, callback) => {
-        const listener = (event, data) => callback(data);
-        ipcRenderer.on(`ai-chat-error-${requestId}`, listener);
-        return () => ipcRenderer.removeListener(`ai-chat-error-${requestId}`, listener);
-    },
-    // 知识库功能
-    loadKnowledgeBase: () => ipcRenderer.invoke('load-knowledge-base'),
-    saveKnowledgeBase: (items) => ipcRenderer.invoke('save-knowledge-base', items),
-    // RAG 知识库接口（编辑器专用）
-    knowledgeStats: () => ipcRenderer.invoke('knowledge-stats'),
-    knowledgeSearch: (params) => ipcRenderer.invoke('knowledge-search', params),
-    knowledgeDocuments: (params) => ipcRenderer.invoke('knowledge-documents', params),
-    knowledgeDocument: (params) => ipcRenderer.invoke('knowledge-document', params),
-    knowledgeAdd: (params) => ipcRenderer.invoke('knowledge-add', params),
-    knowledgeUpdate: (params) => ipcRenderer.invoke('knowledge-update', params),
-    knowledgeDelete: (params) => ipcRenderer.invoke('knowledge-delete', params),
-    knowledgeBatchAdd: (params) => ipcRenderer.invoke('knowledge-batch-add', params),
-    knowledgeRetrain: () => ipcRenderer.invoke('knowledge-retrain'),
-    knowledgeCategories: () => ipcRenderer.invoke('knowledge-categories'),
-    knowledgeExport: () => ipcRenderer.invoke('knowledge-export'),
-    knowledgeImport: (data) => ipcRenderer.invoke('knowledge-import', data),
+    onAIChatData: (requestId, callback) => ipcRenderer.on(`ai-chat-data-${requestId}`, callback),
+    onAIChatError: (requestId, callback) => ipcRenderer.on(`ai-chat-error-${requestId}`, callback),
+    removeAIChatDataListener: (requestId, callback) => ipcRenderer.removeListener(`ai-chat-data-${requestId}`, callback),
+    removeAIChatErrorListener: (requestId, callback) => ipcRenderer.removeListener(`ai-chat-error-${requestId}`, callback)
 });

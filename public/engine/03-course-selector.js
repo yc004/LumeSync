@@ -17,7 +17,18 @@ function FolderTreeNode({ folders, parentId, currentFolder, dragOverFolder, onFo
             {childFolders.map(folder => {
                 const isExpanded = expandedFolders.has(folder.id);
                 const folderCourses = courses.filter(c => c.folderId === folder.id);
-                const hasChildren = folderCourses.length > 0 || folders.some(f => f.parentId === folder.id);
+                // 统计该文件夹下的所有课件（包括子文件夹中的课件）
+                const getAllCoursesInFolder = (folderId) => {
+                    const directCourses = courses.filter(c => c.folderId === folderId);
+                    const subFolders = folders.filter(f => f.parentId === folderId);
+                    let subCourses = [];
+                    subFolders.forEach(sub => {
+                        subCourses = subCourses.concat(getAllCoursesInFolder(sub.id));
+                    });
+                    return directCourses.concat(subCourses);
+                };
+                const totalCoursesInFolder = getAllCoursesInFolder(folder.id);
+                const hasChildren = totalCoursesInFolder.length > 0 || folders.some(f => f.parentId === folder.id);
 
                 return (
                     <div key={folder.id}>
@@ -51,7 +62,7 @@ function FolderTreeNode({ folders, parentId, currentFolder, dragOverFolder, onFo
                             <i className="fas fa-folder text-amber-400 mr-2 text-sm"></i>
                             <span className="text-sm truncate flex-1">{folder.name}</span>
                             <span className="text-xs text-slate-500 ml-2">
-                                {folderCourses.length}
+                                {totalCoursesInFolder.length}
                             </span>
                         </div>
                         {/* 显示该文件夹下的课件和子文件夹（仅当展开时） */}
@@ -710,7 +721,9 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                                         </div>
                                         <span className="text-white text-sm text-center font-medium truncate w-full">{folder.name}</span>
                                         <span className="text-slate-500 text-xs mt-1">
-                                            {courseData.courses.filter(c => c.folderId === folder.id).length} 项
+                                            {courseData.courses.filter(c => c.folderId === folder.id).length +
+                                             courseData.folders.filter(f => f.parentId === folder.id).reduce((sum, f) =>
+                                                 sum + courseData.courses.filter(c => c.folderId === f.id).length, 0)} 项
                                         </span>
                                     </div>
                                 ))}

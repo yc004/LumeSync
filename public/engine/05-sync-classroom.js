@@ -1,4 +1,79 @@
 // ========================================================
+// Error Boundary: 捕获课件运行时错误，防止整个课堂崩溃
+// ========================================================
+class CourseErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null, errorInfo: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error('[CourseErrorBoundary] 课件运行时错误:', error, errorInfo);
+        this.setState({ errorInfo });
+
+        // 可选：上报错误到服务器
+        if (window.socket && window.socket.connected) {
+            try {
+                window.socket.emit('course-runtime-error', {
+                    courseId: this.props.courseId,
+                    error: error.message,
+                    stack: error.stack
+                });
+            } catch (_) {}
+        }
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white px-8">
+                    <div className="max-w-2xl w-full">
+                        <div className="flex items-center mb-6">
+                            <i className="fas fa-exclamation-triangle text-red-500 text-5xl mr-4"></i>
+                            <div>
+                                <h2 className="text-2xl font-bold text-red-400">课件运行时错误</h2>
+                                <p className="text-slate-400 text-sm mt-1">课程内容出现问题，但不影响课堂继续运行</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-800 rounded-lg p-4 mb-6">
+                            <p className="text-red-300 font-mono text-sm break-words">
+                                {this.state.error?.toString() || '未知错误'}
+                            </p>
+                        </div>
+
+                        {this.props.onEndCourse && (
+                            <div className="flex gap-4 justify-center">
+                                <button
+                                    onClick={() => {
+                                        this.setState({ hasError: false, error: null, errorInfo: null });
+                                        window.location.reload();
+                                    }}
+                                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition"
+                                >
+                                    <i className="fas fa-redo mr-2"></i>重新加载
+                                </button>
+                                <button
+                                    onClick={this.props.onEndCourse}
+                                    className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-medium transition"
+                                >
+                                    <i className="fas fa-sign-out-alt mr-2"></i>结束课程
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+// ========================================================
 // 课堂主界面组件（教师端 + 学生端共用）
 // ========================================================
 function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: initialIsHost, initialSlide, settings, onSettingsChange, studentCount, studentLog, studentInfo, hideTopBar = false, hideBottomBar = false }) {

@@ -695,20 +695,22 @@ function ClassroomApp() {
     }
 
     return (
-        <SyncClassroom
-            courseId={currentCourseId}
-            title={currentCourseData.title}
-            slides={currentCourseData.slides}
-            onEndCourse={isHost ? handleEndCourse : null}
-            socket={socketRef.current}
-            isHost={isHost}
-            initialSlide={initialSlideIndex}
-            settings={settings}
-            onSettingsChange={handleSettingsChange}
-            studentCount={studentCount}
-            studentLog={sharedStudentLog}
-            studentInfo={studentInfo}
-        />
+        <CourseErrorBoundary courseId={currentCourseId} onEndCourse={isHost ? handleEndCourse : null}>
+            <SyncClassroom
+                courseId={currentCourseId}
+                title={currentCourseData.title}
+                slides={currentCourseData.slides}
+                onEndCourse={isHost ? handleEndCourse : null}
+                socket={socketRef.current}
+                isHost={isHost}
+                initialSlide={initialSlideIndex}
+                settings={settings}
+                onSettingsChange={handleSettingsChange}
+                studentCount={studentCount}
+                studentLog={sharedStudentLog}
+                studentInfo={studentInfo}
+            />
+        </CourseErrorBoundary>
     );
 }
 

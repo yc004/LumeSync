@@ -513,7 +513,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
     };
 
     const renderList = () => (
-        <div className="overflow-auto flex-1 p-3 sm:p-4">
+        <div className="flex-1 overflow-auto p-3 sm:p-4">
             <table className="w-full min-w-[600px] text-sm text-left border-collapse">
                 <thead>
                     <tr className="text-slate-500 text-[10px] sm:text-xs uppercase tracking-wider border-b border-slate-700">
@@ -616,7 +616,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
         <div className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center p-2 sm:p-4" onClick={handleClose}>
             <div
                 className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col overflow-hidden"
-                style={{ width: '95vw', maxWidth: 1400, maxHeight: '92vh' }}
+                style={{ width: '95vw', maxWidth: 1400, height: '92vh' }}
                 onClick={e => e.stopPropagation()}
             >
                 {/* 顶栏 */}

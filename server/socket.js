@@ -159,6 +159,8 @@ function setupSocketHandlers(io, {
             deps.forEach(({ filename, publicSrc }) => {
                 if (filename && publicSrc) {
                     console.log(`[register-dependencies] ${filename} -> ${publicSrc}`);
+                    const { dependencyMap } = require('./proxy');
+                    dependencyMap[filename] = publicSrc;
                 }
             });
         });

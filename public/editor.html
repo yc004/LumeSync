@@ -103,12 +103,18 @@
         }
         textarea.code-editor {
             caret-color: #e2e8f0;
-            color: transparent;
+            color: #e2e8f0;
             background: transparent;
             resize: none;
         }
+        textarea.code-editor.syntax-enabled {
+            color: transparent;
+        }
         textarea.code-editor::selection {
             background: rgba(59, 130, 246, 0.3);
+            color: #e2e8f0;
+        }
+        textarea.code-editor.syntax-enabled::selection {
             color: transparent;
         }
         
@@ -160,9 +166,14 @@
         .token.variable {
             color: #fbbf24;
         }
+        .syntax-highlight-overlay .token {
+            background: transparent !important;
+            text-shadow: none !important;
+        }
         .namespace {
             opacity: .7;
         }
+
         
         /* Markdown 样式优化 */
         .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: bold; margin-top: 0.5em; margin-bottom: 0.3em; }
@@ -297,20 +308,11 @@
         };
     </script>
 
-    <!-- 注意：内置知识已迁移到 SQLite 数据库，不再加载分类文件 -->
-    <!-- 知识库索引文件 -->
-    <script src="knowledge/index.js"></script>
-    <!-- 知识库处理器（用于导入文件自动切分） -->
-    <script src="knowledge/processor.js"></script>
-
     <!-- 编辑器所需组件 -->
     <script type="text/babel" src="engine/00-globals.js"></script>
     <script type="text/babel" src="engine/01-settings-panel.js"></script>
     <script type="text/babel" src="engine/02-classroom-view.js"></script>
     <script type="text/babel" src="engine/05-sync-classroom.js"></script>
-    <script src="editor/ai-prompt.js"></script>
-    <script type="text/babel" src="editor/KnowledgeBase.js"></script>
-    <script type="text/babel" src="editor/01-ai-chat.js"></script>
     <script type="text/babel" src="editor/02-editor-app.js"></script>
 
 

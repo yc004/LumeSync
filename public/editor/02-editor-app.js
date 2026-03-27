@@ -335,9 +335,8 @@ window.CourseData = {
         }
     ]
 };`);
-    
+
     const [viewMode, setViewMode] = useState('preview'); // 'preview' | 'code'
-    const [isAIGenerating, setIsAIGenerating] = useState(false);
     const [compiledCourseData, setCompiledCourseData] = useState(null);
     const [compileError, setCompileError] = useState(null);
     const [isCompiling, setIsCompiling] = useState(false);
@@ -349,13 +348,29 @@ window.CourseData = {
     const [renderScale, setRenderScale] = useState(0.96);
     const [showScalePanel, setShowScalePanel] = useState(false);
     const [pdfPreview, setPdfPreview] = useState(null); // { filename: string, data: Uint8Array }
+    const [syntaxReady, setSyntaxReady] = useState(false);
+
+    // 右侧 AI 对话面板
+    const [isAIGenerating, setIsAIGenerating] = useState(false);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+    const [showAIConfig, setShowAIConfig] = useState(false);
+    const [isTestingAI, setIsTestingAI] = useState(false);
+    const [aiConfig, setAIConfig] = useState({
+        baseURL: 'https://api.coze.cn',
+        apiKey: '',
+        model: '',
+        temperature: 0.7
+    });
+
     const fileInputRef = useRef(null);
     const textareaRef = useRef(null);
     const lineNumbersRef = useRef(null);
-    const aiChatRef = useRef(null);
     const autoScrollRef = useRef(true);
     const compileTokenRef = useRef(0);
     const syntaxOverlayRef = useRef(null);
+    const chatListRef = useRef(null);
+    const activeAIListenerRef = useRef({ requestId: null, onData: null, onError: null });
 
     const showToast = (message, type = 'info') => {
         const id = Date.now() + Math.random();
@@ -365,7 +380,173 @@ window.CourseData = {
         }, 2500);
     };
 
+    const clearAIListeners = () => {
+        const active = activeAIListenerRef.current;
+        if (!active?.requestId) return;
+        try {
+            if (window.electronAPI?.removeAIChatDataListener && active.onData) {
+                window.electronAPI.removeAIChatDataListener(active.requestId, active.onData);
+            }
+            if (window.electronAPI?.removeAIChatErrorListener && active.onError) {
+                window.electronAPI.removeAIChatErrorListener(active.requestId, active.onError);
+            }
+        } catch (_) {}
+        activeAIListenerRef.current = { requestId: null, onData: null, onError: null };
+    };
 
+    const extractCodeBlock = (text) => {
+        const content = String(text || '');
+        const blocks = [...content.matchAll(/```(?:tsx|ts|jsx|js|javascript|typescript)?\s*\n([\s\S]*?)```/gi)];
+        if (!blocks.length) return '';
+        return blocks
+            .map(m => (m?.[1] || '').trim())
+            .sort((a, b) => b.length - a.length)[0] || '';
+    };
+
+    const applyAssistantCode = (assistantText) => {
+        if (pdfPreview) {
+            showToast('PDF 仅支持预览，无法应用 AI 代码', 'error');
+            return;
+        }
+        const nextCode = extractCodeBlock(assistantText);
+        if (!nextCode) {
+            showToast('未检测到可应用的代码块', 'error');
+            return;
+        }
+        setCode(nextCode);
+        setViewMode('code');
+        showToast('已将 AI 代码应用到编辑器', 'success');
+    };
+
+    const handleSendAIMessage = () => {
+        const prompt = chatInput.trim();
+        if (!prompt || isAIGenerating) return;
+
+        if (!aiConfig.baseURL || !aiConfig.apiKey || !aiConfig.model) {
+            showToast('请先在 AI 设置中填写 baseURL / API Key / Bot ID', 'error');
+            setShowAIConfig(true);
+            return;
+        }
+
+        if (!window.electronAPI?.proxyAIChat) {
+            showToast('当前环境不支持 AI 对话接口', 'error');
+            return;
+        }
+
+        const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const history = [...chatMessages, { role: 'user', content: prompt }];
+
+        setChatInput('');
+        setChatMessages([...history, { role: 'assistant', content: '' }]);
+        setIsAIGenerating(true);
+
+        const onData = (_event, packet) => {
+            if (!packet) return;
+
+            setChatMessages(prev => {
+                const next = [...prev];
+                const assistantIndex = next.length - 1;
+                if (assistantIndex < 0 || next[assistantIndex]?.role !== 'assistant') return prev;
+
+                if (packet.done) {
+                    if (typeof packet.content === 'string') {
+                        next[assistantIndex] = { ...next[assistantIndex], content: packet.content };
+                    }
+                } else if (typeof packet.delta === 'string') {
+                    const merged = String(next[assistantIndex].content || '') + packet.delta;
+                    next[assistantIndex] = { ...next[assistantIndex], content: merged };
+                }
+                return next;
+            });
+
+            if (packet.done) {
+                clearAIListeners();
+                setIsAIGenerating(false);
+            }
+        };
+
+        const onError = (_event, error) => {
+            clearAIListeners();
+            setIsAIGenerating(false);
+            const msg = String(error?.message || 'AI 请求失败');
+            setChatMessages(prev => {
+                const next = [...prev];
+                const assistantIndex = next.length - 1;
+                if (assistantIndex >= 0 && next[assistantIndex]?.role === 'assistant' && !next[assistantIndex]?.content) {
+                    next[assistantIndex] = { ...next[assistantIndex], content: `[错误] ${msg}` };
+                }
+                return next;
+            });
+            showToast(msg, 'error');
+        };
+
+        activeAIListenerRef.current = { requestId, onData, onError };
+        window.electronAPI.onAIChatData(requestId, onData);
+        window.electronAPI.onAIChatError(requestId, onError);
+
+        window.electronAPI.proxyAIChat({
+            requestId,
+            baseURL: aiConfig.baseURL,
+            apiKey: aiConfig.apiKey,
+            model: aiConfig.model,
+            messages: history,
+            temperature: Number(aiConfig.temperature) || 0.7,
+            stream: true
+        });
+    };
+
+    const handleStopAI = () => {
+        clearAIListeners();
+        setIsAIGenerating(false);
+        showToast('已停止接收本次流式输出', 'info');
+    };
+
+    const handleSaveAIConfig = async () => {
+        if (!window.electronAPI?.saveAIConfig) return;
+        const ok = await window.electronAPI.saveAIConfig(aiConfig);
+        showToast(ok ? 'AI 配置已保存' : 'AI 配置保存失败', ok ? 'success' : 'error');
+    };
+
+    const handleTestAI = async () => {
+        if (!window.electronAPI?.testAIConnection) return;
+        setIsTestingAI(true);
+        try {
+            const result = await window.electronAPI.testAIConnection({
+                baseURL: aiConfig.baseURL,
+                apiKey: aiConfig.apiKey,
+                model: aiConfig.model,
+                timeoutMs: 20000
+            });
+            if (result?.success) showToast('AI 连接成功', 'success');
+            else showToast(`AI 连接失败: ${result?.error || '未知错误'}`, 'error');
+        } finally {
+            setIsTestingAI(false);
+        }
+    };
+
+    useEffect(() => {
+        (async () => {
+            try {
+                if (!window.electronAPI?.getAIConfig) return;
+                const saved = await window.electronAPI.getAIConfig();
+                if (!saved || typeof saved !== 'object') return;
+                setAIConfig(prev => ({
+                    ...prev,
+                    ...saved,
+                    temperature: Number(saved.temperature ?? prev.temperature ?? 0.7)
+                }));
+            } catch (_) {}
+        })();
+
+        return () => {
+            clearAIListeners();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!chatListRef.current) return;
+        chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
+    }, [chatMessages, isAIGenerating]);
 
     useEffect(() => {
         try {
@@ -398,12 +579,6 @@ window.CourseData = {
             localStorage.setItem('lumesync.editor.uiScale', String(uiScale));
         } catch (_) {}
     }, [uiScale]);
-
-    const handleAutoFix = () => {
-        if (aiChatRef.current) {
-            aiChatRef.current.handleAutoFix();
-        }
-    };
 
     const handleScroll = () => {
         if (textareaRef.current && lineNumbersRef.current) {
@@ -449,9 +624,9 @@ window.CourseData = {
     const lineCount = code.split('\n').length;
     const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
-    // 更新语法高亮
+    // 更新语法高亮（Prism 加载失败时自动降级为纯文本）
     const updateSyntaxHighlight = () => {
-        if (!syntaxOverlayRef.current || typeof Prism === 'undefined') return;
+        if (!syntaxOverlayRef.current) return;
 
         // 检测语言类型
         const isTSX = code.includes('interface ') || code.includes(': ') || code.match(/:\s*(string|number|boolean|any)\b/);
@@ -460,9 +635,27 @@ window.CourseData = {
         if (isTSX) language = 'tsx';
         else if (isJSX) language = 'jsx';
 
-        // 使用 Prism.js 进行语法高亮
-        const highlighted = Prism.highlight(code, Prism.languages[language] || Prism.languages.javascript, language);
-        syntaxOverlayRef.current.innerHTML = `<code class="language-${language}">${highlighted}</code>`;
+        try {
+            if (typeof Prism === 'undefined') {
+                setSyntaxReady(false);
+                syntaxOverlayRef.current.textContent = code;
+                return;
+            }
+
+            const grammar = Prism.languages?.[language] || Prism.languages?.javascript;
+            if (!grammar) {
+                setSyntaxReady(false);
+                syntaxOverlayRef.current.textContent = code;
+                return;
+            }
+
+            const highlighted = Prism.highlight(code, grammar, language);
+            syntaxOverlayRef.current.innerHTML = `<code class="language-${language}">${highlighted}</code>`;
+            setSyntaxReady(true);
+        } catch (_) {
+            setSyntaxReady(false);
+            syntaxOverlayRef.current.textContent = code;
+        }
     };
 
     useEffect(() => {
@@ -617,21 +810,11 @@ window.CourseData = {
         return () => clearTimeout(timer);
     }, [code, viewMode, isAIGenerating, pdfPreview]);
 
-    const handleAIGeneratedCode = (newCode) => {
-        if (pdfPreview) {
-            showToast('PDF 仅支持预览，无法生成或修改代码', 'error');
-            return;
-        }
-        setCode(newCode);
-        // 不再强制跳转到预览视图，保持用户当前的视图模式 (预览或源码)
-        // setViewMode('preview');
-        
-        // AI 正在生成时，不执行实时编译，防止显示中间过程的语法错误
-        // 编译将由 useEffect 在生成结束 (isAIGenerating 变为 false) 时统一触发
-        if (viewMode === 'preview' && !isAIGenerating) {
-            runCode(newCode);
-        }
+    const handleAutoFix = () => {
+        setViewMode('code');
+        showToast('自动修复功能已移除，请在源码区手动修复后重试', 'info');
     };
+
 
     const handleImport = (event) => {
         const file = event.target.files && event.target.files[0];
@@ -841,7 +1024,10 @@ window.CourseData = {
                     
                     <div className="flex items-center gap-2" style={{WebkitAppRegion:'no-drag'}}>
                         {/* 知识库按钮 */}
-                        <KnowledgeBase />
+                        {/* 知识库功能已移至云端智能体 */}
+                        <div className="text-center text-slate-400 text-xs mt-2">
+                            AI 助手已连接云端
+                        </div>
 
                         {/* 缩放设置 - 紧凑版 */}
                         <div className="relative">
@@ -985,7 +1171,7 @@ window.CourseData = {
                                 value={code}
                                 onScroll={handleScroll}
                                 onChange={(e) => setCode(e.target.value)}
-                                className="code-editor absolute top-0 left-0 w-full h-full py-6 px-4 font-mono text-sm resize-none focus:outline-none show-scrollbar border-none outline-none bg-transparent"
+                                className={`code-editor absolute top-0 left-0 w-full h-full py-6 px-4 font-mono text-sm resize-none focus:outline-none show-scrollbar border-none outline-none bg-transparent ${syntaxReady ? 'syntax-enabled' : ''}`}
                                 spellCheck="false"
                                 style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', overflowWrap: 'anywhere', overflowX: 'hidden', lineHeight: '1.625' }}
                             />
@@ -1017,26 +1203,130 @@ window.CourseData = {
                 </div>
             </div>
 
-            {/* 右侧 AI 聊天面板 */}
-            <div className="w-96 shrink-0 h-full flex flex-col border-l border-slate-700 bg-slate-800 shadow-xl relative z-20">
-                <AIChat
-                    ref={aiChatRef}
-                    onCodeGenerated={handleAIGeneratedCode}
-                    onGeneratingStatusChange={setIsAIGenerating}
-                    currentCode={code}
-                    compileError={compileError}
-                />
-                {pdfPreview && (
-                    <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-6">
-                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 text-center shadow-2xl">
-                            <div className="text-slate-100 font-bold text-lg mb-2">PDF 仅支持预览</div>
-                            <div className="text-slate-400 text-sm leading-relaxed">
-                                当前打开的是 PDF 文件，编辑器不允许修改内容，也不会进行 AI 生成。
+            {/* 右侧 AI 对话面板 */}
+            <aside className="w-[380px] h-full border-l border-slate-700 bg-slate-900 flex flex-col">
+                <div className="px-4 py-3 border-b border-slate-700 bg-slate-800 shrink-0">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <i className="fas fa-robot text-blue-400"></i>
+                            <h2 className="text-sm font-bold text-white">Coze 对话助手</h2>
+                        </div>
+                        <button
+                            onClick={() => setShowAIConfig(v => !v)}
+                            className="text-xs px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-100"
+                        >
+                            <i className="fas fa-gear mr-1"></i>设置
+                        </button>
+                    </div>
+
+                    {showAIConfig && (
+                        <div className="mt-3 space-y-2">
+                            <input
+                                value={aiConfig.baseURL}
+                                onChange={e => setAIConfig(prev => ({ ...prev, baseURL: e.target.value }))}
+                                placeholder="baseURL，例如 https://api.coze.cn"
+                                className="w-full px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200"
+                            />
+                            <input
+                                value={aiConfig.model}
+                                onChange={e => setAIConfig(prev => ({ ...prev, model: e.target.value }))}
+                                placeholder="Bot ID"
+                                className="w-full px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200"
+                            />
+                            <input
+                                type="password"
+                                value={aiConfig.apiKey}
+                                onChange={e => setAIConfig(prev => ({ ...prev, apiKey: e.target.value }))}
+                                placeholder="API Key"
+                                className="w-full px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200"
+                            />
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs text-slate-400 shrink-0">温度</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="2"
+                                    step="0.1"
+                                    value={aiConfig.temperature}
+                                    onChange={e => setAIConfig(prev => ({ ...prev, temperature: e.target.value }))}
+                                    className="flex-1 px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleSaveAIConfig}
+                                    className="flex-1 px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white"
+                                >保存配置</button>
+                                <button
+                                    onClick={handleTestAI}
+                                    disabled={isTestingAI}
+                                    className={`flex-1 px-2 py-1.5 rounded text-xs font-bold text-white ${isTestingAI ? 'bg-slate-600 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500'}`}
+                                >{isTestingAI ? '测试中...' : '测试连接'}</button>
                             </div>
                         </div>
+                    )}
+                </div>
+
+                <div ref={chatListRef} className="flex-1 overflow-y-auto p-3 space-y-3 show-scrollbar">
+                    {!chatMessages.length && (
+                        <div className="text-xs text-slate-400 bg-slate-800/70 border border-slate-700 rounded-lg px-3 py-2">
+                            请输入需求，例如："生成一个带投票和倒计时的课堂互动课件"。
+                        </div>
+                    )}
+                    {chatMessages.map((msg, idx) => {
+                        const isUser = msg.role === 'user';
+                        const hasCode = !isUser && /```[\s\S]*```/.test(String(msg.content || ''));
+                        return (
+                            <div key={`${idx}-${msg.role}`} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[90%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${isUser ? 'bg-blue-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-100'}`}>
+                                    {msg.content || (isAIGenerating && !isUser ? '正在生成中...' : '')}
+                                    {hasCode && (
+                                        <div className="mt-2 pt-2 border-t border-slate-600/60">
+                                            <button
+                                                onClick={() => applyAssistantCode(msg.content)}
+                                                className="text-xs px-2 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white"
+                                            >
+                                                应用代码到编辑器
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div className="p-3 border-t border-slate-700 bg-slate-800 shrink-0">
+                    <textarea
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendAIMessage();
+                            }
+                        }}
+                        placeholder="输入你的课件需求，Enter 发送，Shift+Enter 换行"
+                        className="w-full h-20 resize-none px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-slate-100 focus:outline-none"
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                        <button
+                            onClick={handleSendAIMessage}
+                            disabled={isAIGenerating || !chatInput.trim()}
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-bold ${isAIGenerating || !chatInput.trim() ? 'bg-slate-600 text-slate-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+                        >
+                            发送
+                        </button>
+                        <button
+                            onClick={handleStopAI}
+                            disabled={!isAIGenerating}
+                            className={`px-3 py-2 rounded-lg text-sm font-bold ${!isAIGenerating ? 'bg-slate-600 text-slate-300 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-500 text-white'}`}
+                        >
+                            停止
+                        </button>
                     </div>
-                )}
-            </div>
+                </div>
+            </aside>
 
             <input
                 ref={fileInputRef}

@@ -1,6 +1,75 @@
 # 更新日志
 
-## [当前版本] - 2026-03-26
+## [当前版本] - 2026-03-27
+
+### Coze SDK 集成
+
+#### 核心变更
+- ✅ 集成 Coze 官方 SDK (@coze/api v1.3.9)
+- ✅ 使用 Coze SDK 重构 AI 聊天代理接口
+- ✅ 添加 AI 配置 IPC 接口到编辑器预加载脚本
+- ✅ 新增 `docs/coze-sdk-migration.md` 迁移文档
+
+#### 代码更新 (electron/main-editor.js)
+- ✅ `test-ai-connection` 改用 SDK 的 stream 方法
+- ✅ `proxy-ai-chat` 使用 SDK 的异步迭代器处理流式响应
+- ✅ 参数从 `model` 改为 `bot_id`
+- ✅ 移除手动 SSE 解析代码
+
+#### 代码更新 (server/routes.js)
+- ✅ `/ai/proxy` 路由使用 Coze SDK
+- ✅ 支持流式响应处理
+- ✅ 自动处理 usage 统计
+
+#### 代码更新 (electron/preload.js)
+- ✅ 添加 AI 配置接口: `getAIConfig`, `saveAIConfig`
+- ✅ 添加 AI 测试接口: `testAIConnection`
+- ✅ 添加 AI 聊天接口: `proxyAIChat`
+- ✅ 添加事件监听器: `onAIChatData`, `onAIChatError`
+
+#### 配置更新
+- ✅ 默认 baseURL 更改为 `https://api.coze.cn`
+- ✅ 默认 model 改为空字符串（需使用 Bot ID）
+
+#### 技术细节
+- SDK 自动处理 SSE 流解析，无需手动处理
+- 使用 `conversation.message.delta` 事件获取增量内容
+- 支持 temperature 参数控制生成随机性
+- 设置 `auto_save_history: false` 避免自动保存对话历史
+
+### Coze API v3 迁移
+
+#### 后端更新 (electron/main-editor.js)
+- ✅ 更新 `proxy-ai-chat` IPC 处理器，使用 v3 API 端点 `/v3/chat/completions`（已废弃，改用 SDK）
+- ✅ 更新 `test-ai-connection` 处理器，支持 v3 模型测试（已废弃，改用 SDK）
+- ✅ 移除旧版 v1 Bot API 相关代码
+
+#### 前端更新 (public/editor/01-ai-chat.js)
+- ✅ 更新配置字段：`botId` → `model`
+- ✅ 更新默认模型名称为 `coze-chat-v3.5`
+- ✅ 更新测试连接和消息发送逻辑
+- ✅ 同步更新所有相关代码
+
+#### 服务端更新 (server/routes.js)
+- ✅ 更新 `/ai/proxy` 路由，使用 v3 API 端点
+
+#### 文档更新
+- ✅ 更新 `docs/API.md`，添加 AI 编辑器配置章节
+- ✅ 修正 `docs/coze-api-v3-migration.md` 中的 API 端点路径
+- ✅ 记录 RAG 知识库已迁移至 Agent 系统
+
+#### 重大变更
+- ⚠️ **移除向量数据库 RAG 系统**：删除 `data/vector-knowledge.db*`、`server/vector-database.js`、`server/vector-embedding.js`
+- ✅ **采用基于 Agent 的知识系统**：通过系统提示词和知识块提供知识支持
+- ⚠️ **API 配置需要更新**：用户需要更新 Base URL 和 Model 配置
+
+### 修复问题
+- ✅ 修复 HTTP 404 错误（API 端点路径不正确）
+- ✅ 修复 Coze Bot API 与 v3 Chat API 混用问题
+
+---
+
+## [v2.5.0] - 2026-03-26
 
 ### 新增功能
 

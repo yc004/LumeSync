@@ -11,164 +11,6 @@ const logger = new Logger('LumeSync-Editor');
 let serverProcess = null;
 const PORT = 3001;
 
-// 延迟加载 VectorDatabase 和 EmbeddingService 以避免导入时初始化失败
-let VectorDatabase = null;
-let EmbeddingService = null;
-
-function loadKnowledgeModules() {
-    try {
-        VectorDatabase = require('../server/vector-database');
-        const embeddingModule = require('../server/vector-embedding');
-        EmbeddingService = embeddingModule?.EmbeddingService || embeddingModule;
-
-        if (typeof EmbeddingService !== 'function') {
-            throw new Error('EmbeddingService export is invalid');
-        }
-
-        logger.info('APP', 'Knowledge modules loaded successfully');
-        return true;
-    } catch (error) {
-        logger.error('APP', 'Failed to load knowledge modules', { error: error.message, stack: error.stack });
-        return false;
-    }
-}
-
-// ========================================================
-// 编辑器专用 RAG 知识库系统
-// ========================================================
-
-let db = null;
-let embeddingService = null;
-let isKnowledgeBaseInitialized = false;
-
-// 确保知识库已初始化
-async function ensureKnowledgeBaseInitialized() {
-    if (!isKnowledgeBaseInitialized) {
-        logger.warn('KNOWLEDGE', 'Knowledge base not initialized, attempting to initialize...');
-        const result = await initKnowledgeBase();
-        if (!result.success) {
-            logger.error('KNOWLEDGE', 'Knowledge base initialization check failed', {
-                isKnowledgeBaseInitialized,
-                reason: 'Initialization failed'
-            });
-            throw new Error(`Knowledge base not initialized (initialization failed: ${result.error})`);
-        }
-        logger.info('KNOWLEDGE', 'Knowledge base initialized successfully via ensureKnowledgeBaseInitialized');
-    }
-    if (!db) {
-        logger.error('KNOWLEDGE', 'Knowledge base initialization check failed', {
-            db: !!db,
-            reason: 'Database instance is null'
-        });
-        throw new Error('Knowledge base not initialized (db=null)');
-    }
-}
-
-async function initKnowledgeBase() {
-    try {
-        logger.info('KNOWLEDGE', 'Starting RAG knowledge base initialization...');
-
-        // 加载模块（如果尚未加载）
-        if (!VectorDatabase || !EmbeddingService) {
-            logger.info('KNOWLEDGE', 'Loading knowledge modules...');
-            if (!loadKnowledgeModules()) {
-                throw new Error('Failed to load knowledge modules');
-            }
-            logger.info('KNOWLEDGE', 'Knowledge modules loaded successfully');
-        }
-
-        // 初始化数据库
-        logger.info('KNOWLEDGE', 'Calling VectorDatabase.initializeDatabase()...');
-        try {
-            VectorDatabase.initializeDatabase();
-            logger.info('KNOWLEDGE', 'Database initialized');
-        } catch (dbError) {
-            logger.error('KNOWLEDGE', 'Database initialization failed', { error: dbError.message, stack: dbError.stack });
-            throw dbError;
-        }
-
-        logger.info('KNOWLEDGE', 'Getting database instance...');
-        try {
-            db = VectorDatabase.getDatabase();
-            logger.info('KNOWLEDGE', 'Database instance obtained:', { hasDb: !!db });
-        } catch (getDbError) {
-            logger.error('KNOWLEDGE', 'Failed to get database instance', { error: getDbError.message });
-            throw getDbError;
-        }
-
-        // 初始化嵌入服务（使用本地TF-IDF，256维）
-        logger.info('KNOWLEDGE', 'Initializing embedding service...');
-        try {
-            embeddingService = new EmbeddingService();
-            embeddingService.setMode('tfidf');
-            logger.info('KNOWLEDGE', 'Embedding service created, mode: tfidf');
-        } catch (embedError) {
-            logger.error('KNOWLEDGE', 'Failed to create embedding service', { error: embedError.message });
-            throw embedError;
-        }
-
-        const allKnowledge = VectorDatabase.getAllKnowledge();
-        logger.info('KNOWLEDGE', 'Loading existing knowledge...', { count: allKnowledge.length });
-
-        // 提取知识内容的文本，用于训练 TF-IDF
-        const knowledgeTexts = allKnowledge.map(k => k.content || '');
-        logger.info('KNOWLEDGE', 'Extracted texts for TF-IDF:', { count: knowledgeTexts.length, sampleLength: knowledgeTexts[0]?.length || 0 });
-
-        logger.info('KNOWLEDGE', 'Initializing TF-IDF model...');
-        try {
-            // 注意：initializeTFIDF 是同步方法，不需要 await
-            embeddingService.initializeTFIDF(knowledgeTexts);
-            logger.info('KNOWLEDGE', 'TF-IDF model initialized successfully');
-        } catch (tfidfError) {
-            logger.error('KNOWLEDGE', 'Failed to initialize TF-IDF model', { error: tfidfError.message, stack: tfidfError.stack });
-            throw new Error(`TF-IDF initialization failed: ${tfidfError.message}`);
-        }
-
-        // 为所有没有向量的知识生成向量
-        logger.info('KNOWLEDGE', 'Generating vectors for knowledge without embeddings...');
-        let vectorCount = 0;
-        let errorCount = 0;
-        for (const knowledge of allKnowledge) {
-            try {
-                const db = VectorDatabase.getDatabase();
-                const existingVector = db.prepare('SELECT knowledgeId FROM vectors WHERE knowledgeId = ?').get(knowledge.id);
-                if (!existingVector) {
-                    const textToEmbed = `${knowledge.title || ''} ${knowledge.content || ''}`;
-                    const embedding = await embeddingService.embed(textToEmbed);
-                    VectorDatabase.updateKnowledgeVector(knowledge.id, embedding);
-                    vectorCount++;
-                }
-            } catch (error) {
-                logger.warn('KNOWLEDGE', 'Failed to generate vector for knowledge', { id: knowledge.id, error: error.message });
-                errorCount++;
-            }
-        }
-        logger.info('KNOWLEDGE', 'Vector generation completed', { success: vectorCount, errors: errorCount });
-
-        isKnowledgeBaseInitialized = true;
-        logger.info('KNOWLEDGE', 'Set isKnowledgeBaseInitialized = true');
-
-        logger.info('KNOWLEDGE', 'RAG knowledge base initialized successfully', {
-            stats: VectorDatabase.getStats(),
-            embeddingMode: 'tfidf',
-            vectorDim: 256
-        });
-
-        return { success: true };
-    } catch (error) {
-        logger.error('KNOWLEDGE', 'Failed to initialize knowledge base', { error: error.message, stack: error.stack });
-        isKnowledgeBaseInitialized = false;
-        return { success: false, error: error.message };
-    }
-}
-
-function closeKnowledgeBase() {
-    VectorDatabase.closeDatabase();
-    db = null;
-    embeddingService = null;
-    logger.info('KNOWLEDGE', 'Knowledge base closed');
-}
-
 // 切换 Windows 控制台代码页为 UTF-8
 if (process.platform === 'win32') {
     require('child_process').spawnSync('chcp', ['65001'], { shell: true, stdio: 'ignore' });
@@ -284,12 +126,7 @@ async function ensureServer() {
 app.whenReady().then(async () => {
     logger.info('APP', 'Editor app ready');
 
-    // 初始化编辑器专用 RAG 知识库
-    const initResult = await initKnowledgeBase();
-    if (!initResult.success) {
-        logger.error('APP', 'Failed to initialize knowledge base', { error: initResult.error });
-        // 即使初始化失败也继续运行，但会提示用户
-    }
+
 
     // 清除应用缓存，避免加载到以前下载失败/损坏的资源（如被缓存的 404 字体）
     const { session } = require('electron');
@@ -331,7 +168,6 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
     try { globalShortcut && globalShortcut.unregisterAll(); } catch (_) {}
     try { serverProcess && serverProcess.kill(); } catch (_) {}
-    try { closeKnowledgeBase(); } catch (_) {}
 });
 
 process.on('uncaughtException', (err) => {
@@ -384,12 +220,23 @@ ipcMain.handle('get-log-dir', () => {
     return logger.getLogDir();
 });
 
+const { CozeAPI } = require('@coze/api');
+
+function normalizeCozeBaseURL(rawBaseURL) {
+    const base = String(rawBaseURL || '').trim().replace(/\/+$/, '');
+    if (!base) return '';
+    return base
+        .replace(/\/v3\/chat(?:\/completions)?$/i, '')
+        .replace(/\/open_api\/v2$/i, '')
+        .replace(/\/v1(?:\/chat\/completions)?$/i, '')
+        .replace(/\/+$/, '');
+}
+
 ipcMain.handle('test-ai-connection', async (event, payload) => {
     const baseURL = (payload?.baseURL || '').trim().replace(/\/+$/, '');
     const apiKey = (payload?.apiKey || '').trim();
     const model = (payload?.model || '').trim();
     const timeoutMs = Number(payload?.timeoutMs) > 0 ? Number(payload.timeoutMs) : 30000;
-    const endpoint = `${baseURL}/chat/completions`;
     const startedAt = Date.now();
 
     if (!baseURL || !apiKey || !model) {
@@ -397,66 +244,40 @@ ipcMain.handle('test-ai-connection', async (event, payload) => {
     }
 
     logger.info('AI-TEST', 'Main-process test started', {
-        endpoint,
+        baseURL,
         model,
         timeoutMs
     });
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: 'ping' }],
-                temperature: 0,
-                max_tokens: 8,
-                stream: false
-            }),
-            signal: controller.signal
+        const cozeClient = new CozeAPI({
+            baseURL,
+            token: apiKey
         });
 
-        const elapsedMs = Date.now() - startedAt;
-        let body = null;
-        try {
-            body = await response.json();
-        } catch (_) {}
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error(`Request timeout (>${Math.round(timeoutMs / 1000)}s)`)), timeoutMs);
+        });
 
-        if (!response.ok) {
-            const errMsg = body?.error?.message || `HTTP ${response.status}`;
-            logger.error('AI-TEST', 'Main-process test non-OK response', {
-                status: response.status,
-                elapsedMs,
-                error: errMsg
-            });
-            return {
-                success: false,
-                status: response.status,
-                elapsedMs,
-                error: errMsg
-            };
-        }
+        const requestPromise = cozeClient.chat.stream({
+            bot_id: model,
+            additional_messages: [{ role: 'user', content: 'ping' }]
+        });
+
+        const response = await Promise.race([requestPromise, timeoutPromise]);
+        const elapsedMs = Date.now() - startedAt;
 
         logger.info('AI-TEST', 'Main-process test success', {
-            status: response.status,
-            elapsedMs
+            elapsedMs,
+            model
         });
         return {
             success: true,
-            status: response.status,
             elapsedMs
         };
     } catch (error) {
         const elapsedMs = Date.now() - startedAt;
-        const errMsg = error?.name === 'AbortError'
-            ? `Request timeout (>${Math.round(timeoutMs / 1000)}s)`
-            : (error?.message || 'Unknown error');
+        const errMsg = error?.message || 'Unknown error';
         logger.error('AI-TEST', 'Main-process test failed', {
             elapsedMs,
             errorName: error?.name || null,
@@ -468,103 +289,71 @@ ipcMain.handle('test-ai-connection', async (event, payload) => {
             errorName: error?.name || null,
             error: errMsg
         };
-    } finally {
-        clearTimeout(timer);
     }
 });
 
-// AI 聊天代理（主进程处理 SSE 解析，发送给渲染进程干净的文本）
+// AI 聊天代理（使用 Coze 官方 SDK）
 ipcMain.on('proxy-ai-chat', async (event, payload) => {
-    const { requestId, baseURL, apiKey, model, messages, temperature, stream } = payload;
-    const endpoint = `${baseURL.replace(/\/+$/, '')}/chat/completions`;
+    const { requestId, apiKey, model, messages, temperature, stream } = payload;
+    const baseURL = normalizeCozeBaseURL(payload?.baseURL);
 
-    logger.info('AI-CHAT-PROXY', 'Request started', { requestId, model, stream });
+    logger.info('AI-CHAT-PROXY', 'Request started', { requestId, model, stream, messageCount: messages?.length, baseURL });
 
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-                'Accept': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive'
-            },
-            body: JSON.stringify({
-                model,
-                messages,
-                temperature: temperature ?? 0.7,
-                stream: !!stream
-            })
+        const cozeClient = new CozeAPI({
+            baseURL,
+            token: apiKey
         });
 
-        if (!response.ok) {
-            let errorData = null;
-            try { errorData = await response.json(); } catch (_) {}
-            const errMsg = errorData?.error?.message || `HTTP ${response.status}`;
-            logger.error('AI-CHAT-PROXY', 'Response error', { requestId, status: response.status, error: errMsg });
-            event.sender.send(`ai-chat-error-${requestId}`, { message: errMsg });
-            return;
+        // 转换消息格式
+        const additionalMessages = (messages || []).map(m => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+        }));
+
+        const chatOptions = {
+            bot_id: model,
+            additional_messages: additionalMessages,
+            auto_save_history: false
+        };
+
+        // 如果指定了 temperature，添加到参数中
+        if (temperature !== undefined) {
+            chatOptions.temperature = temperature;
         }
 
         if (!stream) {
-            const data = await response.json();
-            const content = data?.choices?.[0]?.message?.content || '';
-            event.sender.send(`ai-chat-data-${requestId}`, { done: true, content });
+            // 非流式响应
+            const response = await cozeClient.chat.stream(chatOptions);
+
+            let fullContent = '';
+            for await (const chunk of response) {
+                if (chunk.event === 'conversation.message.delta') {
+                    fullContent += chunk.data.content;
+                }
+            }
+
+            event.sender.send(`ai-chat-data-${requestId}`, { done: true, content: fullContent });
             return;
         }
 
-        const decoder = new TextDecoder();
-        let buffer = '';
+        // 流式响应处理
+        const streamResponse = cozeClient.chat.stream(chatOptions);
 
-        // 处理流式响应 (兼容 Node 18+ Web Streams 和旧版 Node Streams)
-        const processChunk = (chunk) => {
-            if (event.sender.isDestroyed()) return;
-            
-            buffer += typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true });
-            const lines = buffer.split(/\r?\n/);
-            buffer = lines.pop() || '';
+        let fullContent = '';
+        for await (const chunk of streamResponse) {
+            if (event.sender.isDestroyed()) break;
 
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed === ': keep-alive') continue;
-                
-                if (trimmed.startsWith('data:')) {
-                    const payload = trimmed.slice(5).trim();
-                    if (payload === '[DONE]') continue;
-                    
-                    try {
-                        const json = JSON.parse(payload);
-                        const delta = json?.choices?.[0]?.delta?.content 
-                                   || json?.choices?.[0]?.delta?.reasoning_content 
-                                   || json?.choices?.[0]?.message?.content // 有些提供商在 stream 模式下偶尔也用 message
-                                   || '';
-                        if (delta) {
-                            event.sender.send(`ai-chat-data-${requestId}`, { done: false, delta });
-                        }
-                    } catch (_) {}
-                }
-            }
-        };
-
-        if (response.body.getReader) {
-            // Web Streams API (Standard)
-            const reader = response.body.getReader();
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                processChunk(value);
-            }
-        } else {
-            // Node.js Streams API (Fallback)
-            for await (const chunk of response.body) {
-                processChunk(chunk);
+            if (chunk.event === 'conversation.message.delta') {
+                const delta = chunk.data.content;
+                fullContent += delta;
+                event.sender.send(`ai-chat-data-${requestId}`, { done: false, delta });
             }
         }
 
         // 发送结束信号
         if (!event.sender.isDestroyed()) {
-            event.sender.send(`ai-chat-data-${requestId}`, { done: true });
+            event.sender.send(`ai-chat-data-${requestId}`, { done: true, content: fullContent });
         }
 
     } catch (error) {
@@ -601,7 +390,7 @@ ipcMain.handle('get-ai-config', () => {
             return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
         }
     } catch (e) { console.error(e); }
-    return { apiKey: '', baseURL: 'https://api.openai.com/v1', model: 'gpt-4o' };
+    return { apiKey: '', baseURL: 'https://api.coze.cn', model: '' };
 });
 
 // 保存 AI 配置
@@ -695,288 +484,6 @@ ipcMain.handle('save-course-file', async (event, { content, filePath, suggestedN
             filename: path.basename(targetPath),
         };
     } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
-
-// 加载知识库
-ipcMain.handle('load-knowledge-base', () => {
-    const knowledgePath = path.join(app.getPath('userData'), 'knowledge-base.json');
-    try {
-        if (fs.existsSync(knowledgePath)) {
-            const content = fs.readFileSync(knowledgePath, 'utf-8');
-            return JSON.parse(content);
-        }
-    } catch (e) { console.error('Load knowledge base error:', e); }
-    return [];
-});
-
-// 保存知识库
-ipcMain.handle('save-knowledge-base', (event, items) => {
-    const knowledgePath = path.join(app.getPath('userData'), 'knowledge-base.json');
-    try {
-        fs.writeFileSync(knowledgePath, JSON.stringify(items, null, 2), 'utf-8');
-        return { success: true };
-    } catch (e) {
-        console.error('Save knowledge base error:', e);
-        return { success: false, error: e.message };
-    }
-});
-
-// ========================================================
-// RAG 知识库 IPC 接口（编辑器专用）
-// ========================================================
-
-// 获取知识库统计信息
-ipcMain.handle('knowledge-stats', async () => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-        const stats = VectorDatabase.getStats();
-        return { success: true, stats };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
-
-// RAG 搜索
-ipcMain.handle('knowledge-search', async (event, { query, topK = 5, threshold = 0, useHybrid = true }) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-
-        const safeTopK = Math.max(1, Number(topK) || 5);
-        const safeThreshold = Math.max(0, Math.min(1, Number(threshold) || 0));
-
-        let results;
-        if (useHybrid && embeddingService) {
-            // 使用混合搜索（需要生成查询向量）
-            const queryVector = await embeddingService.embed(query);
-            results = VectorDatabase.hybridSearch(queryVector, query, safeTopK * 3);
-        } else {
-            // 只使用全文搜索
-            results = VectorDatabase.fullTextSearch(query, safeTopK * 3);
-        }
-
-        const filteredResults = (results || []).filter(item => {
-            if (typeof item.similarity !== 'number') return true;
-            return item.similarity >= safeThreshold;
-        }).slice(0, safeTopK);
-
-        return { success: true, results: filteredResults, query, useHybrid, topK: safeTopK, threshold: safeThreshold };
-    } catch (error) {
-        logger.error('KNOWLEDGE', 'Search failed', { error: error.message });
-        return { success: false, error: error.message };
-    }
-});
-
-// 获取所有文档
-ipcMain.handle('knowledge-documents', async (event, { category = null, limit = 100 }) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-        const allDocuments = VectorDatabase.getAllKnowledge();
-        const documents = category
-            ? allDocuments.filter(d => d.category === category).slice(0, limit)
-            : allDocuments.slice(0, limit);
-        return { success: true, documents, total: documents.length };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
-
-// 获取单个文档
-ipcMain.handle('knowledge-document', async (event, { id }) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-        const documents = VectorDatabase.getAllKnowledge();
-        const doc = documents.find(d => d.id === id);
-        if (!doc) return { success: false, error: 'Document not found' };
-        return { success: true, document: doc };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
-
-// 添加文档
-ipcMain.handle('knowledge-add', async (event, { title, content, category = 'custom', tags = [], metadata = {} }) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-
-        // 生成查询向量
-        const textToEmbed = `${title} ${content}`;
-        const embedding = await embeddingService.embed(textToEmbed);
-
-        const id = VectorDatabase.generateId();
-        VectorDatabase.insertKnowledge({
-            id,
-            title,
-            content,
-            category,
-            tags,
-            isBuiltin: false,
-            createdAt: new Date().toISOString(),
-            ...metadata
-        }, embedding);
-
-        // 重新训练嵌入模型
-        const allKnowledge = VectorDatabase.getAllKnowledge();
-        const knowledgeTexts = allKnowledge.map(k => k.content || '');
-        embeddingService.initializeTFIDF(knowledgeTexts);
-
-        return { success: true, id };
-    } catch (error) {
-        logger.error('KNOWLEDGE', 'Add document failed', { error: error.message });
-        return { success: false, error: error.message };
-    }
-});
-
-// 更新文档
-ipcMain.handle('knowledge-update', async (event, { id, title, content, category, tags, metadata }) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-
-        const updated = VectorDatabase.updateKnowledge(id, {
-            title, content, category, tags, updatedAt: new Date().toISOString(), ...metadata
-        });
-        if (!updated) return { success: false, error: 'Document not found' };
-
-        // 如果更新了标题或内容，需要更新向量
-        if (title !== undefined || content !== undefined) {
-            const doc = VectorDatabase.getKnowledge(id);
-            if (doc) {
-                const textToEmbed = `${doc.title || ''} ${doc.content || ''}`;
-                const embedding = await embeddingService.embed(textToEmbed);
-                VectorDatabase.updateKnowledgeVector(id, embedding);
-            }
-        }
-
-        // 重新训练嵌入模型
-        const allKnowledge = VectorDatabase.getAllKnowledge();
-        const knowledgeTexts = allKnowledge.map(k => k.content || '');
-        embeddingService.initializeTFIDF(knowledgeTexts);
-
-        logger.info('KNOWLEDGE', 'Document updated', { id });
-        return { success: true };
-    } catch (error) {
-        logger.error('KNOWLEDGE', 'Update document failed', { error: error.message });
-        return { success: false, error: error.message };
-    }
-});
-
-// 删除文档
-ipcMain.handle('knowledge-delete', async (event, { id }) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-        const deleted = VectorDatabase.deleteKnowledge(id);
-        if (!deleted) return { success: false, error: 'Document not found' };
-        logger.info('KNOWLEDGE', 'Document deleted', { id });
-        return { success: true, id };
-    } catch (error) {
-        logger.error('KNOWLEDGE', 'Delete document failed', { error: error.message });
-        return { success: false, error: error.message };
-    }
-});
-
-// 批量添加文档
-ipcMain.handle('knowledge-batch-add', async (event, { documents }) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-
-        logger.info('KNOWLEDGE', 'Batch add request received', { documentCount: documents.length });
-
-        const results = [];
-        for (const doc of documents) {
-            // 生成查询向量
-            const textToEmbed = `${doc.title} ${doc.content}`;
-            const embedding = await embeddingService.embed(textToEmbed);
-
-            const id = VectorDatabase.generateId();
-            VectorDatabase.insertKnowledge({
-                id,
-                title: doc.title,
-                content: doc.content,
-                category: doc.category || 'custom',
-                tags: doc.tags || [],
-                isBuiltin: false,
-                createdAt: new Date().toISOString(),
-                ...doc.metadata
-            }, embedding);
-            results.push({ ...doc, id });
-        }
-
-        // 重新训练嵌入模型
-        const allKnowledge = VectorDatabase.getAllKnowledge();
-        const knowledgeTexts = allKnowledge.map(k => k.content || '');
-        embeddingService.initializeTFIDF(knowledgeTexts);
-
-        logger.info('KNOWLEDGE', 'Batch add documents completed', { success: results.length, total: documents.length });
-        return { success: true, documents: results, total: results.length };
-    } catch (error) {
-        logger.error('KNOWLEDGE', 'Batch add failed', { error: error.message, stack: error.stack });
-        return { success: false, error: error.message };
-    }
-});
-
-// 获取分类列表
-ipcMain.handle('knowledge-categories', async () => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-        const documents = VectorDatabase.getAllKnowledge();
-        const categories = [...new Set(documents.map(d => d.category).filter(Boolean))];
-        return { success: true, categories };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
-
-// 导出知识库
-ipcMain.handle('knowledge-export', async (event) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-        const documents = VectorDatabase.getAllKnowledge();
-        const exportData = {
-            version: '1.0',
-            exportedAt: new Date().toISOString(),
-            documents: documents
-        };
-        logger.info('KNOWLEDGE', 'Knowledge base exported', { docCount: exportData.documents.length });
-        return { success: true, data: exportData };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
-
-
-// 导入知识库
-ipcMain.handle('knowledge-import', async (event, { data }) => {
-    try {
-        await ensureKnowledgeBaseInitialized();
-        let count = 0;
-        for (const doc of data) {
-            // 生成查询向量
-            const textToEmbed = `${doc.title} ${doc.content}`;
-            const embedding = await embeddingService.embed(textToEmbed);
-
-            const id = VectorDatabase.generateId();
-            VectorDatabase.insertKnowledge({
-                id,
-                title: doc.title,
-                content: doc.content,
-                category: doc.category || 'imported',
-                tags: doc.tags || [],
-                isBuiltin: doc.isBuiltin || false,
-                createdAt: new Date().toISOString()
-            }, embedding);
-            count++;
-        }
-
-        // 重新训练嵌入模型
-        const allKnowledge = VectorDatabase.getAllKnowledge();
-        const knowledgeTexts = allKnowledge.map(k => k.content || '');
-        embeddingService.initializeTFIDF(knowledgeTexts);
-
-        logger.info('KNOWLEDGE', 'Knowledge base imported', { docCount: count });
-        return { success: true, importedCount: count };
-    } catch (error) {
-        logger.error('KNOWLEDGE', 'Import failed', { error: error.message });
         return { success: false, error: error.message };
     }
 });

@@ -4,7 +4,7 @@
 // ========================================================
 const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain, session, globalShortcut } = require('electron');
 const path = require('path');
-const { fork, spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const { loadSettings, saveSettings } = require('./config.js');
 const { Logger } = require('./logger.js');
 
@@ -78,31 +78,32 @@ function startServer() {
     logger.info('SERVER', 'Starting server', { path: serverPath, exists: require('fs').existsSync(serverPath) });
 
     try {
-        serverProcess = fork(serverPath, [], {
-            env: { ...process.env, PORT: String(PORT), CHCP: '65001', LOG_DIR: logger.getLogDir() },
-            execArgv: [],
-            silent: false,
+        serverProcess = spawn(process.execPath, [serverPath], {
+            env: {
+                ...process.env,
+                PORT: String(PORT),
+                CHCP: '65001',
+                LOG_DIR: logger.getLogDir(),
+                ELECTRON_RUN_AS_NODE: '1'
+            },
+            stdio: ['ignore', 'pipe', 'pipe'],
+            windowsHide: true,
         });
 
-        if (!serverProcess) {
+        if (!serverProcess || !serverProcess.pid) {
             throw new Error('Failed to create server process');
         }
 
-        // 监听 stdout (需要检查对象是否存在)
-        if (serverProcess.stdout) {
-            serverProcess.stdout.on('data', (data) => {
-                const output = data.toString();
-                logger.info('SERVER-STDOUT', output.trim());
-            });
-        }
+        serverProcess.stdout.on('data', (data) => {
+            const output = data.toString();
+            logger.info('SERVER-STDOUT', output.trim());
+        });
 
-        // 监听 stderr
-        if (serverProcess.stderr) {
-            serverProcess.stderr.on('data', (data) => {
-                const output = data.toString();
-                logger.error('SERVER-STDERR', output.trim());
-            });
-        }
+        serverProcess.stderr.on('data', (data) => {
+            const output = data.toString();
+            logger.error('SERVER-STDERR', output.trim());
+        });
+
 
         serverProcess.on('error', (err) => {
             logger.error('SERVER', 'Server process error', err);
@@ -181,7 +182,7 @@ function createWindow() {
         const http = require('http');
         const timeoutMs = 5000;
         const options = {
-            hostname: 'localhost',
+            hostname: '127.0.0.1',
             port: PORT,
             path: '/api/health',
             method: 'GET',
@@ -191,25 +192,27 @@ function createWindow() {
         const req = http.request(options, (res) => {
             logger.info('WINDOW', 'Server responded', { statusCode: res.statusCode });
             res.resume();
-            mainWindow.loadURL(`http://localhost:${PORT}`).catch(err => {
-                logger.error('WINDOW', 'Failed to load URL', err);
+            mainWindow.loadURL(`http://127.0.0.1:${PORT}`).catch(err => {
+                const message = err?.message || String(err) || 'unknown error';
+                logger.error('WINDOW', 'Failed to load URL', { message, error: err });
                 dialog.showErrorBox('页面加载失败',
-                    `无法加载 http://localhost:${PORT}\n错误: ${err.message}\n\n详细日志已保存到: ${logger.getLogDir()}`
+                    `无法加载 http://127.0.0.1:${PORT}\n错误: ${message}\n\n详细日志已保存到: ${logger.getLogDir()}`
                 );
             });
         });
 
         req.on('error', (err) => {
-            logger.error('WINDOW', 'Connection failed', { retries: retries, error: err.message });
+            const message = err?.message || String(err) || 'unknown error';
+            logger.error('WINDOW', 'Connection failed', { retries: retries, error: message });
             if (retries > 0) {
                 setTimeout(() => tryLoad(retries - 1), 500);
             } else {
-                const errorMsg = `无法连接到本地服务器 (http://localhost:${PORT})\n\n` +
+                const errorMsg = `无法连接到本地服务器 (http://127.0.0.1:${PORT})\n\n` +
                     `可能的原因：\n` +
                     `1. 端口 3000 被其他程序占用\n` +
                     `2. server.js 启动失败（请查看日志）\n` +
                     `3. 防火墙阻止了本地连接\n\n` +
-                    `错误详情: ${err.message}\n\n` +
+                    `错误详情: ${message}\n\n` +
                     `日志目录: ${logger.getLogDir()}`;
                 dialog.showErrorBox('连接失败', errorMsg);
             }
@@ -221,7 +224,7 @@ function createWindow() {
             if (retries > 0) {
                 setTimeout(() => tryLoad(retries - 1), 500);
             } else {
-                const errorMsg = `无法连接到本地服务器 (http://localhost:${PORT})\n\n` +
+                const errorMsg = `无法连接到本地服务器 (http://127.0.0.1:${PORT})\n\n` +
                     `可能的原因：\n` +
                     `1. 端口 3000 被其他程序占用\n` +
                     `2. server.js 启动失败（请查看日志）\n` +

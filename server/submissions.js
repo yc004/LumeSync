@@ -6,29 +6,57 @@ const path = require('path');
 const fs = require('fs');
 const { config, getSubmissionsDir } = require('./config');
 
-// 从座位表读取学生信息
-function getStudentFromClassroomLayout(clientIp) {
+function extractSeatsFromLayout(layout) {
+    if (!layout) return [];
+
+    if (Array.isArray(layout)) {
+        return layout;
+    }
+
+    if (Array.isArray(layout?.seats)) {
+        return layout.seats;
+    }
+
+    if (layout?.classrooms && typeof layout.classrooms === 'object') {
+        return Object.values(layout.classrooms).flatMap(c => Array.isArray(c?.seats) ? c.seats : []);
+    }
+
+    if (typeof layout === 'object') {
+        return Object.values(layout).flatMap(c => Array.isArray(c?.seats) ? c.seats : []);
+    }
+
+    return [];
+}
+
+function readClassroomLayout() {
     try {
-        if (fs.existsSync(config.classroomLayoutPath)) {
-            const layout = JSON.parse(fs.readFileSync(config.classroomLayoutPath, 'utf-8'));
-            // 兼容两种格式：旧格式是数组，新格式是对象 { default: { seats: [] } }
-            const seats = Array.isArray(layout) ? layout : (layout['default']?.seats || []);
-            const student = seats.find(s => s.ip === clientIp);
-            if (student) {
-                console.log(`[classroom-layout] Found student for IP ${clientIp}: ${student.name}`);
-                return {
-                    ip: clientIp,
-                    name: student.name || '',
-                    studentId: student.studentId || ''
-                };
-            }
-        }
+        if (!fs.existsSync(config.classroomLayoutPath)) return null;
+        return JSON.parse(fs.readFileSync(config.classroomLayoutPath, 'utf-8'));
     } catch (err) {
         console.warn('[classroom-layout] Failed to read layout:', err.message);
+        return null;
     }
+}
+
+// 从座位表读取学生信息
+function getStudentFromClassroomLayout(clientIp) {
+    const layout = readClassroomLayout();
+    const seats = extractSeatsFromLayout(layout);
+    const student = seats.find(s => s && s.ip === clientIp);
+
+    if (student) {
+        console.log(`[classroom-layout] Found student for IP ${clientIp}: ${student.name}`);
+        return {
+            ip: clientIp,
+            name: student.name || '',
+            studentId: student.studentId || ''
+        };
+    }
+
     console.log(`[classroom-layout] No student found for IP ${clientIp}`);
     return { ip: clientIp, name: '', studentId: '' };
 }
+
 
 // 保存座位表到服务器
 function saveClassroomLayout(layout, res) {
@@ -143,16 +171,15 @@ function saveSubmission(reqBody, res) {
             // 获取学生姓名（从机房视图配置中获取）
             let studentName = clientIp;
             try {
-                if (fs.existsSync(config.classroomLayoutPath)) {
-                    const layout = JSON.parse(fs.readFileSync(config.classroomLayoutPath, 'utf-8'));
-                    const studentSeat = Array.isArray(layout) ? layout.find(s => s.ip === clientIp) : null;
-                    if (studentSeat && studentSeat.name) {
-                        studentName = studentSeat.name;
-                    }
+                const layout = readClassroomLayout();
+                const studentSeat = extractSeatsFromLayout(layout).find(s => s && s.ip === clientIp);
+                if (studentSeat && studentSeat.name) {
+                    studentName = studentSeat.name;
                 }
             } catch (err) {
                 console.warn('[save-submission] Failed to read classroom layout:', err.message);
             }
+
 
             // 文件名：学生名称_文件名 或 IP_文件名
             const namePrefix = studentName === clientIp ? clientIp.replace(/\./g, '-') : studentName;

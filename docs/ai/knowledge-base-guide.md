@@ -409,6 +409,6 @@ A: 不可以，内置知识受保护，无法删除。
 
 ## 相关文档
 
-- [知识库管理说明](../public/knowledge/categories/README.md)
-- [用户说明-AI课件编辑器](./用户说明-AI课件编辑器.md)
-- [API 文档](./API.md)
+- [知识库管理说明](../../public/knowledge/categories/README.md)
+- [用户说明-AI课件编辑器](../user/用户说明-AI课件编辑器.md)
+- [API 文档](../dev/API.md)

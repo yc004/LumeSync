@@ -111,6 +111,6 @@ function MySlide() {
 
 ## 更多文档
 
-- [完整 API 文档](./API.md)
+- [完整 API 文档](../dev/API.md)
 - [交互同步规范](./interaction-sync-guide.md)
 - [示例课件](./interaction-sync-example.lume)

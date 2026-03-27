@@ -98,30 +98,17 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-            // 同步当前班级的座位表到服务器
-            if (classroomId === currentClassroomId && socket) {
-                const currentLayout = updated[classroomId];
-                if (currentLayout?.seats) {
-                    // 将当前班级的座位表转换为旧格式（数组）发送到服务器
-                    const seatsArray = currentLayout.seats.map(s => ({
-                        ...s,
-                        ip: s.ip && s.ip.startsWith('::ffff:') ? s.ip.slice(7) : s.ip
-                    }));
-                    fetch('/api/save-classroom-layout', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ layout: seatsArray })
-                    }).then(res => res.json()).then(result => {
-                        if (result.success) {
-                            console.log('[ClassroomView] Layout synced to server');
-                        } else {
-                            console.warn('[ClassroomView] Failed to sync layout:', result.error);
-                        }
-                    }).catch(err => {
-                        console.warn('[ClassroomView] Error syncing layout:', err);
-                    });
+            fetch('/api/save-classroom-layout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ layout: updated })
+            }).then(res => res.json()).then(result => {
+                if (!result.success) {
+                    console.warn('[ClassroomView] Failed to persist classroom layout:', result.error);
                 }
-            }
+            }).catch(err => {
+                console.warn('[ClassroomView] Error persisting classroom layout:', err);
+            });
 
             return updated;
         });
@@ -176,6 +163,15 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
             const updated = { ...prev };
             delete updated[classroomId];
             localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+            fetch('/api/save-classroom-layout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ layout: updated })
+            }).catch(err => {
+                console.warn('[ClassroomView] Error persisting classroom layout after delete:', err);
+            });
+
             return updated;
         });
 
@@ -214,20 +210,40 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
         fetchOnline();
         const t = setInterval(fetchOnline, 3000);
 
-        // 初始时将当前班级的座位表同步到服务器
-        if (seats && seats.length > 0) {
-            const seatsArray = seats.map(s => ({
-                ...s,
-                ip: s.ip && s.ip.startsWith('::ffff:') ? s.ip.slice(7) : s.ip
-            }));
-            fetch('/api/save-classroom-layout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ layout: seatsArray })
-            }).catch(err => {
-                console.warn('[ClassroomView] Initial sync failed:', err);
+        fetch('/api/classroom-layout')
+            .then(r => r.json())
+            .then(d => {
+                if (!d?.success || !d.layout) return;
+
+                let serverClassrooms = null;
+                if (Array.isArray(d.layout)) {
+                    serverClassrooms = {
+                        default: {
+                            name: '默认班级',
+                            seats: d.layout.map(s => ({ ...s, ip: normalizeIp(s.ip) })),
+                            podiumAtTop: true
+                        }
+                    };
+                } else if (d.layout?.classrooms && typeof d.layout.classrooms === 'object') {
+                    serverClassrooms = d.layout.classrooms;
+                } else if (typeof d.layout === 'object') {
+                    serverClassrooms = d.layout;
+                }
+
+                if (!serverClassrooms || Object.keys(serverClassrooms).length === 0) return;
+
+                setClassrooms(serverClassrooms);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(serverClassrooms));
+
+                const lastUsed = localStorage.getItem('classroom-last-used');
+                const targetId = (lastUsed && serverClassrooms[lastUsed])
+                    ? lastUsed
+                    : (Object.keys(serverClassrooms)[0] || 'default');
+                setCurrentClassroomId(targetId);
+            })
+            .catch(err => {
+                console.warn('[ClassroomView] Failed to load classroom layout from server:', err);
             });
-        }
 
         return () => clearInterval(t);
     }, []);
@@ -803,7 +819,7 @@ function ClassroomView({ onClose, socket, studentLog, podiumAtTop, onPodiumAtTop
             </div>
 
             {editingId && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={(e) => { if (e.target === e.currentTarget) setEditingId(null); }}>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) setEditingId(null); }}>
                     <div className="bg-slate-800 rounded-xl p-6 w-96 border border-slate-700 shadow-2xl">
                         <h3 className="text-lg font-bold text-white mb-4">编辑座位信息</h3>
                         <div className="space-y-4">

@@ -29,6 +29,70 @@ const getAnnoKey = (courseId, slideIndex) => `${String(courseId || '')}:${Number
 // 学生操作日志（内存，最多保留 500 条）
 const studentLog = [];
 
+// 投票会话（内存）
+const voteSessions = new Map();
+const voteSessionTimers = new Map();
+const getVoteKey = (courseId, slideIndex, voteId) => `${String(courseId || '')}:${Number(slideIndex || 0)}:${String(voteId || '')}`;
+
+function buildVoteResult(session) {
+    const counts = {};
+    (session.options || []).forEach(opt => { counts[opt.id] = 0; });
+    session.responses.forEach(optionId => {
+        if (Object.prototype.hasOwnProperty.call(counts, optionId)) counts[optionId] += 1;
+    });
+    const totalVotes = session.responses.size;
+    const options = (session.options || []).map(opt => ({
+        id: opt.id,
+        label: opt.label,
+        votes: counts[opt.id] || 0,
+        percent: totalVotes > 0 ? Math.round(((counts[opt.id] || 0) / totalVotes) * 100) : 0
+    }));
+    return {
+        voteId: session.voteId,
+        courseId: session.courseId,
+        slideIndex: session.slideIndex,
+        question: session.question,
+        anonymous: !!session.anonymous,
+        status: session.status,
+        startedAt: session.startedAt,
+        endsAt: session.endsAt,
+        totalVotes,
+        options
+    };
+}
+
+function clearVoteSession(courseId, slideIndex, voteId) {
+    const key = getVoteKey(courseId, slideIndex, voteId);
+    if (voteSessionTimers.has(key)) {
+        clearTimeout(voteSessionTimers.get(key));
+        voteSessionTimers.delete(key);
+    }
+    voteSessions.delete(key);
+}
+
+function clearVotesByCourse(courseId) {
+    const prefix = `${String(courseId || '')}:`;
+    Array.from(voteSessions.keys()).forEach(key => {
+        if (key.startsWith(prefix)) {
+            if (voteSessionTimers.has(key)) {
+                clearTimeout(voteSessionTimers.get(key));
+                voteSessionTimers.delete(key);
+            }
+            voteSessions.delete(key);
+        }
+    });
+}
+
+function findVoteSessionByCourseAndVoteId(courseId, voteId) {
+    for (const [key, session] of voteSessions.entries()) {
+        if (session.courseId === String(courseId || '') && session.voteId === String(voteId || '')) {
+            return { key, session };
+        }
+    }
+    return null;
+}
+
+
 function pushLog(type, ip, extra) {
     const entry = { time: new Date().toISOString(), type, ip, ...extra };
     studentLog.push(entry);
@@ -149,6 +213,7 @@ function setupSocketHandlers(io, {
             setCurrentCourseId(null);
             setCurrentSlideIndex(0);
             annotationStore.clear();
+            clearVotesByCourse(courseId);
             console.log(`[end-course] courseId=${courseId}`);
             io.emit('course-ended');
         });
@@ -230,8 +295,141 @@ function setupSocketHandlers(io, {
         });
 
         // ========================================================
+        // 投票组件（VoteSlide）
+        // ========================================================
+
+        socket.on('vote:start', (data) => {
+            if (role !== 'host') return;
+            const voteId = String(data?.voteId || '').trim();
+            const question = String(data?.question || '').trim();
+            const options = Array.isArray(data?.options) ? data.options : [];
+            const durationSec = Math.max(10, Math.min(300, Number(data?.durationSec || 60)));
+            const anonymous = !!data?.anonymous;
+            const courseId = getCurrentCourseId();
+            const slideIndex = getCurrentSlideIndex();
+
+            if (!courseId || !voteId || !question || options.length < 2) return;
+
+            const normalizedOptions = options
+                .filter(opt => opt && String(opt.id || '').trim() && String(opt.label || '').trim())
+                .map(opt => ({ id: String(opt.id).trim(), label: String(opt.label).trim() }));
+
+            if (normalizedOptions.length < 2) return;
+
+            const key = getVoteKey(courseId, slideIndex, voteId);
+            clearVoteSession(courseId, slideIndex, voteId);
+
+            const now = Date.now();
+            const session = {
+                voteId,
+                question,
+                options: normalizedOptions,
+                anonymous,
+                courseId,
+                slideIndex,
+                startedAt: now,
+                endsAt: now + durationSec * 1000,
+                status: 'running',
+                responses: new Map()
+            };
+
+            voteSessions.set(key, session);
+
+            const timer = setTimeout(() => {
+                const active = voteSessions.get(key);
+                if (!active || active.status !== 'running') return;
+                active.status = 'ended';
+                const result = buildVoteResult(active);
+                io.emit('vote:end', result);
+                clearVoteSession(active.courseId, active.slideIndex, active.voteId);
+            }, durationSec * 1000);
+
+            voteSessionTimers.set(key, timer);
+
+            io.emit('vote:start', {
+                voteId,
+                question,
+                options: normalizedOptions,
+                anonymous,
+                courseId,
+                slideIndex,
+                durationSec,
+                startedAt: session.startedAt,
+                endsAt: session.endsAt
+            });
+
+            io.to('hosts').emit('vote:result', buildVoteResult(session));
+        });
+
+        socket.on('vote:submit', (data) => {
+            if (role !== 'viewer') return;
+
+            const voteId = String(data?.voteId || '').trim();
+            const courseId = String(data?.courseId || '').trim();
+            const slideIndex = Number(data?.slideIndex || 0);
+            const optionId = String(data?.optionId || '').trim();
+            const key = getVoteKey(courseId, slideIndex, voteId);
+            const session = voteSessions.get(key);
+
+            if (!session || session.status !== 'running' || Date.now() > session.endsAt) {
+                socket.emit('vote:submit:ack', { success: false, voteId, error: '投票已结束' });
+                return;
+            }
+
+            if (!session.options.some(opt => opt.id === optionId)) {
+                socket.emit('vote:submit:ack', { success: false, voteId, error: '无效选项' });
+                return;
+            }
+
+            if (session.responses.has(clientIp)) {
+                socket.emit('vote:submit:ack', { success: false, voteId, error: '你已提交过投票' });
+                return;
+            }
+
+            session.responses.set(clientIp, optionId);
+            const result = buildVoteResult(session);
+
+            socket.emit('vote:submit:ack', { success: true, voteId });
+            io.to('hosts').emit('vote:result', result);
+            if (!session.anonymous) {
+                io.to('viewers').emit('vote:result', result);
+            }
+        });
+
+        socket.on('vote:end', (data) => {
+            if (role !== 'host') return;
+
+            const voteId = String(data?.voteId || '').trim();
+            if (!voteId) return;
+
+            const requestedCourseId = String(data?.courseId || getCurrentCourseId() || '').trim();
+            const requestedSlideIndex = Number.isFinite(Number(data?.slideIndex))
+                ? Number(data.slideIndex)
+                : Number(getCurrentSlideIndex() || 0);
+
+            let key = getVoteKey(requestedCourseId, requestedSlideIndex, voteId);
+            let session = voteSessions.get(key);
+
+            if (!session) {
+                const found = findVoteSessionByCourseAndVoteId(requestedCourseId, voteId);
+                if (found) {
+                    key = found.key;
+                    session = found.session;
+                }
+            }
+
+            if (!session) return;
+
+            session.status = 'ended';
+            const result = buildVoteResult(session);
+            io.emit('vote:end', result);
+            clearVoteSession(session.courseId, session.slideIndex, session.voteId);
+        });
+
+        // ========================================================
         // 标注同步
         // ========================================================
+
 
         // 添加标注段（旧版本，兼容）
         socket.on('annotation-add', (data) => {

@@ -12,7 +12,6 @@
 - [教师交互同步](#教师交互同步)
 - [工具函数](#工具函数)
 - [课件事件](#课件事件)
-- [RAG 知识库](#rag-知识库)
 - [完整示例](#完整示例)
 
 ---
@@ -1575,7 +1574,8 @@ useEffect(() => {
 - **鼠标位置**：鼠标移动轨迹、悬停状态
 - **动画过程**：动画播放的中间状态
 
-> **详细规范**：请参阅 [交互同步规范文档](./interaction-sync-guide.md)
+> **详细规范**：请参阅 [交互同步规范文档](../interaction/interaction-sync-guide.md)
+
 
 ### 最佳实践
 
@@ -1629,7 +1629,7 @@ useEffect(() => {
 
 如有问题，请查看：
 - [课件开发模板](./course-template.md)
-- [日志系统文档](./LOGGING.md)
-- [Coze API v3 迁移指南](./coze-api-v3-migration.md)
-- [Agent 系统最佳实践](./agent-knowledge-best-practices.md)
+- [日志系统文档](../ops/LOGGING.md)
+- [Coze API v3 迁移指南](../ai/coze-api-v3-migration.md)
+- [Agent 系统最佳实践](../ai/agent-knowledge-best-practices.md)
 - 在教师端控制台查看浏览器控制台日志

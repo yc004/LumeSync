@@ -85,6 +85,22 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     const [showClassroomView, setShowClassroomView] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [annotateEnabled, setAnnotateEnabled] = useState(false);
+    const [voteToolbarState, setVoteToolbarState] = useState({
+        visible: false,
+        voteId: '',
+        question: '',
+        anonymous: false,
+        status: 'idle',
+        durationSec: 60,
+        remainingSec: 0,
+        result: null,
+        canStart: false
+    });
+    const [showVoteResultPanel, setShowVoteResultPanel] = useState(false);
+    const [voteToolbarRender, setVoteToolbarRender] = useState(false);
+    const [voteToolbarClosing, setVoteToolbarClosing] = useState(false);
+    const [voteResultPanelRender, setVoteResultPanelRender] = useState(false);
+    const [voteResultPanelClosing, setVoteResultPanelClosing] = useState(false);
     const [annotateMenuOpen, setAnnotateMenuOpen] = useState(false);
     const [annoTool, setAnnoTool] = useState('pen'); // pen | marker | highlighter | eraser
     const [annoWidth, setAnnoWidth] = useState(4);
@@ -128,6 +144,36 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     const settingsRef = useRef(settings);
     useEffect(() => { settingsRef.current = settings; }, [settings]);
 
+    useEffect(() => {
+        if (isHost && voteToolbarState.visible) {
+            setVoteToolbarRender(true);
+            setVoteToolbarClosing(false);
+            return;
+        }
+        if (!voteToolbarRender) return;
+        setVoteToolbarClosing(true);
+        const timer = setTimeout(() => {
+            setVoteToolbarRender(false);
+            setVoteToolbarClosing(false);
+        }, 220);
+        return () => clearTimeout(timer);
+    }, [isHost, voteToolbarState.visible, voteToolbarRender]);
+
+    useEffect(() => {
+        if (showVoteResultPanel) {
+            setVoteResultPanelRender(true);
+            setVoteResultPanelClosing(false);
+            return;
+        }
+        if (!voteResultPanelRender) return;
+        setVoteResultPanelClosing(true);
+        const timer = setTimeout(() => {
+            setVoteResultPanelRender(false);
+            setVoteResultPanelClosing(false);
+        }, 180);
+        return () => clearTimeout(timer);
+    }, [showVoteResultPanel, voteResultPanelRender]);
+
     // 自动同步机制：课件注册的变量
     const syncVarsRef = useRef(new Map()); // key -> { value, onChange, sync: boolean }
 
@@ -151,6 +197,28 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
 
     // 在组件渲染时立即注册 API 函数到全局（课件渲染时会调用）
     if (window.CourseGlobalContext) {
+        window.CourseGlobalContext.isHost = !!isHost;
+        window.CourseGlobalContext.getSocket = () => socketRef.current;
+        window.CourseGlobalContext.getCurrentCourseMeta = () => ({ courseId, slideIndex: currentSlide });
+        window.CourseGlobalContext.setVoteToolbarState = (patch = {}) => {
+            setVoteToolbarState(prev => ({ ...prev, ...patch, visible: true }));
+        };
+        window.CourseGlobalContext.clearVoteToolbarState = () => {
+            setVoteToolbarState({
+                visible: false,
+                voteId: '',
+                question: '',
+                anonymous: false,
+                status: 'idle',
+                durationSec: 60,
+                remainingSec: 0,
+                result: null,
+                canStart: false
+            });
+            setShowVoteResultPanel(false);
+        };
+
+
         window.CourseGlobalContext.useSyncVar = (key, initialValue, options = {}) => {
             const { onChange = null } = options;
 
@@ -973,7 +1041,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
 
             {/* 课件展示区 */}
             <div className="flex-1 relative flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
-                <div ref={stageWrapRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+                <div ref={stageWrapRef} className="relative w-full h-full flex items-center justify-center overflow-hidden">
                     <div
                         className="bg-white text-slate-800 relative shadow-2xl flex flex-col rounded-2xl overflow-y-auto no-scrollbar shrink-0"
                         style={{
@@ -1096,7 +1164,92 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 </button>
                             </div>
                         )}
+
+
+
+
                     </div>
+
+                    {isHost && voteToolbarRender && (
+                        <div className={`absolute right-4 top-1/2 -translate-y-1/2 z-[60] flex items-center gap-3 ${voteToolbarClosing ? 'vote-toolbar-exit' : 'vote-toolbar-animate'}`}>
+                            {voteResultPanelRender && (
+                                <div className={`w-72 bg-slate-900/95 border border-slate-600 rounded-2xl shadow-2xl backdrop-blur-sm p-3 text-white max-h-[70vh] overflow-y-auto ${voteResultPanelClosing ? 'vote-toolbar-panel-exit' : 'vote-toolbar-panel-animate'}`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="text-xs text-slate-400">投票结果</div>
+                                        <button
+                                            onClick={() => setShowVoteResultPanel(false)}
+                                            className="text-slate-400 hover:text-white"
+                                            title="收起"
+                                        >
+                                            <i className="fas fa-xmark"></i>
+                                        </button>
+                                    </div>
+                                    <div className="text-xs text-slate-300 mb-2">总票数：<span className="font-bold text-white">{voteToolbarState.result?.totalVotes || 0}</span></div>
+                                    {(voteToolbarState.result?.options || []).length === 0 && (
+                                        <div className="text-xs text-slate-500">暂无结果数据</div>
+                                    )}
+                                    {(voteToolbarState.result?.options || []).map(opt => (
+                                        <div key={opt.id} className="mb-2 last:mb-0">
+                                            <div className="flex items-center justify-between text-xs mb-1">
+                                                <span className="text-slate-200 truncate pr-2">{opt.label}</span>
+                                                <span className="text-slate-300">{opt.votes || 0}票 · {opt.percent || 0}%</span>
+                                            </div>
+                                            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                <div className="h-full bg-blue-500" style={{ width: `${opt.percent || 0}%` }}></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="w-14 bg-slate-900/90 border border-slate-600 rounded-2xl shadow-2xl backdrop-blur-sm p-2 text-white flex flex-col items-center gap-2">
+                                <div
+                                    className={`w-2.5 h-2.5 rounded-full ${voteToolbarState.status === 'running' ? 'bg-emerald-400' : voteToolbarState.status === 'ended' ? 'bg-slate-300' : 'bg-amber-400'}`}
+                                    title={voteToolbarState.status === 'running' ? '进行中' : voteToolbarState.status === 'ended' ? '已结束' : '未开始'}
+                                ></div>
+                                <input
+                                    type="number"
+                                    min="10"
+                                    max="300"
+                                    value={voteToolbarState.durationSec || 60}
+                                    disabled={voteToolbarState.status === 'running'}
+                                    onChange={(e) => {
+                                        const duration = Math.max(10, Math.min(300, Number(e.target.value || 60)));
+                                        setVoteToolbarState(prev => ({ ...prev, durationSec: duration }));
+                                        window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'set-duration', durationSec: duration, voteId: voteToolbarState.voteId } }));
+                                    }}
+                                    className="w-full h-8 px-1 rounded-lg bg-slate-800 border border-slate-600 text-[11px] text-center text-white disabled:text-slate-500"
+                                    title="投票时长（秒）"
+                                />
+                                <button
+                                    onClick={() => window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'start', voteId: voteToolbarState.voteId } }))}
+                                    disabled={!voteToolbarState.canStart || voteToolbarState.status === 'running'}
+                                    className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-sm"
+                                    title="开始投票"
+                                >
+                                    <i className="fas fa-play"></i>
+                                </button>
+                                <button
+                                    onClick={() => window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'end', voteId: voteToolbarState.voteId } }))}
+                                    disabled={voteToolbarState.status !== 'running'}
+                                    className="w-9 h-9 rounded-xl bg-slate-700 hover:bg-slate-600 disabled:text-slate-500 text-sm"
+                                    title="结束投票"
+                                >
+                                    <i className="fas fa-stop"></i>
+                                </button>
+                                <button
+                                    onClick={() => setShowVoteResultPanel(v => !v)}
+                                    className="w-9 h-9 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-sm"
+                                    title={showVoteResultPanel ? '收起结果' : '查看结果'}
+                                >
+                                    <i className="fas fa-chart-column"></i>
+                                </button>
+                                {voteToolbarState.status === 'running' && (
+                                    <div className="text-[10px] text-amber-300 leading-none" title="剩余秒数">{voteToolbarState.remainingSec || 0}s</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1345,7 +1498,15 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             </div>
             <style>{`
                 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                @keyframes voteToolbarIn { from { transform: translate(16px, -50%) scale(0.96); opacity: 0; } to { transform: translate(0, -50%) scale(1); opacity: 1; } }
+                @keyframes voteToolbarOut { from { transform: translate(0, -50%) scale(1); opacity: 1; } to { transform: translate(16px, -50%) scale(0.96); opacity: 0; } }
+                @keyframes votePanelIn { from { transform: translateX(8px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                @keyframes votePanelOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(8px); opacity: 0; } }
                 .toast-animate { animation: slideInRight 0.3s ease-out forwards; }
+                .vote-toolbar-animate { animation: voteToolbarIn 0.24s ease-out forwards; transform-origin: right center; }
+                .vote-toolbar-exit { animation: voteToolbarOut 0.22s ease-in forwards; transform-origin: right center; }
+                .vote-toolbar-panel-animate { animation: votePanelIn 0.2s ease-out forwards; }
+                .vote-toolbar-panel-exit { animation: votePanelOut 0.18s ease-in forwards; }
             `}</style>
         </div>
     );

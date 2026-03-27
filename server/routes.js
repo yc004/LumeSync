@@ -226,10 +226,25 @@ router.put('/course-folders/:folderId/courses/:courseId', (req, res) => {
 // 学生提交和配置 API
 // ========================================================
 
+// 获取座位表
+router.get('/classroom-layout', (req, res) => {
+    try {
+        if (!fs.existsSync(config.classroomLayoutPath)) {
+            return res.json({ success: true, layout: null });
+        }
+        const raw = fs.readFileSync(config.classroomLayoutPath, 'utf-8');
+        const layout = JSON.parse(raw || 'null');
+        res.json({ success: true, layout });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // 保存座位表
 router.post('/save-classroom-layout', (req, res) => {
     saveClassroomLayout(req.body.layout, res);
 });
+
 
 // 保存学生提交
 router.post('/save-submission', (req, res) => {

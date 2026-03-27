@@ -137,6 +137,15 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         panelVisible = false,
         panel,
         toolbar,
+        buttons = null,
+        activePopupKey = null,
+        onActivePopupChange = null,
+        renderPopupContent = null,
+        toolbarPrefix = null,
+        toolbarSuffix = null,
+        popupWrapperClassName = '',
+        popupClassName = '',
+        buttonBaseClassName = '',
         side = 'right',
         offsetClass = 'right-4 top-1/2 -translate-y-1/2',
         zIndexClass = 'z-[60]',
@@ -146,8 +155,58 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         toolbarExitMs = 220,
         panelExitMs = 180
     }) => {
+        const hasPresetToolbar = !!toolbar;
+        const popupNode = !hasPresetToolbar && typeof renderPopupContent === 'function'
+            ? renderPopupContent(activePopupKey, {
+                closePanel: () => onActivePopupChange && onActivePopupChange(null),
+                setActivePopupKey: onActivePopupChange
+            })
+            : panel;
+        const effectivePanelVisible = hasPresetToolbar
+            ? !!panelVisible
+            : !!activePopupKey && !!popupNode;
+
+        const togglePopup = (key) => {
+            if (!onActivePopupChange) return;
+            onActivePopupChange(activePopupKey === key ? null : key);
+        };
+
+        const defaultButtonClass = buttonBaseClassName || 'w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500';
+
+        const toolbarNode = hasPresetToolbar
+            ? toolbar
+            : (
+                <div className={`w-14 ${styles.liquidGlassDark} rounded-2xl p-2 text-white flex flex-col items-center gap-2 ${toolbarClassName}`}>
+                    {toolbarPrefix}
+                    {(Array.isArray(buttons) ? buttons : []).map((btn, idx) => {
+                        if (!btn || btn.hidden) return null;
+                        if (typeof btn.render === 'function') {
+                            return <React.Fragment key={btn.id || idx}>{btn.render({ activePopupKey, setActivePopupKey: onActivePopupChange, togglePopup })}</React.Fragment>;
+                        }
+                        const active = typeof btn.active === 'function' ? !!btn.active(activePopupKey) : !!btn.active;
+                        return (
+                            <button
+                                key={btn.id || idx}
+                                title={btn.title || ''}
+                                disabled={!!btn.disabled}
+                                onClick={() => {
+                                    if (btn.popupKey) togglePopup(btn.popupKey);
+                                    if (typeof btn.onClick === 'function') {
+                                        btn.onClick({ activePopupKey, setActivePopupKey: onActivePopupChange, togglePopup, button: btn });
+                                    }
+                                }}
+                                className={`${defaultButtonClass} ${active ? 'bg-blue-600 hover:bg-blue-500' : ''} ${btn.className || ''}`}
+                            >
+                                {btn.iconClass ? <i className={`fas ${btn.iconClass}`}></i> : (btn.content || null)}
+                            </button>
+                        );
+                    })}
+                    {toolbarSuffix}
+                </div>
+            );
+
         const toolbarPresence = usePresence(!!visible, toolbarExitMs);
-        const panelPresence = usePresence(!!visible && !!panelVisible, panelExitMs);
+        const panelPresence = usePresence(!!visible && !!effectivePanelVisible, panelExitMs);
 
         if (!toolbarPresence.render) return null;
 
@@ -164,18 +223,18 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         return (
             <div className={`absolute ${offsetClass} ${zIndexClass} flex items-center gap-3 pointer-events-none ${containerClassName}`}>
                 {isRight && panelPresence.render && (
-                    <div className={`pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${panelClassName}`}>
-                        {panel}
+                    <div className={`pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${hasPresetToolbar ? panelClassName : popupWrapperClassName}`}>
+                        {hasPresetToolbar ? popupNode : <div className={`${popupClassName}`}>{popupNode}</div>}
                     </div>
                 )}
 
-                <div className={`pointer-events-auto transition-all duration-200 ease-out ${originClass} ${toolbarMotionClass} ${toolbarClassName}`}>
-                    {toolbar}
+                <div className={`pointer-events-auto transition-all duration-200 ease-out ${originClass} ${toolbarMotionClass} ${hasPresetToolbar ? toolbarClassName : ''}`}>
+                    {toolbarNode}
                 </div>
 
                 {!isRight && panelPresence.render && (
-                    <div className={`pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${panelClassName}`}>
-                        {panel}
+                    <div className={`pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${hasPresetToolbar ? panelClassName : popupWrapperClassName}`}>
+                        {hasPresetToolbar ? popupNode : <div className={`${popupClassName}`}>{popupNode}</div>}
                     </div>
                 )}
             </div>

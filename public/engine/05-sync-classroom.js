@@ -97,11 +97,12 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         canStart: false
     });
     const [showVoteResultPanel, setShowVoteResultPanel] = useState(false);
-    const [voteToolbarRender, setVoteToolbarRender] = useState(false);
-    const [voteToolbarClosing, setVoteToolbarClosing] = useState(false);
-    const [voteResultPanelRender, setVoteResultPanelRender] = useState(false);
-    const [voteResultPanelClosing, setVoteResultPanelClosing] = useState(false);
-    const [annotateMenuOpen, setAnnotateMenuOpen] = useState(false);
+
+    const [annoPopupType, setAnnoPopupType] = useState(null);
+
+    const liquidGlassDarkClass = window.__LumeSyncUI?.styles?.liquidGlassDark || 'bg-slate-900/70 backdrop-blur-xl border border-white/15 shadow-[0_10px_30px_rgba(15,23,42,0.45)]';
+    const liquidGlassLightClass = window.__LumeSyncUI?.styles?.liquidGlassLight || 'bg-white/75 backdrop-blur-xl border border-white/70 shadow-[0_10px_30px_rgba(15,23,42,0.2)]';
+
     const [annoTool, setAnnoTool] = useState('pen'); // pen | marker | highlighter | eraser
     const [annoWidth, setAnnoWidth] = useState(4);
     const [annoColor, setAnnoColor] = useState('#ef4444');
@@ -144,35 +145,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     const settingsRef = useRef(settings);
     useEffect(() => { settingsRef.current = settings; }, [settings]);
 
-    useEffect(() => {
-        if (isHost && voteToolbarState.visible) {
-            setVoteToolbarRender(true);
-            setVoteToolbarClosing(false);
-            return;
-        }
-        if (!voteToolbarRender) return;
-        setVoteToolbarClosing(true);
-        const timer = setTimeout(() => {
-            setVoteToolbarRender(false);
-            setVoteToolbarClosing(false);
-        }, 220);
-        return () => clearTimeout(timer);
-    }, [isHost, voteToolbarState.visible, voteToolbarRender]);
 
-    useEffect(() => {
-        if (showVoteResultPanel) {
-            setVoteResultPanelRender(true);
-            setVoteResultPanelClosing(false);
-            return;
-        }
-        if (!voteResultPanelRender) return;
-        setVoteResultPanelClosing(true);
-        const timer = setTimeout(() => {
-            setVoteResultPanelRender(false);
-            setVoteResultPanelClosing(false);
-        }, 180);
-        return () => clearTimeout(timer);
-    }, [showVoteResultPanel, voteResultPanelRender]);
 
     // 自动同步机制：课件注册的变量
     const syncVarsRef = useRef(new Map()); // key -> { value, onChange, sync: boolean }
@@ -938,21 +911,11 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         if (!isHost) return;
         if (!annotateEnabled) {
             setAnnotateEnabled(true);
-            setAnnotateMenuOpen(true);
+            setAnnoPopupType('tools');
             return;
         }
-        setAnnotateMenuOpen(v => !v);
+        setAnnoPopupType(v => (v === 'tools' ? null : 'tools'));
     };
-
-    useEffect(() => {
-        if (!annotateMenuOpen) return;
-        const onPointerDown = (e) => {
-            const el = e && e.target && (e.target.closest ? e.target.closest('[data-anno-menu]') : null);
-            if (!el) setAnnotateMenuOpen(false);
-        };
-        document.addEventListener('pointerdown', onPointerDown);
-        return () => document.removeEventListener('pointerdown', onPointerDown);
-    }, [annotateMenuOpen]);
 
     const handleClearAnno = () => {
         if (!courseId) return;
@@ -963,6 +926,218 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             socketRef.current.emit('annotation:clear', { courseId, slideIndex: currentSlide });
         }
     };
+
+    const renderAnnoPopupContent = (popupKey) => {
+        if (!popupKey) return null;
+        return (
+            <div className={`w-64 ${liquidGlassLightClass} rounded-2xl p-3 z-[9999]`}>
+                {popupKey === 'tools' && (
+                    <>
+                        <div className="text-xs text-slate-500 mb-2">绘制工具</div>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[
+                                { key: 'pen', label: '钢笔', icon: 'fa-pen' },
+                                { key: 'marker', label: '记号笔', icon: 'fa-marker' },
+                                { key: 'highlighter', label: '荧光笔', icon: 'fa-highlighter' },
+                                { key: 'eraser', label: '橡皮', icon: 'fa-eraser' },
+                            ].map(t => (
+                                <button
+                                    key={t.key}
+                                    onClick={() => { setAnnoTool(t.key); if (!annotateEnabled) setAnnotateEnabled(true); }}
+                                    className={`px-2 py-2 rounded-xl border font-bold text-sm transition-colors flex flex-col items-center justify-center ${
+                                        annoTool === t.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                    title={t.label}
+                                >
+                                    <i className={`fas ${t.icon} mb-1`}></i>
+                                    <span className="text-[11px]">{t.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                {popupKey === 'width' && (
+                    <>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-slate-600 font-bold text-sm">粗细</span>
+                            <span className="text-slate-500 font-mono text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg">{annoWidth}px</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="2"
+                            max="20"
+                            value={annoWidth}
+                            onChange={(e) => setAnnoWidth(Number(e.target.value))}
+                            className="w-full"
+                        />
+                    </>
+                )}
+
+                {popupKey === 'color' && (
+                    <>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-slate-600 font-bold text-sm">颜色</span>
+                            <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-full border border-slate-200" style={{ background: annoColor }} />
+                                <input
+                                    type="color"
+                                    value={annoColor}
+                                    disabled={annoTool === 'eraser'}
+                                    onChange={(e) => setAnnoColor(e.target.value)}
+                                    className={`w-10 h-7 p-0 border-0 bg-transparent ${annoTool === 'eraser' ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    title="选择颜色"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {colorPresets.map(c => (
+                                <button
+                                    key={c}
+                                    onClick={() => setAnnoColor(c)}
+                                    disabled={annoTool === 'eraser'}
+                                    className={`w-7 h-7 rounded-full border transition-all ${
+                                        annoTool === 'eraser'
+                                            ? 'opacity-40 cursor-not-allowed border-slate-200'
+                                            : (annoColor.toLowerCase() === c.toLowerCase() ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-200 hover:border-slate-300')
+                                    }`}
+                                    style={{ background: c }}
+                                    title={c}
+                                />
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    };
+
+    const annoToolbarButtons = [
+        {
+            id: 'anno-tools',
+            title: '绘制工具',
+            iconClass: 'fa-pen',
+            active: annotateEnabled,
+            onClick: () => toggleAnnotate()
+        },
+        {
+            id: 'anno-width',
+            title: '画笔粗细',
+            iconClass: 'fa-grip-lines',
+            popupKey: 'width',
+            active: annoPopupType === 'width',
+            onClick: () => { if (!annotateEnabled) setAnnotateEnabled(true); }
+        },
+        {
+            id: 'anno-color',
+            title: '画笔颜色',
+            iconClass: 'fa-palette',
+            popupKey: 'color',
+            active: annoPopupType === 'color',
+            className: annoTool === 'eraser' ? 'opacity-50' : '',
+            onClick: () => { if (!annotateEnabled) setAnnotateEnabled(true); }
+        },
+        {
+            id: 'anno-clear',
+            title: '清空本页',
+            iconClass: 'fa-trash-can',
+            disabled: !courseId,
+            onClick: () => handleClearAnno()
+        },
+        {
+            id: 'anno-exit',
+            title: '退出绘制',
+            iconClass: 'fa-xmark',
+            className: 'bg-red-700/80 hover:bg-red-600',
+            onClick: ({ setActivePopupKey }) => { stopAnnoDrawing(); setAnnotateEnabled(false); setActivePopupKey && setActivePopupKey(null); }
+        }
+    ];
+
+    const renderVotePopupContent = (popupKey) => {
+        if (popupKey !== 'result') return null;
+        return (
+            <div className={`w-72 ${liquidGlassDarkClass} rounded-2xl p-3 text-white max-h-[70vh] overflow-y-auto`}>
+                <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-slate-400">投票结果</div>
+                    <button
+                        onClick={() => setShowVoteResultPanel(false)}
+                        className="text-slate-400 hover:text-white"
+                        title="收起"
+                    >
+                        <i className="fas fa-xmark"></i>
+                    </button>
+                </div>
+                <div className="text-xs text-slate-300 mb-2">总票数：<span className="font-bold text-white">{voteToolbarState.result?.totalVotes || 0}</span></div>
+                {(voteToolbarState.result?.options || []).length === 0 && (
+                    <div className="text-xs text-slate-500">暂无结果数据</div>
+                )}
+                {(voteToolbarState.result?.options || []).map(opt => (
+                    <div key={opt.id} className="mb-2 last:mb-0">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-slate-200 truncate pr-2">{opt.label}</span>
+                            <span className="text-slate-300">{opt.votes || 0}票 · {opt.percent || 0}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500" style={{ width: `${opt.percent || 0}%` }}></div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    const voteToolbarPrefix = (
+        <>
+            <div
+                className={`w-2.5 h-2.5 rounded-full ${voteToolbarState.status === 'running' ? 'bg-emerald-400' : voteToolbarState.status === 'ended' ? 'bg-slate-300' : 'bg-amber-400'}`}
+                title={voteToolbarState.status === 'running' ? '进行中' : voteToolbarState.status === 'ended' ? '已结束' : '未开始'}
+            ></div>
+            <input
+                type="number"
+                min="10"
+                max="300"
+                value={voteToolbarState.durationSec || 60}
+                disabled={voteToolbarState.status === 'running'}
+                onChange={(e) => {
+                    const duration = Math.max(10, Math.min(300, Number(e.target.value || 60)));
+                    setVoteToolbarState(prev => ({ ...prev, durationSec: duration }));
+                    window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'set-duration', durationSec: duration, voteId: voteToolbarState.voteId } }));
+                }}
+                className="w-full h-8 px-1 rounded-lg bg-slate-800 border border-slate-600 text-[11px] text-center text-white disabled:text-slate-500"
+                title="投票时长（秒）"
+            />
+        </>
+    );
+
+    const voteToolbarSuffix = voteToolbarState.status === 'running'
+        ? <div className="text-[10px] text-amber-300 leading-none" title="剩余秒数">{voteToolbarState.remainingSec || 0}s</div>
+        : null;
+
+    const voteToolbarButtons = [
+        {
+            id: 'vote-start',
+            title: '开始投票',
+            iconClass: 'fa-play',
+            disabled: !voteToolbarState.canStart || voteToolbarState.status === 'running',
+            className: 'bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700',
+            onClick: () => window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'start', voteId: voteToolbarState.voteId } }))
+        },
+        {
+            id: 'vote-end',
+            title: '结束投票',
+            iconClass: 'fa-stop',
+            disabled: voteToolbarState.status !== 'running',
+            onClick: () => window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'end', voteId: voteToolbarState.voteId } }))
+        },
+        {
+            id: 'vote-result',
+            title: showVoteResultPanel ? '收起结果' : '查看结果',
+            iconClass: 'fa-chart-column',
+            popupKey: 'result',
+            active: showVoteResultPanel,
+            className: 'bg-emerald-700/80 hover:bg-emerald-600'
+        }
+    ];
 
     if (!roleAssigned) {
         return (
@@ -1156,7 +1331,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                     className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-lg border transition-all ${
                                         camSwitching
                                             ? 'bg-slate-700 border-slate-600 text-slate-400 cursor-wait'
-                                            : 'bg-slate-900/90 border-slate-600 text-white hover:bg-slate-700 backdrop-blur-sm'
+                                            : `${liquidGlassDarkClass} text-white hover:bg-slate-700`
                                     }`}
                                 >
                                     <i className={`fas ${camSwitching ? 'fa-spinner fa-spin' : 'fa-camera'}`}></i>
@@ -1170,86 +1345,33 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
 
                     </div>
 
-                    {isHost && voteToolbarRender && (
-                        <div className={`absolute right-4 top-1/2 -translate-y-1/2 z-[60] flex items-center gap-3 ${voteToolbarClosing ? 'vote-toolbar-exit' : 'vote-toolbar-animate'}`}>
-                            {voteResultPanelRender && (
-                                <div className={`w-72 bg-slate-900/95 border border-slate-600 rounded-2xl shadow-2xl backdrop-blur-sm p-3 text-white max-h-[70vh] overflow-y-auto ${voteResultPanelClosing ? 'vote-toolbar-panel-exit' : 'vote-toolbar-panel-animate'}`}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="text-xs text-slate-400">投票结果</div>
-                                        <button
-                                            onClick={() => setShowVoteResultPanel(false)}
-                                            className="text-slate-400 hover:text-white"
-                                            title="收起"
-                                        >
-                                            <i className="fas fa-xmark"></i>
-                                        </button>
-                                    </div>
-                                    <div className="text-xs text-slate-300 mb-2">总票数：<span className="font-bold text-white">{voteToolbarState.result?.totalVotes || 0}</span></div>
-                                    {(voteToolbarState.result?.options || []).length === 0 && (
-                                        <div className="text-xs text-slate-500">暂无结果数据</div>
-                                    )}
-                                    {(voteToolbarState.result?.options || []).map(opt => (
-                                        <div key={opt.id} className="mb-2 last:mb-0">
-                                            <div className="flex items-center justify-between text-xs mb-1">
-                                                <span className="text-slate-200 truncate pr-2">{opt.label}</span>
-                                                <span className="text-slate-300">{opt.votes || 0}票 · {opt.percent || 0}%</span>
-                                            </div>
-                                            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                                <div className="h-full bg-blue-500" style={{ width: `${opt.percent || 0}%` }}></div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                    {isHost && window.__LumeSyncUI?.SideToolbar && (
+                        <>
+                            <window.__LumeSyncUI.SideToolbar
+                                visible={true}
+                                side="left"
+                                offsetClass="left-4 top-1/2 -translate-y-1/2"
+                                buttons={annoToolbarButtons}
+                                activePopupKey={annoPopupType}
+                                onActivePopupChange={setAnnoPopupType}
+                                renderPopupContent={renderAnnoPopupContent}
+                                buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
+                            />
 
-                            <div className="w-14 bg-slate-900/90 border border-slate-600 rounded-2xl shadow-2xl backdrop-blur-sm p-2 text-white flex flex-col items-center gap-2">
-                                <div
-                                    className={`w-2.5 h-2.5 rounded-full ${voteToolbarState.status === 'running' ? 'bg-emerald-400' : voteToolbarState.status === 'ended' ? 'bg-slate-300' : 'bg-amber-400'}`}
-                                    title={voteToolbarState.status === 'running' ? '进行中' : voteToolbarState.status === 'ended' ? '已结束' : '未开始'}
-                                ></div>
-                                <input
-                                    type="number"
-                                    min="10"
-                                    max="300"
-                                    value={voteToolbarState.durationSec || 60}
-                                    disabled={voteToolbarState.status === 'running'}
-                                    onChange={(e) => {
-                                        const duration = Math.max(10, Math.min(300, Number(e.target.value || 60)));
-                                        setVoteToolbarState(prev => ({ ...prev, durationSec: duration }));
-                                        window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'set-duration', durationSec: duration, voteId: voteToolbarState.voteId } }));
-                                    }}
-                                    className="w-full h-8 px-1 rounded-lg bg-slate-800 border border-slate-600 text-[11px] text-center text-white disabled:text-slate-500"
-                                    title="投票时长（秒）"
-                                />
-                                <button
-                                    onClick={() => window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'start', voteId: voteToolbarState.voteId } }))}
-                                    disabled={!voteToolbarState.canStart || voteToolbarState.status === 'running'}
-                                    className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-sm"
-                                    title="开始投票"
-                                >
-                                    <i className="fas fa-play"></i>
-                                </button>
-                                <button
-                                    onClick={() => window.dispatchEvent(new CustomEvent('vote-toolbar-action', { detail: { action: 'end', voteId: voteToolbarState.voteId } }))}
-                                    disabled={voteToolbarState.status !== 'running'}
-                                    className="w-9 h-9 rounded-xl bg-slate-700 hover:bg-slate-600 disabled:text-slate-500 text-sm"
-                                    title="结束投票"
-                                >
-                                    <i className="fas fa-stop"></i>
-                                </button>
-                                <button
-                                    onClick={() => setShowVoteResultPanel(v => !v)}
-                                    className="w-9 h-9 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-sm"
-                                    title={showVoteResultPanel ? '收起结果' : '查看结果'}
-                                >
-                                    <i className="fas fa-chart-column"></i>
-                                </button>
-                                {voteToolbarState.status === 'running' && (
-                                    <div className="text-[10px] text-amber-300 leading-none" title="剩余秒数">{voteToolbarState.remainingSec || 0}s</div>
-                                )}
-                            </div>
-                        </div>
+                            <window.__LumeSyncUI.SideToolbar
+                                visible={voteToolbarState.visible}
+                                buttons={voteToolbarButtons}
+                                activePopupKey={showVoteResultPanel ? 'result' : null}
+                                onActivePopupChange={(key) => setShowVoteResultPanel(key === 'result')}
+                                renderPopupContent={renderVotePopupContent}
+                                toolbarPrefix={voteToolbarPrefix}
+                                toolbarSuffix={voteToolbarSuffix}
+                                buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
+                            />
+                        </>
                     )}
+
+
                 </div>
             </div>
 
@@ -1261,19 +1383,12 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                         <button onClick={prevSlide} disabled={currentSlide === 0} className={`flex items-center px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all ${currentSlide === 0 ? 'text-slate-400 bg-slate-100 cursor-not-allowed' : 'text-white bg-blue-500 hover:bg-blue-600 shadow-md hover:-translate-x-1'}`}>
                             <i className="fas fa-chevron-left mr-2"></i>上一页
                         </button>
-                        <div className="flex items-center gap-3 relative" data-anno-menu>
+                        <div className="flex items-center gap-3 relative">
+
                             <span className="text-slate-500 font-bold text-base md:text-lg tracking-widest bg-slate-100 px-4 md:px-6 py-1 md:py-2 rounded-full shadow-inner border border-slate-200">
                                 {currentSlide + 1} / {slides.length}
                             </span>
-                            <button
-                                onClick={toggleAnnotate}
-                                className={`flex items-center px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all border ${
-                                    annotateEnabled ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                }`}
-                                title="绘制"
-                            >
-                                <i className="fas fa-pen mr-2"></i>绘制
-                            </button>
+
 
                             <button
                                 onClick={() => {
@@ -1299,109 +1414,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 {(settings && settings.syncInteraction === true) ? '同步交互' : '开启同步'}
                             </button>
 
-                            {annotateMenuOpen && (
-                                <div className="absolute bottom-[64px] left-1/2 -translate-x-1/2 w-[360px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-[9999]">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="font-bold text-slate-800 flex items-center">
-                                            <i className="fas fa-swatchbook mr-2 text-blue-600"></i>绘制工具
-                                        </div>
-                                        <button
-                                            onClick={() => setAnnotateMenuOpen(false)}
-                                            className="text-slate-400 hover:text-slate-600"
-                                            title="关闭"
-                                        >
-                                            <i className="fas fa-xmark text-lg"></i>
-                                        </button>
-                                    </div>
 
-                                    <div className="grid grid-cols-4 gap-2 mb-4">
-                                        {[
-                                            { key: 'pen', label: '钢笔', icon: 'fa-pen' },
-                                            { key: 'marker', label: '记号笔', icon: 'fa-marker' },
-                                            { key: 'highlighter', label: '荧光笔', icon: 'fa-highlighter' },
-                                            { key: 'eraser', label: '橡皮', icon: 'fa-eraser' },
-                                        ].map(t => (
-                                            <button
-                                                key={t.key}
-                                                onClick={() => { setAnnoTool(t.key); if (!annotateEnabled) setAnnotateEnabled(true); }}
-                                                className={`px-2 py-2 rounded-xl border font-bold text-sm transition-colors flex flex-col items-center justify-center ${
-                                                    annoTool === t.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                                                }`}
-                                                title={t.label}
-                                            >
-                                                <i className={`fas ${t.icon} mb-1`}></i>
-                                                <span className="text-[11px]">{t.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    <div className="mb-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-slate-600 font-bold text-sm">粗细</span>
-                                            <span className="text-slate-500 font-mono text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg">{annoWidth}px</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="2"
-                                            max="20"
-                                            value={annoWidth}
-                                            onChange={(e) => setAnnoWidth(Number(e.target.value))}
-                                            className="w-full"
-                                        />
-                                    </div>
-
-                                    <div className="mb-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-slate-600 font-bold text-sm">颜色</span>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-5 h-5 rounded-full border border-slate-200" style={{ background: annoColor }} />
-                                                <input
-                                                    type="color"
-                                                    value={annoColor}
-                                                    disabled={annoTool === 'eraser'}
-                                                    onChange={(e) => setAnnoColor(e.target.value)}
-                                                    className={`w-10 h-7 p-0 border-0 bg-transparent ${annoTool === 'eraser' ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                                    title="选择颜色"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {colorPresets.map(c => (
-                                                <button
-                                                    key={c}
-                                                    onClick={() => setAnnoColor(c)}
-                                                    disabled={annoTool === 'eraser'}
-                                                    className={`w-7 h-7 rounded-full border transition-all ${
-                                                        annoTool === 'eraser'
-                                                            ? 'opacity-40 cursor-not-allowed border-slate-200'
-                                                            : (annoColor.toLowerCase() === c.toLowerCase() ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-200 hover:border-slate-300')
-                                                    }`}
-                                                    style={{ background: c }}
-                                                    title={c}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={handleClearAnno}
-                                            disabled={!courseId}
-                                            className={`flex-1 px-4 py-2 rounded-xl font-bold border transition-colors ${
-                                                !courseId ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                                            }`}
-                                        >
-                                            <i className="fas fa-trash-can mr-2"></i>清空本页
-                                        </button>
-                                        <button
-                                            onClick={() => { stopAnnoDrawing(); setAnnotateEnabled(false); setAnnotateMenuOpen(false); }}
-                                            className="px-4 py-2 rounded-xl font-bold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
-                                        >
-                                            退出
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                         <button onClick={nextSlide} disabled={currentSlide === slides.length - 1} className={`flex items-center px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-bold text-base md:text-lg transition-all ${currentSlide === slides.length - 1 ? 'text-slate-400 bg-slate-100 cursor-not-allowed' : 'text-white bg-blue-500 hover:bg-blue-600 shadow-md hover:translate-x-1'}`}>
                             下一页<i className="fas fa-chevron-right ml-2"></i>
@@ -1498,15 +1511,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             </div>
             <style>{`
                 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-                @keyframes voteToolbarIn { from { transform: translate(16px, -50%) scale(0.96); opacity: 0; } to { transform: translate(0, -50%) scale(1); opacity: 1; } }
-                @keyframes voteToolbarOut { from { transform: translate(0, -50%) scale(1); opacity: 1; } to { transform: translate(16px, -50%) scale(0.96); opacity: 0; } }
-                @keyframes votePanelIn { from { transform: translateX(8px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-                @keyframes votePanelOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(8px); opacity: 0; } }
                 .toast-animate { animation: slideInRight 0.3s ease-out forwards; }
-                .vote-toolbar-animate { animation: voteToolbarIn 0.24s ease-out forwards; transform-origin: right center; }
-                .vote-toolbar-exit { animation: voteToolbarOut 0.22s ease-in forwards; transform-origin: right center; }
-                .vote-toolbar-panel-animate { animation: votePanelIn 0.2s ease-out forwards; }
-                .vote-toolbar-panel-exit { animation: votePanelOut 0.18s ease-in forwards; }
             `}</style>
         </div>
     );

@@ -7,6 +7,7 @@
 - [全局对象](#全局对象)
 - [React Hooks](#react-hooks)
 - [窗口 API](#窗口-api)
+- [UI 组件（运行时）](#ui-组件运行时)
 - [摄像头 API](#摄像头-api)
 - [Socket.io 通信](#socketio-通信)
 - [教师交互同步](#教师交互同步)
@@ -98,6 +99,70 @@ window.CourseGlobalContext = {
 
 - `WebPageSlide`：将一个 URL 作为"纯网页页"嵌入到课件中，并提供"刷新 / 在新窗口打开"的兜底。
 - `SurveySlide`：问卷组件，支持多种题型和数据收集。
+
+## UI 组件（运行时）
+
+### window.__LumeSyncUI
+
+课堂运行时提供的 UI 组件集合，用于构建统一风格（液态玻璃）的侧边工具栏与弹窗。
+
+```tsx
+const { SideToolbar, styles } = window.__LumeSyncUI;
+```
+
+#### `styles`
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `liquidGlassDark` | string | 深色液态玻璃样式类（适合深色工具栏/结果弹窗） |
+| `liquidGlassLight` | string | 浅色液态玻璃样式类（适合浅色设置弹窗） |
+
+#### `SideToolbar`（通用侧边栏）
+
+支持两种模式：
+
+1. **配置模式（推荐）**：只传按钮定义和弹窗渲染函数
+2. **兼容模式**：继续传 `toolbar` / `panel` 自定义 JSX
+
+##### 配置模式关键参数
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `visible` | boolean | 是否显示侧边栏 |
+| `buttons` | array | 按钮定义列表（`id/title/iconClass/popupKey/onClick/...`） |
+| `activePopupKey` | string \| null | 当前展开弹窗 key |
+| `onActivePopupChange` | function | 切换当前弹窗 key |
+| `renderPopupContent` | function | `renderPopupContent(popupKey)` 返回对应弹窗内容 |
+| `toolbarPrefix` | ReactNode | 工具栏按钮区前置内容 |
+| `toolbarSuffix` | ReactNode | 工具栏按钮区后置内容 |
+| `side` | `'left' \| 'right'` | 停靠位置 |
+
+##### 使用示例（配置模式）
+
+```tsx
+const [activePopupKey, setActivePopupKey] = useState(null);
+
+const buttons = [
+  { id: 'tools', title: '工具', iconClass: 'fa-pen', popupKey: 'tools' },
+  { id: 'color', title: '颜色', iconClass: 'fa-palette', popupKey: 'color' },
+  { id: 'clear', title: '清空', iconClass: 'fa-trash-can', onClick: () => clearAll() }
+];
+
+const renderPopupContent = (popupKey) => {
+  if (popupKey === 'tools') return <div className={`w-64 ${styles.liquidGlassLight} rounded-2xl p-3`}>...</div>;
+  if (popupKey === 'color') return <div className={`w-64 ${styles.liquidGlassLight} rounded-2xl p-3`}>...</div>;
+  return null;
+};
+
+<window.__LumeSyncUI.SideToolbar
+  visible={true}
+  side="left"
+  buttons={buttons}
+  activePopupKey={activePopupKey}
+  onActivePopupChange={setActivePopupKey}
+  renderPopupContent={renderPopupContent}
+/>;
+```
 
 ### window.WebPageSlide（网页嵌入组件）
 

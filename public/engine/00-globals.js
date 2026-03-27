@@ -104,6 +104,146 @@ window.__LumeSyncCanvas = window.__LumeSyncCanvas || (() => {
     return { getCanvasPoint, getHiDpiContext2d, useCanvasDims };
 })();
 
+window.__LumeSyncUI = window.__LumeSyncUI || (() => {
+    const styles = {
+        liquidGlassDark: 'bg-slate-900/70 backdrop-blur-xl border border-white/15 shadow-[0_10px_30px_rgba(15,23,42,0.45)]',
+        liquidGlassLight: 'bg-white/75 backdrop-blur-xl border border-white/70 shadow-[0_10px_30px_rgba(15,23,42,0.2)]'
+    };
+
+    const usePresence = (visible, exitMs = 220) => {
+        const [render, setRender] = useState(!!visible);
+        const [closing, setClosing] = useState(false);
+
+        useEffect(() => {
+            if (visible) {
+                setRender(true);
+                setClosing(false);
+                return;
+            }
+            if (!render) return;
+            setClosing(true);
+            const timer = setTimeout(() => {
+                setRender(false);
+                setClosing(false);
+            }, exitMs);
+            return () => clearTimeout(timer);
+        }, [visible, render, exitMs]);
+
+        return { render, closing };
+    };
+
+    const SideToolbar = ({
+        visible,
+        panelVisible = false,
+        panel,
+        toolbar,
+        buttons = null,
+        activePopupKey = null,
+        onActivePopupChange = null,
+        renderPopupContent = null,
+        toolbarPrefix = null,
+        toolbarSuffix = null,
+        popupWrapperClassName = '',
+        popupClassName = '',
+        buttonBaseClassName = '',
+        side = 'right',
+        offsetClass = 'right-4 top-1/2 -translate-y-1/2',
+        zIndexClass = 'z-[60]',
+        containerClassName = '',
+        panelClassName = '',
+        toolbarClassName = '',
+        toolbarExitMs = 220,
+        panelExitMs = 180
+    }) => {
+        const hasPresetToolbar = !!toolbar;
+        const popupNode = !hasPresetToolbar && typeof renderPopupContent === 'function'
+            ? renderPopupContent(activePopupKey, {
+                closePanel: () => onActivePopupChange && onActivePopupChange(null),
+                setActivePopupKey: onActivePopupChange
+            })
+            : panel;
+        const effectivePanelVisible = hasPresetToolbar
+            ? !!panelVisible
+            : !!activePopupKey && !!popupNode;
+
+        const togglePopup = (key) => {
+            if (!onActivePopupChange) return;
+            onActivePopupChange(activePopupKey === key ? null : key);
+        };
+
+        const defaultButtonClass = buttonBaseClassName || 'w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500';
+
+        const toolbarNode = hasPresetToolbar
+            ? toolbar
+            : (
+                <div className={`w-14 ${styles.liquidGlassDark} rounded-2xl p-2 text-white flex flex-col items-center gap-2 ${toolbarClassName}`}>
+                    {toolbarPrefix}
+                    {(Array.isArray(buttons) ? buttons : []).map((btn, idx) => {
+                        if (!btn || btn.hidden) return null;
+                        if (typeof btn.render === 'function') {
+                            return <React.Fragment key={btn.id || idx}>{btn.render({ activePopupKey, setActivePopupKey: onActivePopupChange, togglePopup })}</React.Fragment>;
+                        }
+                        const active = typeof btn.active === 'function' ? !!btn.active(activePopupKey) : !!btn.active;
+                        return (
+                            <button
+                                key={btn.id || idx}
+                                title={btn.title || ''}
+                                disabled={!!btn.disabled}
+                                onClick={() => {
+                                    if (btn.popupKey) togglePopup(btn.popupKey);
+                                    if (typeof btn.onClick === 'function') {
+                                        btn.onClick({ activePopupKey, setActivePopupKey: onActivePopupChange, togglePopup, button: btn });
+                                    }
+                                }}
+                                className={`${defaultButtonClass} ${active ? 'bg-blue-600 hover:bg-blue-500' : ''} ${btn.className || ''}`}
+                            >
+                                {btn.iconClass ? <i className={`fas ${btn.iconClass}`}></i> : (btn.content || null)}
+                            </button>
+                        );
+                    })}
+                    {toolbarSuffix}
+                </div>
+            );
+
+        const toolbarPresence = usePresence(!!visible, toolbarExitMs);
+        const panelPresence = usePresence(!!visible && !!effectivePanelVisible, panelExitMs);
+
+        if (!toolbarPresence.render) return null;
+
+        const isRight = side !== 'left';
+        const originClass = isRight ? 'origin-right' : 'origin-left';
+        const motionIn = 'translate-x-0 opacity-100 scale-100';
+        const motionOut = isRight ? 'translate-x-3 opacity-0 scale-95' : '-translate-x-3 opacity-0 scale-95';
+        const panelIn = 'translate-x-0 opacity-100';
+        const panelOut = isRight ? 'translate-x-2 opacity-0' : '-translate-x-2 opacity-0';
+
+        const toolbarMotionClass = toolbarPresence.closing ? motionOut : motionIn;
+        const panelMotionClass = panelPresence.closing ? panelOut : panelIn;
+
+        return (
+            <div className={`absolute ${offsetClass} ${zIndexClass} flex items-center gap-3 pointer-events-none ${containerClassName}`}>
+                {isRight && panelPresence.render && (
+                    <div className={`pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${hasPresetToolbar ? panelClassName : popupWrapperClassName}`}>
+                        {hasPresetToolbar ? popupNode : <div className={`${popupClassName}`}>{popupNode}</div>}
+                    </div>
+                )}
+
+                <div className={`pointer-events-auto transition-all duration-200 ease-out ${originClass} ${toolbarMotionClass} ${hasPresetToolbar ? toolbarClassName : ''}`}>
+                    {toolbarNode}
+                </div>
+
+                {!isRight && panelPresence.render && (
+                    <div className={`pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${hasPresetToolbar ? panelClassName : popupWrapperClassName}`}>
+                        {hasPresetToolbar ? popupNode : <div className={`${popupClassName}`}>{popupNode}</div>}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    return { SideToolbar, usePresence, styles };
+})();
+
 if (window.CourseGlobalContext) {
     window.CourseGlobalContext.canvas = window.__LumeSyncCanvas;
 }

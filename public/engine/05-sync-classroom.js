@@ -100,6 +100,8 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
 
     const [annoPopupType, setAnnoPopupType] = useState(null);
 
+    const liquidGlassDarkClass = window.__LumeSyncUI?.styles?.liquidGlassDark || 'bg-slate-900/70 backdrop-blur-xl border border-white/15 shadow-[0_10px_30px_rgba(15,23,42,0.45)]';
+    const liquidGlassLightClass = window.__LumeSyncUI?.styles?.liquidGlassLight || 'bg-white/75 backdrop-blur-xl border border-white/70 shadow-[0_10px_30px_rgba(15,23,42,0.2)]';
 
     const [annoTool, setAnnoTool] = useState('pen'); // pen | marker | highlighter | eraser
     const [annoWidth, setAnnoWidth] = useState(4);
@@ -909,11 +911,20 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         if (!isHost) return;
         if (!annotateEnabled) {
             setAnnotateEnabled(true);
-            setAnnotateMenuOpen(true);
+            setAnnoPopupType('tools');
             return;
         }
-        setAnnotateMenuOpen(v => !v);
+        setAnnoPopupType(v => (v === 'tools' ? null : 'tools'));
     };
+
+    const toggleAnnoPopup = (type) => {
+        if (!isHost) return;
+        if (!annotateEnabled) setAnnotateEnabled(true);
+        setAnnoPopupType(v => (v === type ? null : type));
+    };
+
+
+
 
 
 
@@ -1119,7 +1130,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                     className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-lg border transition-all ${
                                         camSwitching
                                             ? 'bg-slate-700 border-slate-600 text-slate-400 cursor-wait'
-                                            : 'bg-slate-900/90 border-slate-600 text-white hover:bg-slate-700 backdrop-blur-sm'
+                                            : `${liquidGlassDarkClass} text-white hover:bg-slate-700`
                                     }`}
                                 >
                                     <i className={`fas ${camSwitching ? 'fa-spinner fa-spin' : 'fa-camera'}`}></i>
@@ -1139,118 +1150,110 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 visible={true}
                                 side="left"
                                 offsetClass="left-4 top-1/2 -translate-y-1/2"
-                                panelVisible={annotateMenuOpen}
+                                panelVisible={!!annoPopupType}
                                 panel={(
-                                    <div className="w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-[9999]">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="font-bold text-slate-800 flex items-center">
-                                                <i className="fas fa-swatchbook mr-2 text-blue-600"></i>绘制工具
-                                            </div>
-                                            <button
-                                                onClick={() => setAnnotateMenuOpen(false)}
-                                                className="text-slate-400 hover:text-slate-600"
-                                                title="关闭"
-                                            >
-                                                <i className="fas fa-xmark text-lg"></i>
-                                            </button>
-                                        </div>
-
-                                        <div className="grid grid-cols-4 gap-2 mb-4">
-                                            {[
-                                                { key: 'pen', label: '钢笔', icon: 'fa-pen' },
-                                                { key: 'marker', label: '记号笔', icon: 'fa-marker' },
-                                                { key: 'highlighter', label: '荧光笔', icon: 'fa-highlighter' },
-                                                { key: 'eraser', label: '橡皮', icon: 'fa-eraser' },
-                                            ].map(t => (
-                                                <button
-                                                    key={t.key}
-                                                    onClick={() => { setAnnoTool(t.key); if (!annotateEnabled) setAnnotateEnabled(true); }}
-                                                    className={`px-2 py-2 rounded-xl border font-bold text-sm transition-colors flex flex-col items-center justify-center ${
-                                                        annoTool === t.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                                                    }`}
-                                                    title={t.label}
-                                                >
-                                                    <i className={`fas ${t.icon} mb-1`}></i>
-                                                    <span className="text-[11px]">{t.label}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        <div className="mb-4">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-slate-600 font-bold text-sm">粗细</span>
-                                                <span className="text-slate-500 font-mono text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg">{annoWidth}px</span>
-                                            </div>
-                                            <input
-                                                type="range"
-                                                min="2"
-                                                max="20"
-                                                value={annoWidth}
-                                                onChange={(e) => setAnnoWidth(Number(e.target.value))}
-                                                className="w-full"
-                                            />
-                                        </div>
-
-                                        <div className="mb-4">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-slate-600 font-bold text-sm">颜色</span>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 rounded-full border border-slate-200" style={{ background: annoColor }} />
-                                                    <input
-                                                        type="color"
-                                                        value={annoColor}
-                                                        disabled={annoTool === 'eraser'}
-                                                        onChange={(e) => setAnnoColor(e.target.value)}
-                                                        className={`w-10 h-7 p-0 border-0 bg-transparent ${annoTool === 'eraser' ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                                        title="选择颜色"
-                                                    />
+                                    <div className={`w-64 ${liquidGlassLightClass} rounded-2xl p-3 z-[9999]`}>
+                                        {annoPopupType === 'tools' && (
+                                            <>
+                                                <div className="text-xs text-slate-500 mb-2">绘制工具</div>
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    {[
+                                                        { key: 'pen', label: '钢笔', icon: 'fa-pen' },
+                                                        { key: 'marker', label: '记号笔', icon: 'fa-marker' },
+                                                        { key: 'highlighter', label: '荧光笔', icon: 'fa-highlighter' },
+                                                        { key: 'eraser', label: '橡皮', icon: 'fa-eraser' },
+                                                    ].map(t => (
+                                                        <button
+                                                            key={t.key}
+                                                            onClick={() => { setAnnoTool(t.key); if (!annotateEnabled) setAnnotateEnabled(true); }}
+                                                            className={`px-2 py-2 rounded-xl border font-bold text-sm transition-colors flex flex-col items-center justify-center ${
+                                                                annoTool === t.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                                            }`}
+                                                            title={t.label}
+                                                        >
+                                                            <i className={`fas ${t.icon} mb-1`}></i>
+                                                            <span className="text-[11px]">{t.label}</span>
+                                                        </button>
+                                                    ))}
                                                 </div>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {colorPresets.map(c => (
-                                                    <button
-                                                        key={c}
-                                                        onClick={() => setAnnoColor(c)}
-                                                        disabled={annoTool === 'eraser'}
-                                                        className={`w-7 h-7 rounded-full border transition-all ${
-                                                            annoTool === 'eraser'
-                                                                ? 'opacity-40 cursor-not-allowed border-slate-200'
-                                                                : (annoColor.toLowerCase() === c.toLowerCase() ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-200 hover:border-slate-300')
-                                                        }`}
-                                                        style={{ background: c }}
-                                                        title={c}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
+                                            </>
+                                        )}
 
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={handleClearAnno}
-                                                disabled={!courseId}
-                                                className={`flex-1 px-4 py-2 rounded-xl font-bold border transition-colors ${
-                                                    !courseId ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                                                }`}
-                                            >
-                                                <i className="fas fa-trash-can mr-2"></i>清空本页
-                                            </button>
-                                            <button
-                                                onClick={() => { stopAnnoDrawing(); setAnnotateEnabled(false); setAnnotateMenuOpen(false); }}
-                                                className="px-4 py-2 rounded-xl font-bold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
-                                            >
-                                                退出
-                                            </button>
-                                        </div>
+                                        {annoPopupType === 'width' && (
+                                            <>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-slate-600 font-bold text-sm">粗细</span>
+                                                    <span className="text-slate-500 font-mono text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg">{annoWidth}px</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="2"
+                                                    max="20"
+                                                    value={annoWidth}
+                                                    onChange={(e) => setAnnoWidth(Number(e.target.value))}
+                                                    className="w-full"
+                                                />
+                                            </>
+                                        )}
+
+                                        {annoPopupType === 'color' && (
+                                            <>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-slate-600 font-bold text-sm">颜色</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-5 h-5 rounded-full border border-slate-200" style={{ background: annoColor }} />
+                                                        <input
+                                                            type="color"
+                                                            value={annoColor}
+                                                            disabled={annoTool === 'eraser'}
+                                                            onChange={(e) => setAnnoColor(e.target.value)}
+                                                            className={`w-10 h-7 p-0 border-0 bg-transparent ${annoTool === 'eraser' ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                                            title="选择颜色"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {colorPresets.map(c => (
+                                                        <button
+                                                            key={c}
+                                                            onClick={() => setAnnoColor(c)}
+                                                            disabled={annoTool === 'eraser'}
+                                                            className={`w-7 h-7 rounded-full border transition-all ${
+                                                                annoTool === 'eraser'
+                                                                    ? 'opacity-40 cursor-not-allowed border-slate-200'
+                                                                    : (annoColor.toLowerCase() === c.toLowerCase() ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-200 hover:border-slate-300')
+                                                            }`}
+                                                            style={{ background: c }}
+                                                            title={c}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                                 toolbar={(
-                                    <div className="w-14 bg-slate-900/90 border border-slate-600 rounded-2xl shadow-2xl backdrop-blur-sm p-2 text-white flex flex-col items-center gap-2">
+                                    <div className={`w-14 ${liquidGlassDarkClass} rounded-2xl p-2 text-white flex flex-col items-center gap-2`}>
                                         <button
                                             onClick={toggleAnnotate}
                                             className={`w-9 h-9 rounded-xl text-sm ${annotateEnabled ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 hover:bg-slate-600'}`}
                                             title="绘制工具"
                                         >
                                             <i className="fas fa-pen"></i>
+                                        </button>
+                                        <button
+                                            onClick={() => toggleAnnoPopup('width')}
+                                            className={`w-9 h-9 rounded-xl text-sm ${annoPopupType === 'width' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                            title="画笔粗细"
+                                        >
+                                            <i className="fas fa-grip-lines"></i>
+                                        </button>
+                                        <button
+                                            onClick={() => toggleAnnoPopup('color')}
+                                            className={`w-9 h-9 rounded-xl text-sm ${annoPopupType === 'color' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 hover:bg-slate-600'} ${annoTool === 'eraser' ? 'opacity-50' : ''}`}
+                                            title="画笔颜色"
+                                        >
+                                            <i className="fas fa-palette"></i>
                                         </button>
                                         <button
                                             onClick={handleClearAnno}
@@ -1260,6 +1263,13 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                         >
                                             <i className="fas fa-trash-can"></i>
                                         </button>
+                                        <button
+                                            onClick={() => { stopAnnoDrawing(); setAnnotateEnabled(false); setAnnoPopupType(null); }}
+                                            className="w-9 h-9 rounded-xl bg-red-700/80 hover:bg-red-600 text-sm"
+                                            title="退出绘制"
+                                        >
+                                            <i className="fas fa-xmark"></i>
+                                        </button>
                                     </div>
                                 )}
                             />
@@ -1268,7 +1278,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 visible={voteToolbarState.visible}
                                 panelVisible={showVoteResultPanel}
                                 panel={(
-                                    <div className="w-72 bg-slate-900/95 border border-slate-600 rounded-2xl shadow-2xl backdrop-blur-sm p-3 text-white max-h-[70vh] overflow-y-auto">
+                                    <div className={`w-72 ${liquidGlassDarkClass} rounded-2xl p-3 text-white max-h-[70vh] overflow-y-auto`}>
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="text-xs text-slate-400">投票结果</div>
                                             <button
@@ -1297,7 +1307,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                     </div>
                                 )}
                                 toolbar={(
-                                    <div className="w-14 bg-slate-900/90 border border-slate-600 rounded-2xl shadow-2xl backdrop-blur-sm p-2 text-white flex flex-col items-center gap-2">
+                                    <div className={`w-14 ${liquidGlassDarkClass} rounded-2xl p-2 text-white flex flex-col items-center gap-2`}>
                                         <div
                                             className={`w-2.5 h-2.5 rounded-full ${voteToolbarState.status === 'running' ? 'bg-emerald-400' : voteToolbarState.status === 'ended' ? 'bg-slate-300' : 'bg-amber-400'}`}
                                             title={voteToolbarState.status === 'running' ? '进行中' : voteToolbarState.status === 'ended' ? '已结束' : '未开始'}

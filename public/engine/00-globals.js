@@ -105,6 +105,11 @@ window.__LumeSyncCanvas = window.__LumeSyncCanvas || (() => {
 })();
 
 window.__LumeSyncUI = window.__LumeSyncUI || (() => {
+    const styles = {
+        liquidGlassDark: 'bg-slate-900/70 backdrop-blur-xl border border-white/15 shadow-[0_10px_30px_rgba(15,23,42,0.45)]',
+        liquidGlassLight: 'bg-white/75 backdrop-blur-xl border border-white/70 shadow-[0_10px_30px_rgba(15,23,42,0.2)]'
+    };
+
     const usePresence = (visible, exitMs = 220) => {
         const [render, setRender] = useState(!!visible);
         const [closing, setClosing] = useState(false);
@@ -177,7 +182,7 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         );
     };
 
-    return { SideToolbar, usePresence };
+    return { SideToolbar, usePresence, styles };
 })();
 
 if (window.CourseGlobalContext) {

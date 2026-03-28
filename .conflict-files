@@ -1,3 +1,0 @@
-ancestorEntries = ["public/engine/09-submissions-browser.js", "server/submissions.js"]
-ourEntries = ["public/engine/09-submissions-browser.js", "server/submissions.js"]
-theirEntries = ["public/engine/09-submissions-browser.js", "server/submissions.js"]

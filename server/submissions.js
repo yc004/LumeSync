@@ -47,7 +47,16 @@ function getStudentFromClassroomLayout(clientIp) {
     // 查找学生所在的班级
     let classroomName = '';
     if (layout?.classrooms && typeof layout.classrooms === 'object') {
+        // 旧格式：layout.classrooms 结构
         for (const [key, classroom] of Object.entries(layout.classrooms)) {
+            if (classroom?.seats?.some(s => s && s.ip === clientIp)) {
+                classroomName = classroom.name || key;
+                break;
+            }
+        }
+    } else if (layout && typeof layout === 'object' && !Array.isArray(layout)) {
+        // 新格式：直接是键值对结构（如 classroom-xxx: { name: "xxx", seats: [...] }）
+        for (const [key, classroom] of Object.entries(layout)) {
             if (classroom?.seats?.some(s => s && s.ip === clientIp)) {
                 classroomName = classroom.name || key;
                 break;

@@ -89,6 +89,12 @@ function saveSubmission(reqBody, res) {
         return res.json({ success: false, error: 'Missing required fields' });
     }
 
+    // 获取学生信息
+    const studentInfo = getStudentFromClassroomLayout(clientIp);
+    const studentName = studentInfo.name || clientIp;
+    const studentId = studentInfo.studentId || '';
+    const timestamp = new Date().toISOString();
+
     try {
         const submissionsDir = getSubmissionsDir();
         console.log(`[save-submission] submissionsDir: ${submissionsDir}`);
@@ -115,27 +121,29 @@ function saveSubmission(reqBody, res) {
                 header = content.header;
 
                 // 获取学生信息并填充到数据行中
-                const studentInfo = getStudentFromClassroomLayout(clientIp);
                 const rowFields = content.row.split(',');
                 // 填充学生信息：时间,IP,姓名,学号,答案...
                 rowFields[0] = rowFields[0]; // 保留时间戳
                 rowFields[1] = clientIp;    // 填充IP
-                rowFields[2] = studentInfo?.name || ''; // 填充姓名
-                rowFields[3] = studentInfo?.studentId || ''; // 填充学号
+                rowFields[2] = studentInfo.name || ''; // 填充姓名
+                rowFields[3] = studentInfo.studentId || ''; // 填充学号
                 row = rowFields.join(',') + '\n';
 
                 console.log(`[save-submission] New format with header and row`);
                 console.log(`[save-submission] Header: "${header}"`);
                 console.log(`[save-submission] Row: "${row}"`);
-            } else if (typeof content === 'string' && content.includes(',')) {
-                // 旧格式：只有数据行
-                row = content + '\n';
-                console.log(`[save-submission] Old format, row: "${row}"`);
             } else {
-                // 兼容旧格式：转换为 CSV 行
-                const timestamp = new Date().toISOString();
-                row = `${timestamp},${clientIp},${JSON.stringify(content).replace(/"/g, '""')}\n`;
-                console.log(`[save-submission] Legacy format, row: "${row}"`);
+                // 默认格式：时间,IP,姓名,学号,内容
+                header = 'Timestamp,IP,Name,StudentId,Content';
+
+                // 构建数据行，内容需要转义逗号和引号
+                const safeContent = typeof content === 'string'
+                    ? content.replace(/"/g, '""').replace(/\n/g, '\\n')
+                    : JSON.stringify(content);
+                row = `${timestamp},${clientIp},${studentInfo.name},${studentInfo.studentId},"${safeContent}"\n`;
+
+                console.log(`[save-submission] Default format with student info`);
+                console.log(`[save-submission] Row: "${row}"`);
             }
 
             // 检查 row 是否为空
@@ -148,16 +156,7 @@ function saveSubmission(reqBody, res) {
             if (!fs.existsSync(filePath)) {
                 // 使用 BOM 头解决 Excel 中文乱码
                 let contentToWrite = '\uFEFF';
-
-                // 如果有表头，添加表头
-                if (header) {
-                    contentToWrite += header + '\n';
-                } else {
-                    // 没有表头，使用默认表头（旧格式）
-                    contentToWrite += 'Timestamp,IP,Content\n';
-                }
-
-                // 添加数据行
+                contentToWrite += header + '\n';
                 contentToWrite += row;
 
                 console.log(`[save-submission] Writing new file: "${contentToWrite.substring(0, 200)}..."`);
@@ -168,21 +167,10 @@ function saveSubmission(reqBody, res) {
             }
         } else {
             // 分离模式：每个学生一个文件
-            // 获取学生姓名（从机房视图配置中获取）
-            let studentName = clientIp;
-            try {
-                const layout = readClassroomLayout();
-                const studentSeat = extractSeatsFromLayout(layout).find(s => s && s.ip === clientIp);
-                if (studentSeat && studentSeat.name) {
-                    studentName = studentSeat.name;
-                }
-            } catch (err) {
-                console.warn('[save-submission] Failed to read classroom layout:', err.message);
-            }
-
-
-            // 文件名：学生名称_文件名 或 IP_文件名
-            const namePrefix = studentName === clientIp ? clientIp.replace(/\./g, '-') : studentName;
+            // 文件名：姓名_学号_IP_文件名，如果没有姓名则用 IP_文件名
+            const namePrefix = studentName === clientIp
+                ? clientIp.replace(/\./g, '-')
+                : `${studentName}_${studentId || ''}_${clientIp.replace(/\./g, '-')}`.replace(/^_+|_+$/g, '');
             const safeFileName = `${namePrefix}_${baseFileName}`.replace(/[<>:"/\\|?*]/g, '_');
             filePath = path.join(courseDir, safeFileName);
             fs.writeFileSync(filePath, fileContent, 'utf-8');

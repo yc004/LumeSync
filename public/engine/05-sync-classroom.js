@@ -97,6 +97,11 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         canStart: false
     });
     const [showVoteResultPanel, setShowVoteResultPanel] = useState(false);
+    const [showSubmissionsPanel, setShowSubmissionsPanel] = useState(false);
+    const [submissionsFiles, setSubmissionsFiles] = useState([]);
+    const [submissionsLoading, setSubmissionsLoading] = useState(false);
+    const [previewFile, setPreviewFile] = useState(null); // 当前预览的文件
+    const [previewContent, setPreviewContent] = useState(null); // 预览内容
 
     const [annoPopupType, setAnnoPopupType] = useState(null);
 
@@ -364,6 +369,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                 socketRef.current.emit('student:submit', {
                     submissionId,
                     courseId,
+                    clientIp: studentInfoRef.current.ip,
                     content,
                     fileName: fileName || 'submission.txt',
                     mergeFile: mergeFile || false
@@ -1086,6 +1092,371 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         );
     };
 
+    const loadSubmissions = async () => {
+        if (!courseId) {
+            setSubmissionsFiles([]);
+            return;
+        }
+
+        setSubmissionsLoading(true);
+        try {
+            const response = await fetch(`/api/submissions/${encodeURIComponent(courseId)}`);
+            const data = await response.json();
+            if (data.success) {
+                setSubmissionsFiles(data.files || []);
+            } else {
+                setSubmissionsFiles([]);
+            }
+        } catch (err) {
+            console.error('[loadSubmissions] Error:', err);
+            setSubmissionsFiles([]);
+        } finally {
+            setSubmissionsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showSubmissionsPanel && courseId) {
+            loadSubmissions();
+        }
+    }, [showSubmissionsPanel, courseId]);
+
+    const handlePreviewFile = async (file) => {
+        try {
+            const res = await fetch(`/api/submissions/${encodeURIComponent(courseId)}/file/${encodeURIComponent(file.name)}`);
+            if (res.ok) {
+                const text = await res.text();
+                setPreviewContent(text);
+                setPreviewFile(file);
+            } else {
+                alert('预览失败');
+            }
+        } catch (err) {
+            console.error('[previewFile] Error:', err);
+            alert('预览失败');
+        }
+    };
+
+    const renderSubmissionsPopupContent = (popupKey) => {
+        if (popupKey !== 'submissions') return null;
+        return (
+            <div className={`w-80 ${liquidGlassLightClass} rounded-2xl p-3 max-h-[calc(100dvh-180px)] flex flex-col`}>
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                    <div className="text-xs text-slate-600 font-bold">学生提交文件</div>
+                    <button
+                        onClick={() => setShowSubmissionsPanel(false)}
+                        className="text-slate-400 hover:text-slate-600"
+                        title="收起"
+                    >
+                        <i className="fas fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                    <div className="text-xs text-slate-500">共 <span className="font-bold text-slate-700">{submissionsFiles.length}</span> 个文件</div>
+                    <button
+                        onClick={loadSubmissions}
+                        disabled={submissionsLoading}
+                        className="text-xs text-blue-600 hover:text-blue-700 disabled:text-slate-400 disabled:cursor-not-allowed flex items-center gap-1"
+                        title="刷新"
+                    >
+                        <i className={`fas ${submissionsLoading ? 'fa-spinner fa-spin' : 'fa-rotate'}`}></i>
+                        刷新
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    {submissionsLoading && submissionsFiles.length === 0 ? (
+                        <div className="text-center text-slate-400 py-8">
+                            <i className="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <div className="text-xs">加载中...</div>
+                        </div>
+                    ) : submissionsFiles.length === 0 ? (
+                        <div className="text-center text-slate-400 py-8">
+                            <i className="fas fa-folder-open text-2xl mb-2"></i>
+                            <div className="text-xs">暂无提交文件</div>
+                        </div>
+                    ) : (
+                        <div className="space-y-1">
+                            {submissionsFiles.map((file, idx) => (
+                                <div
+                                    key={idx}
+                                    className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 transition-colors group cursor-pointer"
+                                    onClick={() => handlePreviewFile(file)}
+                                >
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <i className="fas fa-file-lines text-slate-400 shrink-0"></i>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs text-slate-700 truncate font-medium" title={file.name}>
+                                                {file.name}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400">
+                                                {(file.size / 1024).toFixed(1)} KB
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                    const res = await fetch(`/api/submissions/${encodeURIComponent(courseId)}/file/${encodeURIComponent(file.name)}`);
+                                                    if (res.ok) {
+                                                        const blob = await res.blob();
+                                                        const url = URL.createObjectURL(blob);
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = file.name;
+                                                        document.body.appendChild(a);
+                                                        a.click();
+                                                        document.body.removeChild(a);
+                                                        URL.revokeObjectURL(url);
+                                                    }
+                                                } catch (err) {
+                                                    console.error('[downloadFile] Error:', err);
+                                                    alert('下载失败');
+                                                }
+                                            }}
+                                            className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                                            title="下载"
+                                        >
+                                            <i className="fas fa-download"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    // 文件预览弹窗
+    const FilePreviewModal = () => {
+        if (!previewFile) return null;
+
+        const getFileIcon = (fileName) => {
+            const ext = fileName.split('.').pop()?.toLowerCase();
+            const icons = {
+                'json': { icon: 'fa-file-code', color: 'text-yellow-500', bg: 'bg-yellow-50' },
+                'txt': { icon: 'fa-file-lines', color: 'text-blue-500', bg: 'bg-blue-50' },
+                'csv': { icon: 'fa-file-csv', color: 'text-green-500', bg: 'bg-green-50' },
+                'md': { icon: 'fa-file-lines', color: 'text-purple-500', bg: 'bg-purple-50' },
+                'html': { icon: 'fa-file-code', color: 'text-orange-500', bg: 'bg-orange-50' },
+                'js': { icon: 'fa-file-code', color: 'text-yellow-400', bg: 'bg-yellow-50' },
+                'pdf': { icon: 'fa-file-pdf', color: 'text-red-500', bg: 'bg-red-50' },
+            };
+            return icons[ext] || { icon: 'fa-file', color: 'text-slate-500', bg: 'bg-slate-50' };
+        };
+
+        const renderJsonContent = (data) => {
+            if (data.type === 'questionnaire' && data.answers) {
+                // 问卷格式：显示为表格
+                return (
+                    <div className="space-y-4">
+                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                            <table className="w-full">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">问题</th>
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">答案</th>
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.answers.map((answer, idx) => (
+                                        <tr key={idx} className="border-t border-slate-100">
+                                            <td className="px-4 py-3 text-sm text-slate-700 font-medium">{answer.question}</td>
+                                            <td className="px-4 py-3 text-sm text-slate-600">{answer.answer}</td>
+                                            <td className="px-4 py-3 text-xs text-slate-400">{new Date(answer.timestamp).toLocaleString('zh-CN')}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                            提交时间: {new Date(data.submittedAt).toLocaleString('zh-CN')}
+                        </div>
+                    </div>
+                );
+            } else if (data.type === 'quick-note') {
+                // 快速留言格式
+                return (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <i className="fas fa-comment-dots text-yellow-500 text-2xl"></i>
+                            <div>
+                                <div className="font-bold text-yellow-800">快速留言</div>
+                                <div className="text-xs text-yellow-600">{new Date(data.timestamp).toLocaleString('zh-CN')}</div>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg p-4 text-slate-700">
+                            {data.message}
+                        </div>
+                    </div>
+                );
+            } else if (data.type === 'form-submission') {
+                // 表单提交格式
+                return (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <i className="fas fa-clipboard-list text-purple-500 text-2xl"></i>
+                            <div>
+                                <div className="font-bold text-purple-800">表单提交</div>
+                                <div className="text-xs text-purple-600">{new Date(data.submittedAt).toLocaleString('zh-CN')}</div>
+                            </div>
+                        </div>
+                        {data.csvRow && (
+                            <div className="bg-white rounded-lg p-4 text-sm font-mono text-slate-600 whitespace-pre-wrap">
+                                {data.csvRow}
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+            // 通用 JSON 格式：代码高亮显示
+            return (
+                <pre className="bg-slate-800 text-green-400 p-4 rounded-lg overflow-auto text-sm">
+                    {JSON.stringify(data, null, 2)}
+                </pre>
+            );
+        };
+
+        const renderCsvContent = (content) => {
+            const lines = content.trim().split('\n');
+            const header = lines[0];
+            const rows = lines.slice(1);
+
+            return (
+                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    <table className="w-full">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                {header.split(',').map((cell, idx) => (
+                                    <th key={idx} className="px-3 py-2 text-left text-xs font-bold text-slate-700 border-r border-slate-200 last:border-r-0">
+                                        {cell.replace(/"/g, '').trim()}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, rowIdx) => {
+                                const cells = row.split(',');
+                                return (
+                                    <tr key={rowIdx} className="border-t border-slate-100 hover:bg-slate-50">
+                                        {cells.map((cell, cellIdx) => (
+                                            <td key={cellIdx} className="px-3 py-2 text-sm text-slate-600 border-r border-slate-200 last:border-r-0">
+                                                {cell.replace(/"/g, '').trim()}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        };
+
+        const renderTextContent = (content, fileName) => {
+            const ext = fileName.split('.').pop()?.toLowerCase();
+
+            if (ext === 'csv') {
+                return renderCsvContent(content);
+            }
+
+            // 普通文本：格式化显示
+            return (
+                <pre className="bg-white border border-slate-200 p-4 rounded-lg overflow-auto text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                    {content}
+                </pre>
+            );
+        };
+
+        // 智能识别文件格式
+        let contentRenderer = null;
+        let jsonData = null;
+        let isJson = false;
+
+        try {
+            jsonData = JSON.parse(previewContent);
+            isJson = true;
+        } catch {
+            // 不是 JSON
+        }
+
+        const fileIcon = getFileIcon(previewFile.name);
+
+        if (isJson && jsonData) {
+            contentRenderer = renderJsonContent(jsonData);
+        } else {
+            contentRenderer = renderTextContent(previewContent, previewFile.name);
+        }
+
+        return createPortal(
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4 overflow-y-auto" style={{ zIndex: 999999 }}>
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col shrink-0 max-h-full overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 ${fileIcon.bg} rounded-lg flex items-center justify-center`}>
+                                <i className={`fas ${fileIcon.icon} ${fileIcon.color} text-lg`}></i>
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-slate-800">{previewFile.name}</h3>
+                                <p className="text-xs text-slate-500">{(previewFile.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setPreviewFile(null)}
+                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                            title="关闭"
+                        >
+                            <i className="fas fa-xmark text-xl"></i>
+                        </button>
+                    </div>
+
+                    <div className="overflow-auto p-6 bg-slate-50 max-h-[70vh]">
+                        {contentRenderer}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-white shrink-0">
+                        <button
+                            onClick={() => setPreviewFile(null)}
+                            className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                        >
+                            关闭
+                        </button>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const res = await fetch(`/api/submissions/${encodeURIComponent(courseId)}/file/${encodeURIComponent(previewFile.name)}`);
+                                    if (res.ok) {
+                                        const blob = await res.blob();
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = previewFile.name;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                    }
+                                } catch (err) {
+                                    console.error('[downloadFile] Error:', err);
+                                    alert('下载失败');
+                                }
+                            }}
+                            className="px-4 py-2 rounded-lg text-sm font-bold bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                        >
+                            <i className="fas fa-download mr-2"></i>下载
+                        </button>
+                    </div>
+                </div>
+            </div>
+            , getPortalRoot());
+    };
+
     const voteToolbarPrefix = (
         <>
             <div
@@ -1139,6 +1510,17 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         }
     ];
 
+    const submissionsToolbarButtons = [
+        {
+            id: 'submissions-view',
+            title: '学生提交',
+            iconClass: 'fa-folder-open',
+            popupKey: 'submissions',
+            active: showSubmissionsPanel,
+            className: 'bg-purple-700/80 hover:bg-purple-600'
+        }
+    ];
+
     if (!roleAssigned) {
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white select-none">
@@ -1150,7 +1532,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     }
 
     return (
-        <div className="flex flex-col h-screen bg-slate-900 text-slate-800 font-sans overflow-hidden select-none">
+        <div className="flex flex-col h-[100dvh] bg-slate-900 text-slate-800 font-sans select-none relative">
 
             {/* 顶栏 */}
             {!hideTopBar && (
@@ -1218,7 +1600,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             <div className="flex-1 relative flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
                 <div ref={stageWrapRef} className="relative w-full h-full flex items-center justify-center overflow-hidden">
                     <div
-                        className="bg-white text-slate-800 relative shadow-2xl flex flex-col rounded-2xl overflow-y-auto no-scrollbar shrink-0"
+                        className="bg-white text-slate-800 relative shadow-2xl flex flex-col rounded-2xl overflow-hidden shrink-0"
                         style={{
                             width: '1280px',
                             height: '720px',
@@ -1368,6 +1750,17 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 toolbarSuffix={voteToolbarSuffix}
                                 buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
                             />
+
+                            <window.__LumeSyncUI.SideToolbar
+                                visible={true}
+                                side="left"
+                                offsetClass="left-4 top-1/2 -translate-y-1/2"
+                                buttons={submissionsToolbarButtons}
+                                activePopupKey={showSubmissionsPanel ? 'submissions' : null}
+                                onActivePopupChange={(key) => setShowSubmissionsPanel(key === 'submissions')}
+                                renderPopupContent={renderSubmissionsPopupContent}
+                                buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
+                            />
                         </>
                     )}
 
@@ -1509,6 +1902,10 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                     </div>
                 ))}
             </div>
+
+            {/* 文件预览弹窗 */}
+            <FilePreviewModal />
+
             <style>{`
                 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
                 .toast-animate { animation: slideInRight 0.3s ease-out forwards; }

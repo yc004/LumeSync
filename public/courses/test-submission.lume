@@ -4,25 +4,18 @@
 
 const { useState, useEffect } = React;
 
-interface Question {
-    id: number;
-    text: string;
-    type: 'text' | 'textarea' | 'number' | 'file';
-}
+// 测试文本内容（文本文件提交页）
+const sampleText = `这是一个文本提交测试示例。
 
-interface AnswerData {
-    questionId: number;
-    question: string;
-    answer: any;
-    timestamp: string;
-}
+学生可以在这里输入任意文本内容，
+然后点击提交按钮将内容保存为文件。
 
-// 问题数据（问卷提交页）
-const questions: Question[] = [
-    { id: 1, text: '你的姓名是什么？', type: 'text' },
-    { id: 2, text: '请用一句话描述今天的收获', type: 'textarea' },
-    { id: 3, text: '1+2×3等于多少？', type: 'number' }
-];
+这种提交方式适合：
+- 记录学习心得
+- 提交编程作业
+- 书写答案或笔记
+- 其他文本形式的作业
+`;
 
 // 表单字段（表格提交页）
 interface FormField {
@@ -60,46 +53,32 @@ function IntroSlide() {
     );
 }
 
-// 测试提交页（问卷式，每个学生一个JSON文件）
+// 测试提交页（文本文件，每个学生一个文件）
 function TestSubmitSlide() {
-    const [answers, setAnswers] = useState<{ [key: number]: string }>({});
+    const [textContent, setTextContent] = useState(sampleText);
+    const [fileName, setFileName] = useState('my-answer.txt');
     const [submitted, setSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitTime, setSubmitTime] = useState<string | null>(null);
 
-    const handleInputChange = (questionId: number, value: string) => {
-        setAnswers(prev => ({
-            ...prev,
-            [questionId]: value
-        }));
-    };
-
     const handleSubmit = async () => {
-        if (Object.keys(answers).length === 0) {
-            alert('请至少回答一个问题！');
+        if (!textContent.trim()) {
+            alert('请输入文本内容！');
+            return;
+        }
+
+        if (!fileName.trim()) {
+            alert('请输入文件名！');
             return;
         }
 
         setIsSubmitting(true);
-        const timestamp = new Date().toISOString();
 
         try {
-            // 构造提交数据（JSON格式）
-            const submissionData: AnswerData[] = questions.map(q => ({
-                questionId: q.id,
-                question: q.text,
-                answer: answers[q.id] || '(未回答)',
-                timestamp
-            }));
-
-            // 调用提交 API - 每个学生单独一个JSON文件
+            // 调用提交 API - 每个学生单独一个文本文件
             await window.CourseGlobalContext.submitContent({
-                content: {
-                    type: 'questionnaire',
-                    answers: submissionData,
-                    submittedAt: timestamp
-                },
-                fileName: 'questionnaire-result.json',
+                content: textContent,
+                fileName: fileName.endsWith('.txt') ? fileName : `${fileName}.txt`,
                 mergeFile: false
             });
 
@@ -117,8 +96,8 @@ function TestSubmitSlide() {
     return (
         <div className="flex flex-col min-h-full p-8 bg-white">
             <h2 className="text-3xl font-bold text-slate-800 mb-6 flex items-center shrink-0">
-                <i className="fas fa-clipboard-check mr-4 text-green-500"></i>
-                问题回答测试（单独文件）
+                <i className="fas fa-file-lines mr-4 text-green-500"></i>
+                文本文件提交（单独文件）
             </h2>
 
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 shrink-0">
@@ -126,7 +105,7 @@ function TestSubmitSlide() {
                     <i className="fas fa-info-circle mr-2"></i>说明
                 </h3>
                 <p className="text-blue-700 text-sm">
-                    每个学生提交保存为<strong>单独的 JSON 文件</strong>，适合收集详细的问卷答案
+                    每个学生提交保存为<strong>单独的文本文件</strong>，适合收集答案、笔记、作业等文本内容
                 </p>
             </div>
 
@@ -136,46 +115,44 @@ function TestSubmitSlide() {
                         <i className="fas fa-check text-white text-5xl"></i>
                     </div>
                     <h3 className="text-3xl font-bold text-green-700 mb-4">提交成功！</h3>
-                    <p className="text-slate-600 text-lg mb-2">你的答案已发送到教师端</p>
+                    <p className="text-slate-600 text-lg mb-2">你的文件已发送到教师端</p>
                     <p className="text-slate-500">提交时间: {submitTime}</p>
-                    <div className="mt-6 bg-white rounded-xl p-4 shadow-sm">
-                        <h4 className="font-bold text-slate-700 mb-3">你的答案预览:</h4>
-                        {questions.map(q => (
-                            <div key={q.id} className="mb-3 text-left">
-                                <p className="font-semibold text-slate-600">{q.text}</p>
-                                <p className="text-slate-800 ml-4">{answers[q.id] || '(未回答)'}</p>
-                            </div>
-                        ))}
+                    <div className="mt-6 bg-white rounded-xl p-4 shadow-sm max-w-2xl">
+                        <h4 className="font-bold text-slate-700 mb-3">文件名:</h4>
+                        <p className="text-slate-800 mb-4 font-mono bg-slate-100 p-2 rounded">{fileName.endsWith('.txt') ? fileName : `${fileName}.txt`}</p>
+                        <h4 className="font-bold text-slate-700 mb-3">文件内容预览:</h4>
+                        <pre className="text-slate-600 bg-slate-100 p-3 rounded text-sm whitespace-pre-wrap max-h-60 overflow-auto">{textContent}</pre>
                     </div>
                 </div>
             ) : (
                 <div className="flex-1 space-y-4 overflow-y-auto">
-                    {questions.map(q => (
-                        <div key={q.id} className="bg-slate-50 rounded-xl p-5 border border-slate-200">
-                            <label className="block text-lg font-semibold text-slate-700 mb-3">
-                                {q.id}. {q.text}
-                            </label>
-                            {q.type === 'textarea' ? (
-                                <textarea
-                                    value={answers[q.id] || ''}
-                                    onChange={(e) => handleInputChange(q.id, e.target.value)}
-                                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                    rows={3}
-                                    placeholder="请输入你的回答..."
-                                    disabled={isSubmitting}
-                                />
-                            ) : (
-                                <input
-                                    type={q.type}
-                                    value={answers[q.id] || ''}
-                                    onChange={(e) => handleInputChange(q.id, e.target.value)}
-                                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="请输入你的回答..."
-                                    disabled={isSubmitting}
-                                />
-                            )}
-                        </div>
-                    ))}
+                    <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
+                        <label className="block text-lg font-semibold text-slate-700 mb-3">
+                            文件名
+                        </label>
+                        <input
+                            type="text"
+                            value={fileName}
+                            onChange={(e) => setFileName(e.target.value)}
+                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="例如：answer.txt"
+                            disabled={isSubmitting}
+                        />
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 flex-1">
+                        <label className="block text-lg font-semibold text-slate-700 mb-3">
+                            文件内容
+                        </label>
+                        <textarea
+                            value={textContent}
+                            onChange={(e) => setTextContent(e.target.value)}
+                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+                            rows={12}
+                            placeholder="请输入你的文本内容..."
+                            disabled={isSubmitting}
+                        />
+                    </div>
                 </div>
             )}
 
@@ -198,7 +175,7 @@ function TestSubmitSlide() {
                         ) : (
                             <span className="flex items-center justify-center">
                                 <i className="fas fa-paper-plane mr-3"></i>
-                                提交答案
+                                提交文件
                             </span>
                         )}
                     </button>
@@ -222,11 +199,7 @@ function QuickSubmitSlide() {
         try {
             // 调用提交 API - 合并到CSV文件
             await window.CourseGlobalContext.submitContent({
-                content: {
-                    type: 'quick-note',
-                    message: text,
-                    timestamp: new Date().toISOString()
-                },
+                content: text,
                 fileName: 'quick-notes.csv',
                 mergeFile: true
             });
@@ -449,7 +422,7 @@ function SummarySlide() {
                     <ul className="space-y-3">
                         <li className="flex items-start">
                             <i className="fas fa-square text-slate-300 mr-3 mt-1"></i>
-                            <span className="text-slate-600">问题回答页面（单独JSON文件）是否正常提交？</span>
+                            <span className="text-slate-600">文本文件提交页面（单独文件）是否正常提交？</span>
                         </li>
                         <li className="flex items-start">
                             <i className="fas fa-square text-slate-300 mr-3 mt-1"></i>
@@ -489,7 +462,7 @@ function SummarySlide() {
                         使用提示
                     </h3>
                     <ul className="space-y-2 text-slate-600">
-                        <li>• <strong>单独JSON文件</strong>：适合收集详细答案，每个学生一个文件</li>
+                        <li>• <strong>单独文本文件</strong>：适合收集文本内容，每个学生一个文件</li>
                         <li>• <strong>合并CSV留言</strong>：适合收集简短留言，所有学生合并到一个文件</li>
                         <li>• <strong>表格CSV</strong>：适合收集结构化数据，可作为Excel打开</li>
                         <li>• CSV文件格式：字段之间用逗号分隔，支持用Excel打开</li>
@@ -505,8 +478,8 @@ function SummarySlide() {
                     </h3>
                     <div className="space-y-3 text-sm">
                         <div className="bg-white rounded-lg p-3">
-                            <h4 className="font-bold text-purple-800 mb-1">questionnaire-result.json</h4>
-                            <p className="text-slate-600">每个学生一个文件，包含完整的问卷答案</p>
+                            <h4 className="font-bold text-purple-800 mb-1">*.txt</h4>
+                            <p className="text-slate-600">每个学生一个文件，文件名由学生自定义，内容为纯文本</p>
                         </div>
                         <div className="bg-white rounded-lg p-3">
                             <h4 className="font-bold text-purple-800 mb-1">quick-notes.csv</h4>
@@ -526,7 +499,7 @@ function SummarySlide() {
 // 幻灯片数组
 const mySlides = [
     { id: 'intro', component: <IntroSlide /> },
-    { id: 'test-submit', component: <TestSubmitSlide />, scrollable: true }, // 问卷较长，允许滚动
+    { id: 'test-submit', component: <TestSubmitSlide />, scrollable: true }, // 文本输入较长，允许滚动
     { id: 'quick-submit', component: <QuickSubmitSlide /> },
     { id: 'form-submit', component: <FormSubmitSlide />, scrollable: true }, // 表单较长，允许滚动
     { id: 'summary', component: <SummarySlide />, scrollable: true } // 总结页内容较多，允许滚动

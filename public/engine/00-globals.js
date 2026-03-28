@@ -2,6 +2,22 @@
 // 全局 React Hook 解构 — 所有模块共享
 // ========================================================
 const { useState, useEffect, useRef } = React;
+const { createPortal } = ReactDOM;
+
+// 创建 portal 容器
+let portalRoot = null;
+const getPortalRoot = () => {
+    if (!portalRoot) {
+        portalRoot = document.createElement('div');
+        portalRoot.id = 'portal-root';
+        portalRoot.style.position = 'fixed';
+        portalRoot.style.top = '0';
+        portalRoot.style.left = '0';
+        portalRoot.style.zIndex = '999999';
+        document.body.appendChild(portalRoot);
+    }
+    return portalRoot;
+};
 
 if (!window.__LumeSyncDevtoolsHotkeyBound) {
     window.__LumeSyncDevtoolsHotkeyBound = true;
@@ -132,6 +148,61 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         return { render, closing };
     };
 
+    const relayoutSideToolbars = () => {
+        const nodes = Array.from(document.querySelectorAll('[data-ls-side-toolbar="1"]'));
+        if (!nodes.length) return;
+
+        // 先重置位移，使用自然布局进行测量
+        nodes.forEach((node) => {
+            node.style.marginTop = '0px';
+        });
+
+        const groups = new Map();
+        nodes.forEach((node) => {
+            const side = node.getAttribute('data-ls-side') || 'right';
+            const key = `${side}::${node.offsetParent ? 'has-parent' : 'no-parent'}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(node);
+        });
+
+        const viewportTop = 12;
+        const viewportBottom = (window.innerHeight || document.documentElement.clientHeight || 0) - 12;
+        const gap = 10;
+
+        groups.forEach((groupNodes) => {
+            const sorted = groupNodes
+                .map((node) => ({ node, rect: node.getBoundingClientRect() }))
+                .sort((a, b) => a.rect.top - b.rect.top);
+
+            const placed = [];
+            sorted.forEach(({ node, rect }) => {
+                let shiftY = 0;
+
+                // 与已放置工具栏避免重叠
+                placed.forEach((prevRect) => {
+                    const hOverlap = rect.left < prevRect.right && rect.right > prevRect.left;
+                    if (!hOverlap) return;
+                    const minTop = prevRect.bottom + gap;
+                    if (rect.top + shiftY < minTop) {
+                        shiftY = minTop - rect.top;
+                    }
+                });
+
+                // 智能贴边：限制在可视区域内
+                if (rect.top + shiftY < viewportTop) {
+                    shiftY += viewportTop - (rect.top + shiftY);
+                }
+                if (rect.bottom + shiftY > viewportBottom) {
+                    shiftY -= (rect.bottom + shiftY - viewportBottom);
+                }
+
+                node.style.marginTop = `${Math.round(shiftY)}px`;
+                const finalRect = node.getBoundingClientRect();
+                placed.push(finalRect);
+            });
+        });
+    };
+
     const SideToolbar = ({
         visible,
         panelVisible = false,
@@ -153,7 +224,8 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         panelClassName = '',
         toolbarClassName = '',
         toolbarExitMs = 220,
-        panelExitMs = 180
+        panelExitMs = 180,
+        smartEdge = true
     }) => {
         const hasPresetToolbar = !!toolbar;
         const popupNode = !hasPresetToolbar && typeof renderPopupContent === 'function'
@@ -207,8 +279,7 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
 
         const toolbarPresence = usePresence(!!visible, toolbarExitMs);
         const panelPresence = usePresence(!!visible && !!effectivePanelVisible, panelExitMs);
-
-        if (!toolbarPresence.render) return null;
+        const containerRef = useRef(null);
 
         const isRight = side !== 'left';
         const originClass = isRight ? 'origin-right' : 'origin-left';
@@ -220,25 +291,54 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         const toolbarMotionClass = toolbarPresence.closing ? motionOut : motionIn;
         const panelMotionClass = panelPresence.closing ? panelOut : panelIn;
 
-        return (
-            <div className={`absolute ${offsetClass} ${zIndexClass} flex items-center gap-3 pointer-events-none ${containerClassName}`}>
-                {isRight && panelPresence.render && (
-                    <div className={`pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${hasPresetToolbar ? panelClassName : popupWrapperClassName}`}>
-                        {hasPresetToolbar ? popupNode : <div className={`${popupClassName}`}>{popupNode}</div>}
-                    </div>
-                )}
+        useEffect(() => {
+            const el = containerRef.current;
+            if (!el) return;
 
-                <div className={`pointer-events-auto transition-all duration-200 ease-out ${originClass} ${toolbarMotionClass} ${hasPresetToolbar ? toolbarClassName : ''}`}>
+            const schedule = () => {
+                window.requestAnimationFrame(() => {
+                    relayoutSideToolbars();
+                });
+            };
+
+            if (!toolbarPresence.render || !smartEdge || !visible) {
+                el.style.marginTop = '0px';
+                return;
+            }
+
+            el.setAttribute('data-ls-side-toolbar', '1');
+            el.setAttribute('data-ls-side', side !== 'left' ? 'right' : 'left');
+
+            schedule();
+            window.addEventListener('resize', schedule);
+            return () => {
+                window.removeEventListener('resize', schedule);
+                el.style.marginTop = '0px';
+                el.removeAttribute('data-ls-side-toolbar');
+                el.removeAttribute('data-ls-side');
+                schedule();
+            };
+        }, [smartEdge, visible, side, offsetClass, activePopupKey, panelPresence.render, toolbarPresence.render]);
+
+        if (!toolbarPresence.render) return null;
+
+        const node = (
+            <div ref={containerRef} className={`fixed ${offsetClass} ${zIndexClass} pointer-events-none ${containerClassName}`}>
+                <div className={`relative pointer-events-auto transition-all duration-200 ease-out ${originClass} ${toolbarMotionClass} ${hasPresetToolbar ? toolbarClassName : ''}`}>
                     {toolbarNode}
-                </div>
 
-                {!isRight && panelPresence.render && (
-                    <div className={`pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${hasPresetToolbar ? panelClassName : popupWrapperClassName}`}>
-                        {hasPresetToolbar ? popupNode : <div className={`${popupClassName}`}>{popupNode}</div>}
-                    </div>
-                )}
+                    {panelPresence.render && (
+                        <div
+                            className={`absolute top-1/2 -translate-y-1/2 ${isRight ? 'right-full mr-3' : 'left-full ml-3'} pointer-events-auto transition-all duration-200 ease-out ${panelMotionClass} ${hasPresetToolbar ? panelClassName : popupWrapperClassName}`}
+                        >
+                            {hasPresetToolbar ? popupNode : <div className={`${popupClassName}`}>{popupNode}</div>}
+                        </div>
+                    )}
+                </div>
             </div>
         );
+
+        return createPortal(node, getPortalRoot());
     };
 
     return { SideToolbar, usePresence, styles };

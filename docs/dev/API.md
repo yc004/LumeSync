@@ -88,7 +88,7 @@ window.CourseGlobalContext = {
     syncInteraction: (event: string, payload: any) => void;
 
     // 辅助方法
-    log: (message: string, data?: any) => void;
+    log: (message: string, dvata?: any) => void;
     error: (message: string, error?: any) => void;
 };
 ```
@@ -97,7 +97,7 @@ window.CourseGlobalContext = {
 
 引擎会在全局注册一组可复用组件，供课件直接使用（无需 import）。当前可用组件：
 
-- `WebPageSlide`：将一个 URL 作为"纯网页页"嵌入到课件中，并提供"刷新 / 在新窗口打开"的兜底。
+- `WebPageSlide`：将一个 URL  作为"纯网页页"嵌入到课件中，并提供"刷新 / 在新窗口打开"的兜底。
 - `SurveySlide`：问卷组件，支持多种题型和数据收集。
 
 ## UI 组件（运行时）

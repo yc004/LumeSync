@@ -152,8 +152,8 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
-        minWidth: 900,
-        minHeight: 600,
+        minWidth: 1024,
+        minHeight: 700,
         title: 'SyncClassroom 教师端',
         frame: false,
         webPreferences: {

@@ -617,7 +617,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             const baseHeight = 720;
             const scaleW = availableWidth / baseWidth;
             const scaleH = availableHeight / baseHeight;
-            const nextScale = Math.max(Math.min(scaleW, scaleH, 0.96), 0.1);
+            const nextScale = Math.max(Math.min(scaleW, scaleH, 0.96), 0.8);
             setStageScale(nextScale);
         };
 
@@ -1521,6 +1521,8 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         }
     ];
 
+    const sideToolbarScale = Math.min(Math.max((stageScale || 1) * (uiScale || 1), 0.72), 1);
+
     if (!roleAssigned) {
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white select-none">
@@ -1738,6 +1740,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 onActivePopupChange={setAnnoPopupType}
                                 renderPopupContent={renderAnnoPopupContent}
                                 buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
+                                scale={sideToolbarScale}
                             />
 
                             <window.__LumeSyncUI.SideToolbar
@@ -1749,6 +1752,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 toolbarPrefix={voteToolbarPrefix}
                                 toolbarSuffix={voteToolbarSuffix}
                                 buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
+                                scale={sideToolbarScale}
                             />
 
                             <window.__LumeSyncUI.SideToolbar
@@ -1760,6 +1764,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 onActivePopupChange={(key) => setShowSubmissionsPanel(key === 'submissions')}
                                 renderPopupContent={renderSubmissionsPopupContent}
                                 buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
+                                scale={sideToolbarScale}
                             />
                         </>
                     )}

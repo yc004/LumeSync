@@ -126,6 +126,7 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
     const [guideContent, setGuideContent] = useState('');
     const [showSettings, setShowSettings] = useState(false);
     const [showClassroomView, setShowClassroomView] = useState(false);
+    const [showSubmissionsBrowser, setShowSubmissionsBrowser] = useState(false);
     const [courseData, setCourseData] = useState({ courses: [], folders: [] });
     const [viewMode, setViewMode] = useState('grid');
     const [currentFolder, setCurrentFolder] = useState(null);
@@ -934,6 +935,17 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    setSelectedId(contextMenu.item.id);
+                                    setContextMenu(null);
+                                    setShowSubmissionsBrowser(true);
+                                }}
+                                className="w-full px-4 py-2 text-left text-green-400 hover:bg-slate-700 text-sm flex items-center"
+                            >
+                                <i className="fas fa-folder-open w-5"></i>查看学生提交
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     handleDeleteCourse(contextMenu.item.id);
                                     setContextMenu(null);
                                 }}
@@ -1020,6 +1032,15 @@ function CourseSelector({ courses, currentCourseId, onSelectCourse, onRefresh, s
                     studentLog={studentLog}
                     podiumAtTop={settings?.podiumAtTop}
                     onPodiumAtTopChange={(v) => onSettingsChange && onSettingsChange('podiumAtTop', !!v)}
+                />
+            )}
+
+            {showSubmissionsBrowser && (
+                <window.SubmissionsBrowser
+                    courses={courseData}
+                    selectedCourseId={selectedId}
+                    onClose={() => setShowSubmissionsBrowser(false)}
+                    socket={socket}
                 />
             )}
         </div>

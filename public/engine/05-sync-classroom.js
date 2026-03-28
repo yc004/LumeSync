@@ -100,6 +100,8 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     const [showSubmissionsPanel, setShowSubmissionsPanel] = useState(false);
     const [submissionsFiles, setSubmissionsFiles] = useState([]);
     const [submissionsLoading, setSubmissionsLoading] = useState(false);
+    const [previewFile, setPreviewFile] = useState(null); // 当前预览的文件
+    const [previewContent, setPreviewContent] = useState(null); // 预览内容
 
     const [annoPopupType, setAnnoPopupType] = useState(null);
 
@@ -1119,6 +1121,22 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         }
     }, [showSubmissionsPanel, courseId]);
 
+    const handlePreviewFile = async (file) => {
+        try {
+            const res = await fetch(`/api/submissions/${encodeURIComponent(courseId)}/file/${encodeURIComponent(file.name)}`);
+            if (res.ok) {
+                const text = await res.text();
+                setPreviewContent(text);
+                setPreviewFile(file);
+            } else {
+                alert('预览失败');
+            }
+        } catch (err) {
+            console.error('[previewFile] Error:', err);
+            alert('预览失败');
+        }
+    };
+
     const renderSubmissionsPopupContent = (popupKey) => {
         if (popupKey !== 'submissions') return null;
         return (
@@ -1163,7 +1181,8 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                             {submissionsFiles.map((file, idx) => (
                                 <div
                                     key={idx}
-                                    className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 transition-colors group"
+                                    className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 transition-colors group cursor-pointer"
+                                    onClick={() => handlePreviewFile(file)}
                                 >
                                     <div className="flex items-center gap-2 flex-1 min-w-0">
                                         <i className="fas fa-file-lines text-slate-400 shrink-0"></i>
@@ -1176,9 +1195,10 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center gap-1 shrink-0">
                                         <button
-                                            onClick={async () => {
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
                                                 try {
                                                     const res = await fetch(`/api/submissions/${encodeURIComponent(courseId)}/file/${encodeURIComponent(file.name)}`);
                                                     if (res.ok) {
@@ -1207,6 +1227,91 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                             ))}
                         </div>
                     )}
+                </div>
+            </div>
+        );
+    };
+
+    // 文件预览弹窗
+    const FilePreviewModal = () => {
+        if (!previewFile) return null;
+
+        // 尝试解析内容
+        let displayContent = previewContent;
+        let isJson = false;
+        let jsonContent = null;
+
+        try {
+            jsonContent = JSON.parse(previewContent);
+            isJson = true;
+        } catch {
+            // 不是 JSON，显示纯文本
+        }
+
+        return (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                        <div className="flex items-center gap-3">
+                            <i className="fas fa-file-lines text-blue-500 text-lg"></i>
+                            <div>
+                                <h3 className="text-base font-bold text-slate-800">{previewFile.name}</h3>
+                                <p className="text-xs text-slate-500">{(previewFile.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setPreviewFile(null)}
+                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                            title="关闭"
+                        >
+                            <i className="fas fa-xmark text-xl"></i>
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-auto p-6 bg-slate-50">
+                        {isJson ? (
+                            <pre className="bg-slate-800 text-green-400 p-4 rounded-lg overflow-auto text-sm">
+                                {JSON.stringify(jsonContent, null, 2)}
+                            </pre>
+                        ) : (
+                            <pre className="bg-white border border-slate-200 p-4 rounded-lg overflow-auto text-sm text-slate-700 whitespace-pre-wrap">
+                                {displayContent}
+                            </pre>
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-white">
+                        <button
+                            onClick={() => setPreviewFile(null)}
+                            className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                        >
+                            关闭
+                        </button>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const res = await fetch(`/api/submissions/${encodeURIComponent(courseId)}/file/${encodeURIComponent(previewFile.name)}`);
+                                    if (res.ok) {
+                                        const blob = await res.blob();
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = previewFile.name;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                    }
+                                } catch (err) {
+                                    console.error('[downloadFile] Error:', err);
+                                    alert('下载失败');
+                                }
+                            }}
+                            className="px-4 py-2 rounded-lg text-sm font-bold bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                        >
+                            <i className="fas fa-download mr-2"></i>下载
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -1657,6 +1762,10 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                     </div>
                 ))}
             </div>
+
+            {/* 文件预览弹窗 */}
+            <FilePreviewModal />
+
             <style>{`
                 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
                 .toast-animate { animation: slideInRight 0.3s ease-out forwards; }

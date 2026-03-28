@@ -293,23 +293,33 @@ router.get('/submissions/:courseId', (req, res) => {
             return res.json({ success: true, courseId, files: [] });
         }
 
-        const files = fs.readdirSync(courseDir)
-            .filter(name => {
-                const filePath = path.join(courseDir, name);
-                const stat = fs.statSync(filePath);
-                return stat.isFile();
-            })
-            .map(name => {
-                const filePath = path.join(courseDir, name);
-                const stat = fs.statSync(filePath);
-                return {
-                    name: name,
-                    path: filePath,
-                    size: stat.size,
-                    mtime: stat.mtime
-                };
-            })
-            .sort((a, b) => b.mtime - a.mtime);
+        // 递归读取目录下的所有文件（包括子目录）
+        const files = [];
+        const scanDir = (dir, relativePath = '') => {
+            const entries = fs.readdirSync(dir);
+            entries.forEach(entry => {
+                const fullPath = path.join(dir, entry);
+                const stat = fs.statSync(fullPath);
+
+                if (stat.isDirectory()) {
+                    // 递归扫描子目录
+                    scanDir(fullPath, path.join(relativePath, entry));
+                } else if (stat.isFile()) {
+                    // 添加文件信息
+                    files.push({
+                        name: path.join(relativePath, entry),
+                        path: fullPath,
+                        size: stat.size,
+                        mtime: stat.mtime
+                    });
+                }
+            });
+        };
+
+        scanDir(courseDir);
+
+        // 按修改时间倒序排序
+        files.sort((a, b) => b.mtime - a.mtime);
 
         res.json({ success: true, courseId, files });
     } catch (err) {
@@ -318,7 +328,7 @@ router.get('/submissions/:courseId', (req, res) => {
 });
 
 // 下载学生提交文件
-router.get('/submissions/:courseId/file/:fileName', (req, res) => {
+router.get('/submissions/:courseId/file/:fileName(*)', (req, res) => {
     const { courseId, fileName } = req.params;
 
     if (!courseId || !fileName) {
@@ -334,7 +344,9 @@ router.get('/submissions/:courseId/file/:fileName', (req, res) => {
             return res.status(404).json({ success: false, error: 'File not found' });
         }
 
-        res.download(filePath, fileName);
+        // 从完整路径中提取文件名作为下载名称
+        const basename = path.basename(filePath);
+        res.download(filePath, basename);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

@@ -44,17 +44,29 @@ function getStudentFromClassroomLayout(clientIp) {
     const seats = extractSeatsFromLayout(layout);
     const student = seats.find(s => s && s.ip === clientIp);
 
+    // 查找学生所在的班级
+    let classroomName = '';
+    if (layout?.classrooms && typeof layout.classrooms === 'object') {
+        for (const [key, classroom] of Object.entries(layout.classrooms)) {
+            if (classroom?.seats?.some(s => s && s.ip === clientIp)) {
+                classroomName = classroom.name || key;
+                break;
+            }
+        }
+    }
+
     if (student) {
-        console.log(`[classroom-layout] Found student for IP ${clientIp}: ${student.name}`);
+        console.log(`[classroom-layout] Found student for IP ${clientIp}: ${student.name}, classroom: ${classroomName}`);
         return {
             ip: clientIp,
             name: student.name || '',
-            studentId: student.studentId || ''
+            studentId: student.studentId || '',
+            classroom: classroomName
         };
     }
 
     console.log(`[classroom-layout] No student found for IP ${clientIp}`);
-    return { ip: clientIp, name: '', studentId: '' };
+    return { ip: clientIp, name: '', studentId: '', classroom: '' };
 }
 
 
@@ -112,7 +124,16 @@ function saveSubmission(reqBody, res) {
 
         if (mergeFile) {
             // 合并模式：所有学生提交到一个文件（表格格式）
-            filePath = path.join(courseDir, baseFileName);
+            // 在合并模式下，也按班级+日期组织
+            const classroomName = studentInfo.classroom || 'default';
+            const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const classDateDir = path.join(courseDir, `${classroomName}_${dateStr}`);
+
+            if (!fs.existsSync(classDateDir)) {
+                fs.mkdirSync(classDateDir, { recursive: true });
+            }
+
+            filePath = path.join(classDateDir, baseFileName);
 
             // 处理新的问卷格式（包含 header 和 row）
             let header, row;
@@ -167,12 +188,21 @@ function saveSubmission(reqBody, res) {
             }
         } else {
             // 分离模式：每个学生一个文件
+            // 按班级+日期组织文件，避免不同班级文件混在一起
+            const classroomName = studentInfo.classroom || 'default';
+            const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const classDateDir = path.join(courseDir, `${classroomName}_${dateStr}`);
+
+            if (!fs.existsSync(classDateDir)) {
+                fs.mkdirSync(classDateDir, { recursive: true });
+            }
+
             // 文件名：姓名_学号_IP_文件名，如果没有姓名则用 IP_文件名
             const namePrefix = studentName === clientIp
                 ? clientIp.replace(/\./g, '-')
                 : `${studentName}_${studentId || ''}_${clientIp.replace(/\./g, '-')}`.replace(/^_+|_+$/g, '');
             const safeFileName = `${namePrefix}_${baseFileName}`.replace(/[<>:"/\\|?*]/g, '_');
-            filePath = path.join(courseDir, safeFileName);
+            filePath = path.join(classDateDir, safeFileName);
             fs.writeFileSync(filePath, fileContent, 'utf-8');
         }
 

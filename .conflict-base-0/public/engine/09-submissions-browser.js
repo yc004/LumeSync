@@ -90,28 +90,6 @@ function SubmissionsBrowser({ courses, selectedCourseId: initialCourseId, onClos
         return icons[ext] || { icon: 'fa-file', color: 'text-slate-500', bg: 'bg-slate-50' };
     };
 
-    // 解析文件路径，提取班级和日期信息
-    const parseFileInfo = (filePath) => {
-        // 路径格式: 班级名_日期/文件名 或 文件名（无子目录）
-        const parts = filePath.split(/[/\\]/);
-        let classroom = '';
-        let date = '';
-        let fileName = filePath;
-
-        if (parts.length > 1) {
-            const dirInfo = parts[0];
-            // 尝试匹配 "班级名_日期" 格式
-            const match = dirInfo.match(/^(.+?)_(\d{4}-\d{2}-\d{2})$/);
-            if (match) {
-                classroom = match[1];
-                date = match[2];
-                fileName = parts.slice(1).join('/');
-            }
-        }
-
-        return { classroom, date, fileName };
-    };
-
     const renderPreviewContent = () => {
         if (!previewContent || !selectedFile) return null;
 
@@ -352,7 +330,6 @@ function SubmissionsBrowser({ courses, selectedCourseId: initialCourseId, onClos
                             <div className="space-y-2">
                                 {files.map((file, idx) => {
                                     const fileIcon = getFileIcon(file.name);
-                                    const { classroom, date, fileName } = parseFileInfo(file.name);
                                     return (
                                         <div
                                             key={idx}
@@ -363,31 +340,13 @@ function SubmissionsBrowser({ courses, selectedCourseId: initialCourseId, onClos
                                                 <i className={`fas ${fileIcon.icon} ${fileIcon.color} text-lg`}></i>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-sm text-slate-200 truncate font-medium" title={fileName}>
-                                                    {fileName}
+                                                <div className="text-sm text-slate-200 truncate font-medium" title={file.name}>
+                                                    {file.name}
                                                 </div>
-                                                <div className="text-xs text-slate-500 mt-0.5 flex items-center flex-wrap gap-x-2">
-                                                    {classroom && (
-                                                        <>
-                                                            <span className="flex items-center text-green-400">
-                                                                <i className="fas fa-users mr-1"></i>
-                                                                {classroom}
-                                                            </span>
-                                                            <span className="text-slate-600">·</span>
-                                                        </>
-                                                    )}
-                                                    {date && (
-                                                        <>
-                                                            <span className="flex items-center text-blue-400">
-                                                                <i className="fas fa-calendar mr-1"></i>
-                                                                {date}
-                                                            </span>
-                                                            <span className="text-slate-600">·</span>
-                                                        </>
-                                                    )}
-                                                    <span>{(file.size / 1024).toFixed(1)} KB</span>
-                                                    <span className="text-slate-600">·</span>
-                                                    <span>{new Date(file.mtime).toLocaleString('zh-CN')}</span>
+                                                <div className="text-xs text-slate-500 mt-0.5">
+                                                    {(file.size / 1024).toFixed(1)} KB
+                                                    <span className="mx-2">·</span>
+                                                    {new Date(file.mtime).toLocaleString('zh-CN')}
                                                 </div>
                                             </div>
                                             <button

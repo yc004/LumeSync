@@ -1236,24 +1236,172 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
     const FilePreviewModal = () => {
         if (!previewFile) return null;
 
-        // 尝试解析内容
-        let displayContent = previewContent;
+        const getFileIcon = (fileName) => {
+            const ext = fileName.split('.').pop()?.toLowerCase();
+            const icons = {
+                'json': { icon: 'fa-file-code', color: 'text-yellow-500', bg: 'bg-yellow-50' },
+                'txt': { icon: 'fa-file-lines', color: 'text-blue-500', bg: 'bg-blue-50' },
+                'csv': { icon: 'fa-file-csv', color: 'text-green-500', bg: 'bg-green-50' },
+                'md': { icon: 'fa-file-lines', color: 'text-purple-500', bg: 'bg-purple-50' },
+                'html': { icon: 'fa-file-code', color: 'text-orange-500', bg: 'bg-orange-50' },
+                'js': { icon: 'fa-file-code', color: 'text-yellow-400', bg: 'bg-yellow-50' },
+                'pdf': { icon: 'fa-file-pdf', color: 'text-red-500', bg: 'bg-red-50' },
+            };
+            return icons[ext] || { icon: 'fa-file', color: 'text-slate-500', bg: 'bg-slate-50' };
+        };
+
+        const renderJsonContent = (data) => {
+            if (data.type === 'questionnaire' && data.answers) {
+                // 问卷格式：显示为表格
+                return (
+                    <div className="space-y-4">
+                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                            <table className="w-full">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">问题</th>
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">答案</th>
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-700">时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.answers.map((answer, idx) => (
+                                        <tr key={idx} className="border-t border-slate-100">
+                                            <td className="px-4 py-3 text-sm text-slate-700 font-medium">{answer.question}</td>
+                                            <td className="px-4 py-3 text-sm text-slate-600">{answer.answer}</td>
+                                            <td className="px-4 py-3 text-xs text-slate-400">{new Date(answer.timestamp).toLocaleString('zh-CN')}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                            提交时间: {new Date(data.submittedAt).toLocaleString('zh-CN')}
+                        </div>
+                    </div>
+                );
+            } else if (data.type === 'quick-note') {
+                // 快速留言格式
+                return (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <i className="fas fa-comment-dots text-yellow-500 text-2xl"></i>
+                            <div>
+                                <div className="font-bold text-yellow-800">快速留言</div>
+                                <div className="text-xs text-yellow-600">{new Date(data.timestamp).toLocaleString('zh-CN')}</div>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg p-4 text-slate-700">
+                            {data.message}
+                        </div>
+                    </div>
+                );
+            } else if (data.type === 'form-submission') {
+                // 表单提交格式
+                return (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <i className="fas fa-clipboard-list text-purple-500 text-2xl"></i>
+                            <div>
+                                <div className="font-bold text-purple-800">表单提交</div>
+                                <div className="text-xs text-purple-600">{new Date(data.submittedAt).toLocaleString('zh-CN')}</div>
+                            </div>
+                        </div>
+                        {data.csvRow && (
+                            <div className="bg-white rounded-lg p-4 text-sm font-mono text-slate-600 whitespace-pre-wrap">
+                                {data.csvRow}
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+            // 通用 JSON 格式：代码高亮显示
+            return (
+                <pre className="bg-slate-800 text-green-400 p-4 rounded-lg overflow-auto text-sm">
+                    {JSON.stringify(data, null, 2)}
+                </pre>
+            );
+        };
+
+        const renderCsvContent = (content) => {
+            const lines = content.trim().split('\n');
+            const header = lines[0];
+            const rows = lines.slice(1);
+
+            return (
+                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    <table className="w-full">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                {header.split(',').map((cell, idx) => (
+                                    <th key={idx} className="px-3 py-2 text-left text-xs font-bold text-slate-700 border-r border-slate-200 last:border-r-0">
+                                        {cell.replace(/"/g, '').trim()}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, rowIdx) => {
+                                const cells = row.split(',');
+                                return (
+                                    <tr key={rowIdx} className="border-t border-slate-100 hover:bg-slate-50">
+                                        {cells.map((cell, cellIdx) => (
+                                            <td key={cellIdx} className="px-3 py-2 text-sm text-slate-600 border-r border-slate-200 last:border-r-0">
+                                                {cell.replace(/"/g, '').trim()}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        };
+
+        const renderTextContent = (content, fileName) => {
+            const ext = fileName.split('.').pop()?.toLowerCase();
+
+            if (ext === 'csv') {
+                return renderCsvContent(content);
+            }
+
+            // 普通文本：格式化显示
+            return (
+                <pre className="bg-white border border-slate-200 p-4 rounded-lg overflow-auto text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                    {content}
+                </pre>
+            );
+        };
+
+        // 智能识别文件格式
+        let contentRenderer = null;
+        let jsonData = null;
         let isJson = false;
-        let jsonContent = null;
 
         try {
-            jsonContent = JSON.parse(previewContent);
+            jsonData = JSON.parse(previewContent);
             isJson = true;
         } catch {
-            // 不是 JSON，显示纯文本
+            // 不是 JSON
+        }
+
+        const fileIcon = getFileIcon(previewFile.name);
+
+        if (isJson && jsonData) {
+            contentRenderer = renderJsonContent(jsonData);
+        } else {
+            contentRenderer = renderTextContent(previewContent, previewFile.name);
         }
 
         return (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col">
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
                         <div className="flex items-center gap-3">
-                            <i className="fas fa-file-lines text-blue-500 text-lg"></i>
+                            <div className={`w-10 h-10 ${fileIcon.bg} rounded-lg flex items-center justify-center`}>
+                                <i className={`fas ${fileIcon.icon} ${fileIcon.color} text-lg`}></i>
+                            </div>
                             <div>
                                 <h3 className="text-base font-bold text-slate-800">{previewFile.name}</h3>
                                 <p className="text-xs text-slate-500">{(previewFile.size / 1024).toFixed(1)} KB</p>
@@ -1269,15 +1417,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                     </div>
 
                     <div className="flex-1 overflow-auto p-6 bg-slate-50">
-                        {isJson ? (
-                            <pre className="bg-slate-800 text-green-400 p-4 rounded-lg overflow-auto text-sm">
-                                {JSON.stringify(jsonContent, null, 2)}
-                            </pre>
-                        ) : (
-                            <pre className="bg-white border border-slate-200 p-4 rounded-lg overflow-auto text-sm text-slate-700 whitespace-pre-wrap">
-                                {displayContent}
-                            </pre>
-                        )}
+                        {contentRenderer}
                     </div>
 
                     <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-white">

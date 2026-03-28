@@ -225,7 +225,8 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         toolbarClassName = '',
         toolbarExitMs = 220,
         panelExitMs = 180,
-        smartEdge = true
+        smartEdge = true,
+        scale = 1
     }) => {
         const hasPresetToolbar = !!toolbar;
         const popupNode = !hasPresetToolbar && typeof renderPopupContent === 'function'
@@ -248,7 +249,7 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
         const toolbarNode = hasPresetToolbar
             ? toolbar
             : (
-                <div className={`w-14 ${styles.liquidGlassDark} rounded-2xl p-2 text-white flex flex-col items-center gap-2 ${toolbarClassName}`}>
+                <div className={`w-16 ${styles.liquidGlassDark} rounded-2xl p-2 text-white flex flex-col items-center gap-2 ${toolbarClassName}`}>
                     {toolbarPrefix}
                     {(Array.isArray(buttons) ? buttons : []).map((btn, idx) => {
                         if (!btn || btn.hidden) return null;
@@ -283,6 +284,8 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
 
         const isRight = side !== 'left';
         const originClass = isRight ? 'origin-right' : 'origin-left';
+        const safeScale = Number.isFinite(Number(scale)) ? Math.min(Math.max(Number(scale), 0.65), 1.25) : 1;
+        const scaleOrigin = isRight ? 'right center' : 'left center';
         const motionIn = 'translate-x-0 opacity-100 scale-100';
         const motionOut = isRight ? 'translate-x-3 opacity-0 scale-95' : '-translate-x-3 opacity-0 scale-95';
         const panelIn = 'translate-x-0 opacity-100';
@@ -318,13 +321,19 @@ window.__LumeSyncUI = window.__LumeSyncUI || (() => {
                 el.removeAttribute('data-ls-side');
                 schedule();
             };
-        }, [smartEdge, visible, side, offsetClass, activePopupKey, panelPresence.render, toolbarPresence.render]);
+        }, [smartEdge, visible, side, offsetClass, activePopupKey, panelPresence.render, toolbarPresence.render, safeScale]);
 
         if (!toolbarPresence.render) return null;
 
         const node = (
             <div ref={containerRef} className={`fixed ${offsetClass} ${zIndexClass} pointer-events-none ${containerClassName}`}>
-                <div className={`relative pointer-events-auto transition-all duration-200 ease-out ${originClass} ${toolbarMotionClass} ${hasPresetToolbar ? toolbarClassName : ''}`}>
+                <div
+                    className={`relative pointer-events-auto transition-all duration-200 ease-out ${originClass} ${toolbarMotionClass} ${hasPresetToolbar ? toolbarClassName : ''}`}
+                    style={{
+                        transformOrigin: scaleOrigin,
+                        transform: `scale(${safeScale})`
+                    }}
+                >
                     {toolbarNode}
 
                     {panelPresence.render && (

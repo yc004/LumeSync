@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>萤火课件编辑器</title>
+
+    <!-- Tailwind CSS -->
+    <script src="lib/tailwindcss.js" onerror="this.src='https://cdn.tailwindcss.com'"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                screens: {
+                    'sm': '10px',
+                    'md': '10px',
+                    'lg': '10px',
+                    'xl': '10px',
+                    '2xl': '10px',
+                },
+                extend: {
+                    height: { 'screen': '100%' },
+                    width: { 'screen': '100%' },
+                    minHeight: { 'screen': '100%' },
+                    minWidth: { 'screen': '100%' }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="lib/fontawesome.all.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="lib/react.development.js" onerror="this.src='https://unpkg.com/react@18/umd/react.development.js'"></script>
+    <script crossorigin src="lib/react-dom.development.js" onerror="this.src='https://unpkg.com/react-dom@18/umd/react-dom.development.js'"></script>
+    
+    <!-- Babel -->
+    <script src="lib/babel.min.js" onerror="this.src='https://unpkg.com/@babel/standalone/babel.min.js'"></script>
+    
+    <!-- marked -->
+    <script src="lib/marked.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/marked@9/marked.min.js'"></script>
+
+    <!-- Prism.js (语法高亮) -->
+    <link rel="stylesheet" href="lib/prism.min.css" onerror="this.href='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css'">
+    <script src="lib/prism.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js'"></script>
+    <script src="lib/components/prism-javascript.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js'"></script>
+    <script src="lib/components/prism-typescript.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js'"></script>
+    <script src="lib/components/prism-jsx.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-jsx.min.js'"></script>
+    <script src="lib/components/prism-tsx.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-tsx.min.js'"></script>
+
+    <!-- Monaco Editor (可选，如果以后想加高级代码编辑。这里我们先用普通 textarea，保证不依赖复杂外网资源) -->
+
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        
+        #root-wrapper {
+            width: 100vw;
+            height: 100vh;
+            transform-origin: top left;
+            overflow: hidden;
+            position: relative;
+        }
+
+        * { scrollbar-width: none; -ms-overflow-style: none; user-select: none; -webkit-user-select: none; }
+        *::-webkit-scrollbar { display: none; }
+        .markdown-body { color: #334155; line-height: 1.7; }
+        .markdown-body pre { background: #1e293b; border-radius: 8px; padding: 1em; overflow-x: auto; margin: 0.8em 0; }
+        .markdown-body code { font-family: 'Consolas', monospace; font-size: 0.85em; }
+        .code-editor { font-family: 'Consolas', monospace; user-select: text; -webkit-user-select: text; tab-size: 4; }
+        .chat-selectable { user-select: text; -webkit-user-select: text; }
+        
+        /* Prism.js 语法高亮样式调整 */
+        .syntax-highlight-wrapper { position: relative; }
+        .syntax-highlight-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.625;
+            padding: 24px 16px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            tab-size: 4;
+        }
+        .syntax-highlight-overlay code,
+        .syntax-highlight-overlay code[class*="language-"] {
+            display: block;
+            font-family: 'Consolas', monospace !important;
+            background: none !important;
+            font-size: inherit;
+            line-height: inherit;
+            white-space: pre-wrap !important;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            margin: 0;
+        }
+        textarea.code-editor {
+            caret-color: #e2e8f0;
+            color: #e2e8f0;
+            background: transparent;
+            resize: none;
+        }
+        textarea.code-editor.syntax-enabled {
+            color: transparent;
+        }
+        textarea.code-editor::selection {
+            background: rgba(59, 130, 246, 0.3);
+            color: #e2e8f0;
+        }
+        textarea.code-editor.syntax-enabled::selection {
+            color: transparent;
+        }
+        
+        /* 适配深色主题的 Prism 语法高亮 */
+        .token.comment,
+        .token.prolog,
+        .token.doctype,
+        .token.cdata {
+            color: #6b7280;
+        }
+        .token.punctuation {
+            color: #94a3b8;
+        }
+        .token.property,
+        .token.tag,
+        .token.boolean,
+        .token.number,
+        .token.constant,
+        .token.symbol,
+        .token.deleted {
+            color: #f472b6;
+        }
+        .token.selector,
+        .token.attr-name,
+        .token.string,
+        .token.char,
+        .token.builtin,
+        .token.inserted {
+            color: #86efac;
+        }
+        .token.operator,
+        .token.entity,
+        .token.url,
+        .language-css .token.string,
+        .style .token.string {
+            color: #93c5fd;
+        }
+        .token.atrule,
+        .token.attr-value,
+        .token.keyword {
+            color: #c084fc;
+        }
+        .token.function,
+        .token.class-name {
+            color: #60a5fa;
+        }
+        .token.regex,
+        .token.important,
+        .token.variable {
+            color: #fbbf24;
+        }
+        .syntax-highlight-overlay .token {
+            background: transparent !important;
+            text-shadow: none !important;
+        }
+        .namespace {
+            opacity: .7;
+        }
+
+        
+        /* Markdown 样式优化 */
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: bold; margin-top: 0.5em; margin-bottom: 0.3em; }
+        .markdown-content p { margin-bottom: 0.5em; }
+        .markdown-content ul, .markdown-content ol { padding-left: 1.2em; margin-bottom: 0.5em; }
+        .markdown-content ul { list-style-type: disc; }
+        .markdown-content ol { list-style-type: decimal; }
+        .markdown-content li { margin-bottom: 0.2em; }
+        .markdown-content code { background: rgba(0,0,0,0.2); padding: 0.1em 0.3em; border-radius: 3px; font-family: monospace; }
+        .markdown-content strong { font-weight: bold; color: #60a5fa; }
+        .markdown-content blockquote { border-left: 3px solid #475569; padding-left: 0.8em; font-style: italic; color: #94a3b8; margin: 0.5em 0; }
+
+        /* 知识库 Markdown 样式增强 */
+        .prose { max-width: 65ch; }
+        .prose-invert { color: #e2e8f0; }
+        .prose-invert h1 { font-size: 1.5em; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.75em; color: #f8fafc; border-bottom: 1px solid #334155; padding-bottom: 0.3em; }
+        .prose-invert h2 { font-size: 1.25em; font-weight: 600; margin-top: 1.25em; margin-bottom: 0.6em; color: #f1f5f9; }
+        .prose-invert h3 { font-size: 1.1em; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; color: #e2e8f0; }
+        .prose-invert p { margin-bottom: 0.75em; line-height: 1.6; }
+        .prose-invert ul, .prose-invert ol { margin-bottom: 0.75em; padding-left: 1.5em; }
+        .prose-invert ul { list-style-type: disc; }
+        .prose-invert ol { list-style-type: decimal; }
+        .prose-invert li { margin-bottom: 0.35em; }
+        .prose-invert code { background: rgba(0, 0, 0, 0.3); padding: 0.15em 0.4em; border-radius: 4px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9em; color: #93c5fd; }
+        .prose-invert pre { background: rgba(0, 0, 0, 0.4); border: 1px solid #475569; border-radius: 8px; padding: 1em; margin: 1em 0; overflow-x: auto; }
+        .prose-invert pre code { background: none; padding: 0; color: #e2e8f0; font-size: 0.85em; }
+        .prose-invert blockquote { border-left: 3px solid #6366f1; padding-left: 1em; margin: 1em 0; color: #94a3b8; font-style: italic; background: rgba(99, 102, 241, 0.1); padding: 0.75em 1em; border-radius: 0 4px 4px 0; }
+        .prose-invert a { color: #60a5fa; text-decoration: underline; }
+        .prose-invert a:hover { color: #3b82f6; }
+        .prose-invert strong { color: #60a5fa; font-weight: 600; }
+        .prose-invert em { color: #f1f5f9; }
+        .prose-invert hr { border: none; border-top: 1px solid #334155; margin: 2em 0; }
+        .prose-sm { font-size: 0.875rem; }
+        
+        /* 编辑器和预览需要滚动条 */
+        .show-scrollbar::-webkit-scrollbar { display: block; width: 8px; height: 8px; }
+        .show-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 4px; }
+        .show-scrollbar { scrollbar-width: auto; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white">
+    <div id="root-wrapper">
+        <div id="root" class="w-full h-full"></div>
+    </div>
+
+    <script>
+        function updateContainerScale() {
+            const minW = 1280;
+            const minH = 720;
+            const realW = window.innerWidth;
+            const realH = window.innerHeight;
+            
+            let scale = Math.min(realW / minW, realH / minH);
+            const wrapper = document.getElementById('root-wrapper');
+            if (!wrapper) return;
+            
+            if (scale < 1) {
+                wrapper.style.width = (realW / scale) + 'px';
+                wrapper.style.height = (realH / scale) + 'px';
+                wrapper.style.transform = 'scale(' + scale + ')';
+            } else {
+                wrapper.style.width = '100vw';
+                wrapper.style.height = '100vh';
+                wrapper.style.transform = 'none';
+            }
+        }
+        window.addEventListener('resize', updateContainerScale);
+        window.addEventListener('DOMContentLoaded', updateContainerScale);
+    </script>
+
+    <!-- 组件库：自动扫描并加载 components 目录下所有组件 -->
+    <script>
+        (function autoLoadComponents() {
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/components-manifest', false);
+                xhr.send(null);
+
+                if (xhr.status < 200 || xhr.status >= 300) {
+                    throw new Error('manifest request failed: ' + xhr.status);
+                }
+
+                const payload = JSON.parse(xhr.responseText || '{}');
+                const files = Array.isArray(payload.files) ? payload.files : [];
+
+                files.forEach((src) => {
+                    if (!src) return;
+                    document.write(`<script type="text/babel" src="${src}"><\/script>`);
+                });
+            } catch (err) {
+                console.error('[Editor] 自动加载 components 失败:', err);
+            }
+        })();
+    </script>
+
+    <!-- 模拟 Socket.io 用于编辑器内联预览 -->
+    <script>
+        // 提供一个假的 socket.io 环境
+        window.io = function() {
+            return {
+                on: () => {},
+                emit: () => {},
+                off: () => {},
+                disconnect: () => {},
+                connected: true
+            };
+        };
+        // 提供假的 electronAPI 等给预览组件
+        if (!window.electronAPI) {
+            window.electronAPI = {};
+        }
+        // 提供基本的 CourseGlobalContext，确保课件兼容性
+        window.CourseGlobalContext = {
+            modelUrl: '',
+            getCamera: (onStream) => {
+                console.warn('[Editor] 摄像头功能在编辑器中不可用');
+                if (onStream) onStream(null);
+                return Promise.resolve(null);
+            },
+            releaseCamera: () => {},
+            unregisterCamera: () => {}
+        };
+        // 提供基本的 CameraManager
+        window.CameraManager = {
+            getStream: () => Promise.resolve(null),
+            release: () => {},
+            unregister: () => {},
+            isActive: () => false,
+            getDevices: () => [],
+            getCurrentDeviceId: () => null,
+            switchDevice: () => Promise.resolve()
+        };
+    </script>
+
+    <!-- 编辑器所需组件 -->
+    <script type="text/babel" src="engine/00-globals.js"></script>
+    <script type="text/babel" src="engine/01-settings-panel.js"></script>
+    <script type="text/babel" src="engine/02-classroom-view.js"></script>
+    <script type="text/babel" src="engine/05-sync-classroom.js"></script>
+    <script type="text/babel" src="editor/02-editor-app.js"></script>
+
+
+</body>
+</html>
+

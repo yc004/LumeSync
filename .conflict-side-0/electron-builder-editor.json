@@ -1,0 +1,56 @@
+{
+  "appId": "com.lumesync.editor",
+  "productName": "LumeSync Editor",
+  "copyright": "Copyright © 2024",
+  "directories": {
+    "output": "dist/editor",
+    "buildResources": "build"
+  },
+  "files": [
+    "electron/main-editor.js",
+    "electron/preload.js",
+    "electron/logger.js",
+    "server.js",
+    "server/**",
+    "build/icon-editor.ico",
+    "assets/**",
+    "public/**",
+    "node_modules/**",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "electron/main-editor.js"
+  },
+  "asar": false,
+  "fileAssociations": [
+    {
+      "ext": "lume",
+      "name": "LumeSync 课件",
+      "description": "LumeSync 互动课件文件",
+      "icon": "build/icon-course.ico"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "requestedExecutionLevel": "asInvoker",
+    "icon": "build/icon-editor.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": false,
+    "installerLanguages": ["zh_CN"],
+    "language": "2052",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "LumeSync Editor",
+    "installerIcon": "build/icon-editor.ico",
+    "uninstallerIcon": "build/icon-editor.ico",
+    "installerHeaderIcon": "build/icon-editor.ico"
+  }
+}

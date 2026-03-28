@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>无法连接</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .card {
+    text-align: center;
+    padding: 48px 40px;
+    max-width: 440px;
+  }
+  .icon { font-size: 64px; margin-bottom: 24px; opacity: 0.5; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 12px; color: #f1f5f9; }
+  p { font-size: 14px; color: #94a3b8; line-height: 1.7; margin-bottom: 6px; }
+  .ip { font-family: monospace; color: #60a5fa; font-size: 15px; }
+  .status {
+    margin-top: 24px;
+    padding: 12px 20px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #f59e0b;
+    animation: pulse 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+  .btn {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 28px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .btn:hover { background: #2563eb; }
+  .hint { font-size: 11px; color: #475569; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">📡</div>
+  <h1>无法连接到教师端</h1>
+  <p>正在尝试连接：</p>
+  <p class="ip" id="teacher-ip">加载中...</p>
+  <p style="margin-top:14px;">请确认教师端已开启，且您与教师在同一局域网内。</p>
+
+  <div class="status">
+    <span class="dot"></span>
+    <span id="status-text">正在等待教师端上线，<span id="countdown">5</span> 秒后自动重试...</span>
+  </div>
+
+  <button class="btn" onclick="manualRetry()">立即重试</button>
+  <p class="hint">如需修改教师机 IP，请右键托盘图标 → 管理员设置</p>
+  <p class="hint"><a href="#" onclick="toggleDevTools(event)" style="color: #475569;">打开开发者工具</a></p>
+</div>
+<script>
+  let countdownVal = 5;
+  let timer = null;
+
+  async function init() {
+    if (window.electronAPI) {
+      const cfg = await window.electronAPI.getConfig();
+      document.getElementById('teacher-ip').textContent =
+        `http://${cfg.teacherIp}:${cfg.port || 3000}`;
+    }
+    startCountdown();
+  }
+
+  function startCountdown() {
+    countdownVal = 5;
+    updateCountdown();
+    if (timer) clearInterval(timer);
+    timer = setInterval(() => {
+      countdownVal--;
+      updateCountdown();
+      if (countdownVal <= 0) {
+        clearInterval(timer);
+        timer = null;
+        // 主进程会自动重试，这里只重置倒计时显示
+        startCountdown();
+      }
+    }, 1000);
+  }
+
+  function updateCountdown() {
+    const el = document.getElementById('countdown');
+    if (el) el.textContent = countdownVal;
+  }
+
+  function manualRetry() {
+    if (timer) { clearInterval(timer); timer = null; }
+    document.getElementById('status-text').innerHTML = '正在连接...';
+    if (window.electronAPI?.manualRetry) {
+      window.electronAPI.manualRetry();
+    } else {
+      location.reload();
+    }
+    // 重置倒计时（如果连接失败主进程会重新加载此页）
+    setTimeout(startCountdown, 2000);
+  }
+
+  function toggleDevTools(event) {
+    event.preventDefault();
+    if (window.electronAPI?.toggleDevTools) {
+      window.electronAPI.toggleDevTools();
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

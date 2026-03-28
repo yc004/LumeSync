@@ -1,0 +1,41 @@
+{
+  "folders": [
+    {
+      "id": "folder-1774420742234",
+      "name": "示例课件",
+      "icon": "📁",
+      "createdAt": "2026-03-25T06:39:02.234Z"
+    },
+    {
+      "id": "folder-1774421053286",
+      "name": "八年级",
+      "icon": "📁",
+      "createdAt": "2026-03-25T06:44:13.286Z"
+    },
+    {
+      "id": "folder-1774447758240",
+      "name": "人工智能通识课程",
+      "icon": "📁",
+      "createdAt": "2026-03-25T14:09:18.240Z",
+      "parentId": "folder-1774421053286"
+    }
+  ],
+  "courses": {
+    "survey-demo": "folder-1774420742234",
+    "ai-demo": "folder-1774420742234",
+    "test-submission": "folder-1774420742234",
+    "camera-test": "folder-1774420742234",
+    "script-load-test": "folder-1774420742234",
+    "interaction-sync-example": "folder-1774420742234",
+    "network-test": "folder-1774420742234",
+    "camera-engine-test": "folder-1774420742234",
+    "face-recognition": "folder-1774447758240",
+    "intro-to-ai": "folder-1774447758240",
+    "perceptron": "folder-1774447758240",
+    "Knn": "folder-1774447758240",
+    "neural-network-grade8-1": "folder-1774447758240",
+    "linear-regression": "folder-1774447758240",
+    "linear-regression-lesson": "folder-1774447758240",
+    "vote-demo": "folder-1774420742234"
+  }
+}

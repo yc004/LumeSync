@@ -1,0 +1,62 @@
+{
+  "appId": "com.lumesync.student",
+  "productName": "LumeSync Student",
+  "copyright": "Copyright © 2024",
+  "directories": {
+    "output": "dist/student",
+    "buildResources": "build"
+  },
+  "files": [
+    "electron/main-student.js",
+    "electron/main-teacher.js",
+    "electron/preload.js",
+    "electron/config.js",
+    "electron/logger.js",
+    "electron/task-scheduler-autostart.js",
+    "electron/admin.html",
+    "electron/offline.html",
+    "assets/**",
+    "package.json",
+    "node_modules/auto-launch/**",
+    "node_modules/winreg/**",
+    "node_modules/applescript/**",
+    "node_modules/mkdirp/**",
+    "node_modules/path-is-absolute/**",
+    "node_modules/untildify/**"
+  ],
+  "extraResources": [
+    {
+      "from": "build/verify-password.exe",
+      "to": "verify-password.exe"
+    }
+  ],
+  "extraMetadata": {
+    "main": "electron/main-student.js"
+  },
+  "asar": true,
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon-student.ico",
+    "requestedExecutionLevel": "asInvoker"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": true,
+    "allowElevation": true,
+    "warningsAsErrors": false,
+    "installerLanguages": ["zh_CN"],
+    "language": "2052",
+    "createDesktopShortcut": false,
+    "createStartMenuShortcut": false,
+    "include": "build/student-installer.nsh",
+    "installerIcon": "build/icon-student.ico",
+    "uninstallerIcon": "build/icon-student.ico",
+    "installerHeaderIcon": "build/icon-student.ico",
+    "deleteAppDataOnUninstall": false
+  }
+}

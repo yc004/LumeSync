@@ -1,0 +1,16 @@
+{
+  "classroom-1774623756450": {
+    "name": "高一二班",
+    "seats": [
+      {
+        "id": "seat-1774667660708-192.168.1.73",
+        "ip": "192.168.1.73",
+        "name": "ABC",
+        "row": 2,
+        "col": 4,
+        "studentId": ""
+      }
+    ],
+    "podiumAtTop": false
+  }
+}

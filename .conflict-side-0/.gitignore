@@ -1,0 +1,13 @@
+lib
+weights
+node_modules
+.qoder
+images
+dist
+*.exe
+.kiro
+.vscode
+webfonts
+file
+.env
+downloads/

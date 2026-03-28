@@ -264,13 +264,55 @@ function setupSocketHandlers(io, {
             }
         });
 
-        // 学生提交作业
+        // 学生提交作业 - 转发给教师端处理
         socket.on('student:submit', (data) => {
             if (role !== 'viewer') return;
-            const { courseId, submission } = data;
-            console.log(`[student:submit] IP=${clientIp} courseId=${courseId}`);
-            // 这里可以添加保存到文件系统的逻辑
-            socket.emit('student:submit:ack', { success: true });
+
+            const submissionId = data && data.submissionId ? String(data.submissionId) : '';
+            const courseId = data && data.courseId ? String(data.courseId) : currentCourseId || '';
+            const content = data && data.content !== undefined ? data.content : null;
+            const fileName = data && data.fileName ? String(data.fileName) : '';
+            const mergeFile = data && typeof data.mergeFile === 'boolean' ? data.mergeFile : false;
+
+            if (!submissionId || !courseId) {
+                socket.emit('student:submit:result', {
+                    submissionId,
+                    success: false,
+                    error: 'Invalid parameters'
+                });
+                return;
+            }
+
+            // 转发到教师端处理存储
+            io.to('hosts').emit('student:submit', {
+                submissionId,
+                courseId,
+                clientIp,
+                content,
+                fileName,
+                mergeFile,
+                timestamp: Date.now()
+            });
+
+            console.log(`[student:submit] Forwarding to host: IP=${clientIp} courseId=${courseId} submissionId=${submissionId}`);
+        });
+
+        // 教师端确认已收到提交 - 转发给学生端
+        socket.on('student:submit:ack', (data) => {
+            if (role !== 'host') return;
+
+            const submissionId = data && data.submissionId ? String(data.submissionId) : '';
+            const success = data && typeof data.success === 'boolean' ? data.success : true;
+            const error = data && data.error ? String(data.error) : '';
+
+            // 转发确认给学生端
+            io.emit('student:submit:result', {
+                submissionId,
+                success,
+                error
+            });
+
+            console.log(`[student:submit:ack] Forwarding to student: submissionId=${submissionId} success=${success}`);
         });
 
         // 同步交互（CourseGlobalContext.syncInteraction）

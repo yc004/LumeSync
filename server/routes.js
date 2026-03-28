@@ -277,6 +277,69 @@ router.post('/submission-config', (req, res) => {
     }
 });
 
+// 获取学生提交文件列表
+router.get('/submissions/:courseId', (req, res) => {
+    const { courseId } = req.params;
+
+    if (!courseId) {
+        return res.status(400).json({ success: false, error: 'Missing courseId parameter' });
+    }
+
+    try {
+        const submissionsDir = getSubmissionsDir();
+        const courseDir = path.join(submissionsDir, courseId);
+
+        if (!fs.existsSync(courseDir)) {
+            return res.json({ success: true, courseId, files: [] });
+        }
+
+        const files = fs.readdirSync(courseDir)
+            .filter(name => {
+                const filePath = path.join(courseDir, name);
+                const stat = fs.statSync(filePath);
+                return stat.isFile();
+            })
+            .map(name => {
+                const filePath = path.join(courseDir, name);
+                const stat = fs.statSync(filePath);
+                return {
+                    name: name,
+                    path: filePath,
+                    size: stat.size,
+                    mtime: stat.mtime
+                };
+            })
+            .sort((a, b) => b.mtime - a.mtime);
+
+        res.json({ success: true, courseId, files });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 下载学生提交文件
+router.get('/submissions/:courseId/file/:fileName', (req, res) => {
+    const { courseId, fileName } = req.params;
+
+    if (!courseId || !fileName) {
+        return res.status(400).json({ success: false, error: 'Missing required parameters' });
+    }
+
+    try {
+        const submissionsDir = getSubmissionsDir();
+        const courseDir = path.join(submissionsDir, courseId);
+        const filePath = path.join(courseDir, fileName);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ success: false, error: 'File not found' });
+        }
+
+        res.download(filePath, fileName);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // ========================================================
 // 文档和教程 API
 // ========================================================

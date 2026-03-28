@@ -97,6 +97,9 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         canStart: false
     });
     const [showVoteResultPanel, setShowVoteResultPanel] = useState(false);
+    const [showSubmissionsPanel, setShowSubmissionsPanel] = useState(false);
+    const [submissionsFiles, setSubmissionsFiles] = useState([]);
+    const [submissionsLoading, setSubmissionsLoading] = useState(false);
 
     const [annoPopupType, setAnnoPopupType] = useState(null);
 
@@ -364,6 +367,7 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                 socketRef.current.emit('student:submit', {
                     submissionId,
                     courseId,
+                    clientIp: studentInfoRef.current.ip,
                     content,
                     fileName: fileName || 'submission.txt',
                     mergeFile: mergeFile || false
@@ -1086,6 +1090,128 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
         );
     };
 
+    const loadSubmissions = async () => {
+        if (!courseId) {
+            setSubmissionsFiles([]);
+            return;
+        }
+
+        setSubmissionsLoading(true);
+        try {
+            const response = await fetch(`/api/submissions/${encodeURIComponent(courseId)}`);
+            const data = await response.json();
+            if (data.success) {
+                setSubmissionsFiles(data.files || []);
+            } else {
+                setSubmissionsFiles([]);
+            }
+        } catch (err) {
+            console.error('[loadSubmissions] Error:', err);
+            setSubmissionsFiles([]);
+        } finally {
+            setSubmissionsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showSubmissionsPanel && courseId) {
+            loadSubmissions();
+        }
+    }, [showSubmissionsPanel, courseId]);
+
+    const renderSubmissionsPopupContent = (popupKey) => {
+        if (popupKey !== 'submissions') return null;
+        return (
+            <div className={`w-80 ${liquidGlassLightClass} rounded-2xl p-3 max-h-[70vh] flex flex-col`}>
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                    <div className="text-xs text-slate-600 font-bold">学生提交文件</div>
+                    <button
+                        onClick={() => setShowSubmissionsPanel(false)}
+                        className="text-slate-400 hover:text-slate-600"
+                        title="收起"
+                    >
+                        <i className="fas fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                    <div className="text-xs text-slate-500">共 <span className="font-bold text-slate-700">{submissionsFiles.length}</span> 个文件</div>
+                    <button
+                        onClick={loadSubmissions}
+                        disabled={submissionsLoading}
+                        className="text-xs text-blue-600 hover:text-blue-700 disabled:text-slate-400 disabled:cursor-not-allowed flex items-center gap-1"
+                        title="刷新"
+                    >
+                        <i className={`fas ${submissionsLoading ? 'fa-spinner fa-spin' : 'fa-rotate'}`}></i>
+                        刷新
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    {submissionsLoading && submissionsFiles.length === 0 ? (
+                        <div className="text-center text-slate-400 py-8">
+                            <i className="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <div className="text-xs">加载中...</div>
+                        </div>
+                    ) : submissionsFiles.length === 0 ? (
+                        <div className="text-center text-slate-400 py-8">
+                            <i className="fas fa-folder-open text-2xl mb-2"></i>
+                            <div className="text-xs">暂无提交文件</div>
+                        </div>
+                    ) : (
+                        <div className="space-y-1">
+                            {submissionsFiles.map((file, idx) => (
+                                <div
+                                    key={idx}
+                                    className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 transition-colors group"
+                                >
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <i className="fas fa-file-lines text-slate-400 shrink-0"></i>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs text-slate-700 truncate font-medium" title={file.name}>
+                                                {file.name}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400">
+                                                {(file.size / 1024).toFixed(1)} KB
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await fetch(`/api/submissions/${encodeURIComponent(courseId)}/file/${encodeURIComponent(file.name)}`);
+                                                    if (res.ok) {
+                                                        const blob = await res.blob();
+                                                        const url = URL.createObjectURL(blob);
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = file.name;
+                                                        document.body.appendChild(a);
+                                                        a.click();
+                                                        document.body.removeChild(a);
+                                                        URL.revokeObjectURL(url);
+                                                    }
+                                                } catch (err) {
+                                                    console.error('[downloadFile] Error:', err);
+                                                    alert('下载失败');
+                                                }
+                                            }}
+                                            className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                                            title="下载"
+                                        >
+                                            <i className="fas fa-download"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     const voteToolbarPrefix = (
         <>
             <div
@@ -1136,6 +1262,17 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
             popupKey: 'result',
             active: showVoteResultPanel,
             className: 'bg-emerald-700/80 hover:bg-emerald-600'
+        }
+    ];
+
+    const submissionsToolbarButtons = [
+        {
+            id: 'submissions-view',
+            title: '学生提交',
+            iconClass: 'fa-folder-open',
+            popupKey: 'submissions',
+            active: showSubmissionsPanel,
+            className: 'bg-purple-700/80 hover:bg-purple-600'
         }
     ];
 
@@ -1366,6 +1503,17 @@ function SyncClassroom({ courseId, title, slides, onEndCourse, socket, isHost: i
                                 renderPopupContent={renderVotePopupContent}
                                 toolbarPrefix={voteToolbarPrefix}
                                 toolbarSuffix={voteToolbarSuffix}
+                                buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
+                            />
+
+                            <window.__LumeSyncUI.SideToolbar
+                                visible={true}
+                                side="left"
+                                offsetClass="left-4 top-[calc(50%+180px)] -translate-y-1/2"
+                                buttons={submissionsToolbarButtons}
+                                activePopupKey={showSubmissionsPanel ? 'submissions' : null}
+                                onActivePopupChange={(key) => setShowSubmissionsPanel(key === 'submissions')}
+                                renderPopupContent={renderSubmissionsPopupContent}
                                 buttonBaseClassName="w-9 h-9 rounded-xl text-sm bg-slate-700 hover:bg-slate-600 disabled:text-slate-500"
                             />
                         </>

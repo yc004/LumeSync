@@ -65,7 +65,7 @@ jobs:
         run: npm run build:teacher -- --publish never
 
       - name: Build Student installer
-        run: npx electron-builder --config electron-builder-student.json --publish never
+        run: npm run build:student -- --publish never
 
       - name: Rename installers
         run: |

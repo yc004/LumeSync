@@ -5,7 +5,8 @@
   "electronVersion": "29.4.6",
   "directories": {
     "output": "../../dist/student",
-    "buildResources": "../../shared/build"
+    "buildResources": "../../shared/build",
+    "app": "."
   },
   "files": [
     "package.json",
@@ -24,6 +25,14 @@
     {
       "from": "../../shared/build",
       "to": "shared/build"
+    },
+    {
+      "from": "../../shared/assets",
+      "to": "shared/assets"
+    },
+    {
+      "from": "../shared",
+      "to": "shared"
     },
     {
       "from": "../../packages/engine",

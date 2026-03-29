@@ -119,9 +119,20 @@ function startServer() {
     const serverPath = isDev
         ? path.join(__dirname, '../../../packages/server/index.js')
         : path.join(__dirname, '../packages/server/index.js');
+    // 计算 app 目录的 node_modules 路径，用于 server 进程的模块查找
+    const appNodeModulesPath = isDev
+        ? path.join(__dirname, '../../node_modules')
+        : path.join(__dirname, '../node_modules');
     const cacheDir = path.join(app.getPath('userData'), 'cache');
     serverProcess = fork(serverPath, [], {
-        env: { ...process.env, PORT: String(PORT), CHCP: '65001', LOG_DIR: logger.getLogDir(), LUMESYNC_CACHE_DIR: cacheDir },
+        env: {
+            ...process.env,
+            PORT: String(PORT),
+            CHCP: '65001',
+            LOG_DIR: logger.getLogDir(),
+            LUMESYNC_CACHE_DIR: cacheDir,
+            NODE_PATH: appNodeModulesPath // 设置模块搜索路径
+        },
         execArgv: [],
         silent: false,
     });

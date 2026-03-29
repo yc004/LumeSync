@@ -282,7 +282,12 @@ function createWindow() {
 
 // ── 系统托盘 ────────────────────────────────────────────
 function createTray() {
-    const iconPath = path.join(__dirname, '../../../shared/assets/tray-icon.png');
+    // 动态计算托盘图标路径
+    // 开发环境: apps/teacher/electron/main.js -> ../../../shared/assets/tray-icon.png
+    // 生产环境: 使用 app.getAppPath() 获取应用路径，然后定位到共享资源
+    const iconPath = isDev
+        ? path.join(__dirname, '../../../shared/assets/tray-icon.png')
+        : path.join(app.getAppPath(), 'shared', 'assets', 'tray-icon.png');
     const icon = nativeImage.createFromPath(iconPath);
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
     tray.setToolTip('SyncClassroom 教师端');

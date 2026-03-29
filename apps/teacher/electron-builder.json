@@ -27,6 +27,10 @@
       "to": "shared/build"
     },
     {
+      "from": "../../shared/assets",
+      "to": "shared/assets"
+    },
+    {
       "from": "../../packages/engine",
       "to": "packages/engine"
     },

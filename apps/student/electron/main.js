@@ -15,8 +15,13 @@ const isDev = !app.isPackaged;
 
 // 2. 动态计算 common 目录的路径
 const commonPath = isDev
-  ? path.join(__dirname, '../../common/electron') // 开发时：向外跳两级找 common
-  : path.join(__dirname, '../common/electron');   // 打包后：electron/main.js 向上跳一级到 app，再进入 common/electron
+  ? path.join(__dirname, '../../common/electron') // 开发时：从 student/electron 向外跳两级到 apps/common/electron
+  : path.join(__dirname, '../common/electron');   // 打包后：从 electron/main.js 向上跳一级找 common/electron
+
+// 3. 动态计算 shared 目录的路径（用于加载 admin.html, offline.html）
+const sharedPath = isDev
+  ? path.join(__dirname, '../../shared') // 开发时：从 student/electron 向外跳两级到 apps/shared
+  : path.join(__dirname, '../shared');   // 打包后：从 electron/main.js 向上跳一级到 asar 根目录，再找 shared
 
 const { loadConfig, saveConfig, getAdminPasswordHash } = require(path.join(commonPath, 'config.js'));
 const { Logger } = require(path.join(commonPath, 'logger.js'));
@@ -98,7 +103,7 @@ let lastFullscreenToggleEnable = null;
 
 // ── 开机自启（默认开启，可在管理员设置中修改）──────────
 // 使用注册表（Windows）/ 登录项（macOS）/ auto-launch（Linux）
-const { AutoLauncher } = require('../../common/electron/task-scheduler-autostart.js');
+const { AutoLauncher } = require(path.join(commonPath, 'task-scheduler-autostart.js'));
 
 let autoLauncher = null;
 
@@ -198,7 +203,7 @@ function createMainWindow() {
         frame: false,
         resizable: true,
         webPreferences: {
-            preload: path.join(__dirname, '../../common/electron/preload.js'),
+            preload: path.join(commonPath, 'preload.js'),
             contextIsolation: true,
         },
         show: false, // 静默启动，课堂开始后才显示
@@ -229,7 +234,7 @@ function createMainWindow() {
 
     mainWindow.loadURL(url).catch(() => {
         // 连接失败时显示离线提示页，并开始后台重连
-        mainWindow.loadFile(path.join(__dirname, '../../shared/offline.html'));
+        mainWindow.loadFile(path.join(sharedPath, 'offline.html'));
         startRetrying();
     });
 
@@ -354,11 +359,11 @@ function openAdminWindow() {
         resizable: false,
         modal: false,
         webPreferences: {
-            preload: path.join(__dirname, '../../common/electron/preload.js'),
+            preload: path.join(commonPath, 'preload.js'),
             contextIsolation: true,
         },
     });
-    adminWindow.loadFile(path.join(__dirname, '../../shared/admin.html'));
+    adminWindow.loadFile(path.join(sharedPath, 'admin.html'));
     adminWindow.on('closed', () => { adminWindow = null; });
     adminWindow.setMenu(null);
     // 始终置顶，确保全屏课堂模式下也能看到管理员窗口
@@ -369,8 +374,13 @@ function openAdminWindow() {
 function createTray() {
     logger.info('TRAY', 'Creating system tray');
 
-    const iconPath = path.join(__dirname, '../../../shared/assets/tray-icon.png');
-    logger.debug('TRAY', 'Tray icon path', { iconPath, exists: require('fs').existsSync(iconPath) });
+    // 动态计算托盘图标路径
+    // 开发环境: apps/student/electron/main.js -> ../../../shared/assets/tray-icon.png
+    // 生产环境: 使用 app.getAppPath() 获取应用路径，然后定位到共享资源
+    const iconPath = isDev
+        ? path.join(__dirname, '../../../shared/assets/tray-icon.png')
+        : path.join(app.getAppPath(), 'shared', 'assets', 'tray-icon.png');
+    logger.debug('TRAY', 'Tray icon path', { iconPath, exists: require('fs').existsSync(iconPath), isDev });
 
     const icon = nativeImage.createFromPath(iconPath);
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);

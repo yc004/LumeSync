@@ -49,13 +49,13 @@ jobs:
         run: npm run build:verify
 
       - name: Build Teacher installer
-        run: npm run build:teacher --publish never
+        run: npm run build:teacher -- --publish never
 
       - name: Build Student installer
-        run: npm run build:student --publish never
+        run: npm run build:student -- --publish never
 
       - name: Build Editor installer
-        run: npm run build:editor --publish never
+        run: npm run build:editor -- --publish never
 
       - name: Get tag name
         id: tag

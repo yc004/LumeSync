@@ -67,6 +67,9 @@ jobs:
       - name: Build Student installer
         run: npm run build:student -- --publish never
 
+      - name: Build Editor installer
+        run: npm run build:editor -- --publish never
+
       - name: Rename installers
         run: |
           Get-ChildItem "dist/teacher/*.exe" | ForEach-Object {

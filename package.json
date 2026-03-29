@@ -1,19 +1,25 @@
 {
-  "name": "lumesync",
+  "name": "lumesync-workspace",
   "version": "1.0.0",
   "description": "萤火课堂 - AI-powered face recognition LAN classroom sync tool",
-  "main": "server.js",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "start": "node server.js",
-    "start:teacher": "electron electron/main-teacher.js",
-    "start:student": "electron electron/main-student.js",
-    "start:editor": "electron electron/main-editor.js",
-    "build:verify": "pkg build/verify-password.js --target node18-win-x64 --output build/verify-password.exe",
-    "build:teacher": "electron-builder --config electron-builder-teacher.json",
-    "build:student": "npm run build:verify && electron-builder --config electron-builder-student.json",
-    "build:editor": "electron-builder --config electron-builder-editor.json",
+    "start": "node packages/server/index.js",
+    "start:teacher": "cd apps/teacher && npm start",
+    "start:student": "cd apps/student && npm start",
+    "start:editor": "cd apps/editor && npm start",
+    "build:verify": "pkg shared/build/verify-password.js --target node18-win-x64 --output shared/build/verify-password.exe",
+    "build:teacher": "cd apps/teacher && npm run build",
+    "build:student": "npm run build:verify && cd apps/student && npm run build",
+    "build:editor": "cd apps/editor && npm run build",
     "build:all": "npm run build:teacher && npm run build:student && npm run build:editor",
-    "build:icons": "python build/convert-icons.py"
+    "build:icons": "python shared/build/convert-icons.py",
+    "build:icons:js": "node shared/build/convert-icons.js",
+    "migrate": "node migrate-all.js"
   },
   "dependencies": {
     "@coze/api": "^1.3.9",
@@ -25,7 +31,7 @@
     "socket.io": "^4.7.2"
   },
   "devDependencies": {
-    "electron": "^29.0.0",
+    "electron": "29.4.6",
     "electron-builder": "^24.9.1",
     "node-windows": "^1.0.0-beta.8",
     "pkg": "^5.8.1",

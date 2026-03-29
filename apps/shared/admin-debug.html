@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理员设置</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; color: #1e293b; }
+
+  .screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .screen.active { display: flex; }
+
+  .card { background: white; border-radius: 16px; padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  h2 { font-size: 20px; font-weight: 700; margin-bottom: 24px; color: #1e293b; text-align: center; }
+  h2 span { font-size: 28px; display: block; margin-bottom: 8px; }
+
+  label { display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 6px; margin-top: 16px; }
+  input { width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 15px; outline: none; transition: border-color .2s; }
+  input:focus { border-color: #3b82f6; }
+
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 20px; transition: background .2s; }
+  .btn-primary { background: #3b82f6; color: white; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+  .btn-danger { background: #ef4444; color: white; margin-top: 8px; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-ghost { background: #f1f5f9; color: #64748b; margin-top: 8px; }
+  .btn-ghost:hover { background: #e2e8f0; }
+
+  .error { color: #ef4444; font-size: 13px; margin-top: 8px; text-align: center; min-height: 18px; }
+  .success { color: #22c55e; font-size: 13px; margin-top: 8px; text-align: center; min-height: 18px; }
+
+  .divider { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+  .hint { font-size: 12px; color: #94a3b8; text-align: center; margin-top: 12px; }
+
+  /* Toggle switch */
+  .toggle { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; inset: 0; background: #cbd5e1; border-radius: 24px; transition: .2s; }
+  .slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .2s; }
+  input:checked + .slider { background: #3b82f6; }
+  input:checked + .slider:before { transform: translateX(20px); }
+
+  /* Debug console */
+  .debug-console {
+    margin-top: 20px;
+    padding: 10px;
+    background: #1e293b;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-family: monospace;
+    font-size: 11px;
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .debug-line { margin: 2px 0; }
+  .debug-info { color: #60a5fa; }
+  .debug-error { color: #f87171; }
+  .debug-success { color: #4ade80; }
+</style>
+</head>
+<body>
+
+<!-- 密码验证界面 -->
+<div class="screen active" id="screen-login">
+  <div class="card">
+    <h2><span>🔐</span>管理员验证</h2>
+    <label>管理员密码</label>
+    <input type="password" id="login-pwd" placeholder="输入管理员密码" autocomplete="off" />
+    <div class="error" id="login-error"></div>
+    <button class="btn btn-primary" id="btn-verify" onclick="doLogin()">验证</button>
+    <p class="hint">默认密码：admin123</p>
+  </div>
+</div>
+
+<!-- 配置界面 -->
+<div class="screen" id="screen-config">
+  <div class="card">
+    <h2><span>⚙️</span>系统设置</h2>
+
+    <label>教师机 IP 地址</label>
+    <input type="text" id="cfg-ip" placeholder="例如：192.168.1.100" />
+
+    <label>端口号</label>
+    <input type="number" id="cfg-port" placeholder="默认 3000" min="1" max="65535" />
+
+    <hr class="divider" />
+
+    <label style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">
+      <span>开机自动启动</span>
+      <label class="toggle">
+        <input type="checkbox" id="cfg-autostart" />
+        <span class="slider"></span>
+      </label>
+    </label>
+
+    <label>新管理员密码（留空不修改）</label>
+    <input type="password" id="cfg-newpwd" placeholder="留空则不修改密码" autocomplete="new-password" />
+
+    <label>确认新密码</label>
+    <input type="password" id="cfg-confirmpwd" placeholder="再次输入新密码" autocomplete="new-password" />
+
+    <div class="error" id="cfg-error"></div>
+    <div class="success" id="cfg-success"></div>
+
+    <button class="btn btn-primary" onclick="saveConfig()">保存设置</button>
+    <button class="btn btn-danger" onclick="quitApp()">退出程序</button>
+    <button class="btn btn-ghost" onclick="goBack()">取消</button>
+  </div>
+</div>
+
+<div class="debug-console" id="debug-console"></div>
+
+<script>
+// Debug logging
+function debugLog(message, type = 'info') {
+  const console = document.getElementById('debug-console');
+  const line = document.createElement('div');
+  line.className = `debug-line debug-${type}`;
+  const timestamp = new Date().toLocaleTimeString();
+  line.textContent = `[${timestamp}] ${message}`;
+  console.appendChild(line);
+  console.scrollTop = console.scrollHeight;
+  console.log(`[DEBUG ${type}]`, message);
+}
+
+// Check electronAPI availability
+debugLog('检查 electronAPI...', 'info');
+setTimeout(() => {
+  if (window.electronAPI) {
+    debugLog('✅ electronAPI 可用', 'success');
+    debugLog('可用的 API: ' + Object.keys(window.electronAPI).join(', '), 'info');
+  } else {
+    debugLog('❌ electronAPI 不可用！Preload 脚本可能加载失败', 'error');
+  }
+}, 100);
+
+async function sha256(str) {
+    try {
+        debugLog('开始计算 SHA-256 哈希...', 'info');
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+        const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        debugLog('SHA-256 哈希计算完成', 'success');
+        return hash;
+    } catch (error) {
+        debugLog('SHA-256 计算失败: ' + error.message, 'error');
+        throw error;
+    }
+}
+
+async function doLogin() {
+    debugLog('--- doLogin 开始 ---', 'info');
+    
+    try {
+        const pwd = document.getElementById('login-pwd').value;
+        debugLog('密码输入值长度: ' + pwd.length, 'info');
+        
+        if (!pwd) {
+            debugLog('密码为空', 'error');
+            document.getElementById('login-error').textContent = '请输入密码';
+            return;
+        }
+
+        debugLog('开始验证密码...', 'info');
+        document.getElementById('btn-verify').disabled = true;
+        document.getElementById('btn-verify').textContent = '验证中...';
+
+        const result = await window.electronAPI.verifyPassword(pwd);
+        debugLog('验证结果: ' + JSON.stringify(result), 'success');
+
+        if (result.ok) {
+            debugLog('密码验证成功，切换到配置界面', 'success');
+            document.getElementById('screen-login').classList.remove('active');
+            document.getElementById('screen-config').classList.add('active');
+            await loadConfig();
+        } else {
+            debugLog('密码验证失败', 'error');
+            document.getElementById('login-error').textContent = '密码错误';
+            document.getElementById('login-pwd').value = '';
+        }
+    } catch (error) {
+        debugLog('验证过程出错: ' + error.message, 'error');
+        debugLog('错误堆栈: ' + error.stack, 'error');
+        document.getElementById('login-error').textContent = '验证失败: ' + error.message;
+    } finally {
+        document.getElementById('btn-verify').disabled = false;
+        document.getElementById('btn-verify').textContent = '验证';
+        debugLog('--- doLogin 结束 ---', 'info');
+    }
+}
+
+async function loadConfig() {
+    debugLog('--- loadConfig 开始 ---', 'info');
+    
+    try {
+        const cfg = await window.electronAPI.getConfig();
+        debugLog('加载的配置: ' + JSON.stringify(cfg), 'success');
+        
+        document.getElementById('cfg-ip').value = cfg.teacherIp || '';
+        document.getElementById('cfg-port').value = cfg.port || 3000;
+        
+        const autostart = await window.electronAPI.getAutostart();
+        debugLog('自启动状态: ' + autostart, 'info');
+        document.getElementById('cfg-autostart').checked = !!autostart;
+        
+        debugLog('配置加载完成', 'success');
+    } catch (error) {
+        debugLog('加载配置失败: ' + error.message, 'error');
+    } finally {
+        debugLog('--- loadConfig 结束 ---', 'info');
+    }
+}
+
+async function saveConfig() {
+    debugLog('--- saveConfig 开始 ---', 'info');
+    
+    try {
+        const ip = document.getElementById('cfg-ip').value.trim();
+        const port = parseInt(document.getElementById('cfg-port').value) || 3000;
+        const newPwd = document.getElementById('cfg-newpwd').value;
+        const confirmPwd = document.getElementById('cfg-confirmpwd').value;
+
+        debugLog('IP: ' + ip + ', Port: ' + port, 'info');
+        debugLog('新密码长度: ' + newPwd.length, 'info');
+
+        document.getElementById('cfg-error').textContent = '';
+        document.getElementById('cfg-success').textContent = '';
+
+        if (!ip) {
+            debugLog('IP 为空', 'error');
+            document.getElementById('cfg-error').textContent = '请输入教师机 IP';
+            return;
+        }
+
+        if (newPwd && newPwd !== confirmPwd) {
+            debugLog('两次密码不一致', 'error');
+            document.getElementById('cfg-error').textContent = '两次密码不一致';
+            return;
+        }
+
+        const config = { teacherIp: ip, port };
+        if (newPwd) {
+            debugLog('计算新密码哈希...', 'info');
+            config.adminPasswordHash = await sha256(newPwd);
+        }
+
+        debugLog('保存配置: ' + JSON.stringify(config), 'info');
+        const ok = await window.electronAPI.saveConfig(config);
+        debugLog('保存结果: ' + ok, 'success');
+
+        if (ok) {
+            const autostart = document.getElementById('cfg-autostart').checked;
+            const autostartResult = await window.electronAPI.setAutostart(autostart);
+            debugLog('自启动设置结果: ' + JSON.stringify(autostartResult), 'success');
+            
+            if (autostartResult.success) {
+                document.getElementById('cfg-success').textContent = '保存成功！';
+                document.getElementById('cfg-newpwd').value = '';
+                document.getElementById('cfg-confirmpwd').value = '';
+            } else {
+                document.getElementById('cfg-error').textContent = autostartResult.error || '开机自启动设置失败';
+            }
+        } else {
+            document.getElementById('cfg-error').textContent = '保存失败，请重试';
+        }
+    } catch (error) {
+        debugLog('保存配置失败: ' + error.message, 'error');
+        debugLog('错误堆栈: ' + error.stack, 'error');
+        document.getElementById('cfg-error').textContent = '保存失败: ' + error.message;
+    } finally {
+        debugLog('--- saveConfig 结束 ---', 'info');
+    }
+}
+
+function quitApp() {
+    debugLog('请求退出应用', 'info');
+    window.electronAPI.saveConfig({ _quit: true });
+}
+
+function goBack() {
+    debugLog('关闭管理员窗口', 'info');
+    window.close();
+}
+
+// Enter 键提交
+document.getElementById('login-pwd').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+});
+
+debugLog('管理员页面加载完成', 'success');
+</script>
+</body>
+</html>

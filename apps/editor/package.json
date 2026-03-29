@@ -1,0 +1,24 @@
+{
+  "name": "@lumesync/editor",
+  "version": "1.0.0",
+  "description": "SyncClassroom AI 课件编辑器",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --config electron-builder.json"
+  },
+  "dependencies": {
+    "@coze/api": "^1.3.9",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "electron": "29.4.6",
+    "electron-builder": "^24.9.1"
+  },
+  "keywords": [
+    "lumesync",
+    "editor"
+  ],
+  "author": "",
+  "license": "MIT"
+}

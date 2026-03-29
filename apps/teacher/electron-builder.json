@@ -1,0 +1,56 @@
+{
+  "appId": "com.lumesync.teacher",
+  "productName": "LumeSync Teacher",
+  "copyright": "Copyright © 2024",
+  "directories": {
+    "output": "../../dist/teacher",
+    "buildResources": "../../shared/build"
+  },
+  "files": [
+    "electron/**",
+    "public/**",
+    "../../apps/common/electron/**",
+    "../../apps/shared/**",
+    "../../packages/server/**",
+    "../../packages/engine/**",
+    "../../shared/public/**",
+    "../../shared/build/**",
+    "../../node_modules/**"
+  ],
+  "extraMetadata": {
+    "main": "electron/main.js"
+  },
+  "asar": false,
+  "fileAssociations": [
+    {
+      "ext": "lume",
+      "name": "LumeSync 课件",
+      "description": "LumeSync 互动课件文件",
+      "icon": "../../shared/build/icon-course.ico"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "../../shared/build/icon-teacher.ico",
+    "requestedExecutionLevel": "requireAdministrator"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "installerLanguages": ["zh_CN"],
+    "language": "2052",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "LumeSync Teacher",
+    "installerIcon": "../../shared/build/icon-teacher.ico",
+    "uninstallerIcon": "../../shared/build/icon-teacher.ico",
+    "installerHeaderIcon": "../../shared/build/icon-teacher.ico",
+    "deleteAppDataOnUninstall": false
+  }
+}

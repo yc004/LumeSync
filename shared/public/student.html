@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncClassroom 学生端</title>
+
+    <!-- Tailwind CSS -->
+    <script src="/lib/tailwindcss.js" onerror="this.src='https://cdn.tailwindcss.com'"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                screens: {
+                    'sm': '10px',
+                    'md': '10px',
+                    'lg': '10px',
+                    'xl': '10px',
+                    '2xl': '10px',
+                },
+                extend: {
+                    height: { 'screen': '100%' },
+                    width: { 'screen': '100%' },
+                    minHeight: { 'screen': '100%' },
+                    minWidth: { 'screen': '100%' }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="/lib/fontawesome.all.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="/lib/react.development.js" onerror="this.src='https://unpkg.com/react@18/umd/react.development.js'"></script>
+    <script crossorigin src="/lib/react-dom.development.js" onerror="this.src='https://unpkg.com/react-dom@18/umd/react-dom.development.js'"></script>
+
+    <!-- Babel -->
+    <script src="/lib/babel.min.js" onerror="this.src='https://unpkg.com/@babel/standalone/babel.min.js'"></script>
+
+    <!-- Socket.io 客户端 -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- marked -->
+    <script src="/lib/marked.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/marked@9/marked.min.js'"></script>
+
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        
+        #root-wrapper {
+            width: 100vw;
+            height: 100vh;
+            transform-origin: top left;
+            overflow: hidden;
+            position: relative;
+        }
+
+        * { scrollbar-width: none; -ms-overflow-style: none; user-select: none; -webkit-user-select: none; }
+        *::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-slate-900">
+    
+    <div id="root-wrapper">
+        <div id="root" class="w-full h-full"></div>
+    </div>
+
+    <!-- 动态调整缩放比例脚本 -->
+    <script>
+        function updateContainerScale() {
+            const minW = 1280;
+            const minH = 720;
+            const realW = window.innerWidth;
+            const realH = window.innerHeight;
+            
+            let scale = Math.min(realW / minW, realH / minH);
+            
+            const wrapper = document.getElementById('root-wrapper');
+            if (!wrapper) return;
+            
+            if (scale < 1) {
+                wrapper.style.width = (realW / scale) + 'px';
+                wrapper.style.height = (realH / scale) + 'px';
+                wrapper.style.transform = 'scale(' + scale + ')';
+            } else {
+                wrapper.style.width = '100vw';
+                wrapper.style.height = '100vh';
+                wrapper.style.transform = 'none';
+            }
+        }
+        window.addEventListener('resize', updateContainerScale);
+        window.addEventListener('DOMContentLoaded', updateContainerScale);
+    </script>
+
+    <!-- 学生端引擎模块 -->
+    <script type="text/babel" src="/engine/student-globals.js"></script>
+
+</body>
+</html>

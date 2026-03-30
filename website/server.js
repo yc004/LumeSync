@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); // 加载 .env 文件中的环境变量
 
 const express = require('express');
 const fs = require('fs');
@@ -37,15 +37,16 @@ app.use('/downloads', express.static(DOWNLOAD_DIR));
 
 async function downloadAsset(url, filename) {
     const filePath = path.join(DOWNLOAD_DIR, filename);
-    console.log(`[LumeSync] 开始下载: ${filename} (源: ${url})`);
+    console.log(`[LumeSync] 准备下载: ${filename}`);
 
     try {
         const response = await axios({
             method: 'GET',
             url: url,
             responseType: 'stream',
+            timeout: 300000,
             headers: {
-                'User-Agent': 'LumeSync-Server',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/octet-stream'
             }
         });
@@ -55,24 +56,22 @@ async function downloadAsset(url, filename) {
 
         return new Promise((resolve, reject) => {
             writer.on('finish', () => {
-                console.log(`[LumeSync] 下载完成并保存至: ${filePath}`);
+                console.log(`[LumeSync] ✅ 下载成功: ${filename}`);
                 resolve(filePath);
             });
             writer.on('error', (err) => {
-                console.error(`[LumeSync] 文件写入失败: ${err.message}`);
+                console.error(`[LumeSync] ❌ 写入磁盘失败: ${err.message}`);
                 reject(err);
             });
         });
     } catch (error) {
-        console.error(`[LumeSync] 下载请求失败 ${filename}:`, error.message);
+        console.error(`[LumeSync] ❌ 下载请求失败 ${filename}: ${error.message}`);
     }
 }
 
 app.post('/api/webhook/github', (req, res) => {
     const signature = req.headers['x-hub-signature-256'];
-    if (!signature) {
-        return res.status(401).send('Unauthorized: No signature provided');
-    }
+    if (!signature) return res.status(401).send('Unauthorized: No signature provided');
 
     const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
     const digest = 'sha256=' + hmac.update(req.rawBody).digest('hex');
@@ -82,52 +81,81 @@ app.post('/api/webhook/github', (req, res) => {
     }
 
     const event = req.headers['x-github-event'];
-    if (event !== 'release') {
-        return res.status(200).send('Ignored: Not a release event');
-    }
+    if (event !== 'release') return res.status(200).send('Ignored: Not a release event');
 
     const payload = req.body;
-    // 确保是 yc004/SyncClassroom 仓库的发布事件
-    if (payload.action === 'published' && payload.repository.full_name === 'yc004/SyncClassroom') {
+    const validActions = ['published', 'edited', 'released'];
+    const repoName = payload.repository?.full_name?.toLowerCase();
+
+    // ================= 配置您的两个仓库 =================
+    const MAIN_REPO = 'yc004/lumesync';
+    // 👇 【关键】请将这里改为你实际的 VS Code 插件仓库名 (全小写)
+    const EDITOR_REPO = 'yc004/LumeSync-Editor-Plugin'; 
+    // ====================================================
+
+    if (validActions.includes(payload.action) && (repoName === MAIN_REPO || repoName === EDITOR_REPO)) {
         const assets = payload.release.assets;
         
         res.status(202).send('Release received, starting background download.');
-        console.log(`[LumeSync] 收到 yc004/SyncClassroom 新版本发布: ${payload.release.tag_name}`);
+        console.log(`\n[LumeSync] 收到 ${payload.repository.full_name} 新版本推送 (动作: ${payload.action}): ${payload.release.tag_name}`);
 
-        let versionData = {
-            version: payload.release.tag_name,
-            date: payload.release.published_at,
-            files: []
-        };
+        // 引入 JSON 数据合并逻辑，防止主程序和插件的版本号互相覆盖
+        let versionPath = path.join(DOWNLOAD_DIR, 'version.json');
+        let versionData = { mainVersion: "v-.-.-", editorVersion: "v-.-.-", date: "", files: [] };
+        
+        if (fs.existsSync(versionPath)) {
+            try { 
+                const raw = fs.readFileSync(versionPath, 'utf8');
+                versionData = { ...versionData, ...JSON.parse(raw) };
+            } catch (e) { console.error("解析已有 version.json 失败"); }
+        }
 
-        // 精准匹配您的命名规则：SyncClassroom-教师端-Setup-*.exe
+        // 根据不同的仓库更新对应的版本号字段
+        if (repoName === MAIN_REPO) {
+            versionData.mainVersion = payload.release.tag_name;
+            versionData.version = payload.release.tag_name; // 兼容老字段
+        } else if (repoName === EDITOR_REPO) {
+            versionData.editorVersion = payload.release.tag_name;
+        }
+        
+        versionData.date = payload.release.published_at || payload.release.created_at;
+
         assets.forEach(asset => {
-            if (asset.name.endsWith('.exe')) {
+            // 新增了对 .vsix (VS Code 扩展名) 的支持
+            if (asset.name.endsWith('.exe') || asset.name.endsWith('.zip') || asset.name.endsWith('.vsix')) { 
                 let localName = '';
-                if (asset.name.includes('教师端')) {
-                    localName = 'SyncClassroom-Teacher-Latest.exe';
-                } else if (asset.name.includes('学生端')) {
-                    localName = 'SyncClassroom-Student-Latest.exe';
+                const assetNameLower = asset.name.toLowerCase();
+                
+                if (repoName === MAIN_REPO) {
+                    if (assetNameLower.includes('教师') || assetNameLower.includes('teacher')) {
+                        localName = 'LumeSync-Teacher-Latest.exe';
+                    } else if (assetNameLower.includes('学生') || assetNameLower.includes('student')) {
+                        localName = 'LumeSync-Student-Latest.exe';
+                    }
+                } else if (repoName === EDITOR_REPO) {
+                    // 只要是插件仓库的 .vsix 文件，一律下载为编辑器插件
+                    if (assetNameLower.endsWith('.vsix')) {
+                        localName = 'LumeSync-Editor-Latest.vsix';
+                    }
                 }
 
                 if (localName) {
-                    downloadAsset(asset.browser_download_url, localName);
-                    versionData.files.push(localName);
+                    const proxyUrl = `https://ghfast.top/${asset.browser_download_url}`;
+                    downloadAsset(proxyUrl, localName);
+                    if (!versionData.files.includes(localName)) {
+                        versionData.files.push(localName);
+                    }
                 }
             }
         });
 
-        fs.writeFileSync(
-            path.join(DOWNLOAD_DIR, 'version.json'), 
-            JSON.stringify(versionData, null, 2)
-        );
-
+        fs.writeFileSync(versionPath, JSON.stringify(versionData, null, 2));
     } else {
-        res.status(200).send('Ignored: Action is not "published" or repo mismatch');
+        res.status(200).send('Ignored: Action is not valid or repo mismatch');
     }
 });
 
 app.listen(PORT, () => {
     console.log(`[LumeSync] 官网及下载服务已启动，监听端口: ${PORT}`);
-    console.log(`[LumeSync] 监听仓库: yc004/SyncClassroom`);
+    console.log(`[LumeSync] 监听仓库: 双核模式 (主应用 + VS Code 插件)`);
 });

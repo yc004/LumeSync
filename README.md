@@ -1,18 +1,18 @@
 # 萤火互动课堂（SyncClassroom / LumeSync）
 
-基于 React + Electron 的低延迟局域网互动教学系统，包含教师端、学生端，以及 AI 课件编辑器（LumeSync Editor）。
+基于 React + Electron 的低延迟局域网互动教学系统，包含教师端和学生端。
 
-| 教师端 / 学生端 | AI 课件编辑器 |
+| 教师端 | 学生端 |
 |---|---|
-| ![](shared/assets/tray-icon.png) | ![](shared/assets/editor-icon.png) |
+| ![](shared/assets/tray-icon.png) | ![](shared/assets/student-icon.png) |
 
 ## 功能概览
 
 - 课堂同步：基于 Socket.io 的局域网实时同步（翻页、课程切换、学生状态等）
 - **教师交互同步**：教师可开启同步，将操作实时同步到所有学生端（点击、拖拽、面板切换等）
 - 课件热加载：课件为纯文本脚本，运行时由 Babel 编译执行，无需构建工具
-- AI 课件编辑器：对话式生成互动课件，实时预览 + 源码编辑（16:9 预览比例）
-- 跨端桌面应用：教师端 / 学生端 / 编辑器均提供独立安装包
+- **VSCode 插件编辑器**：提供 VSCode 插件形式的课件编辑器，支持实时预览和 AI 辅助
+- 跨端桌面应用：教师端 / 学生端均提供独立安装包
 - 离线资源缓存：课件依赖的 CDN 资源会自动下载并缓存到本地
 - 内容缩放：教师端"课堂设置"可调课件内容缩放（60%～120%），降低溢出风险
 - **多班级管理**：机房视图支持创建和管理多个班级的座位表，适用于一个机房服务于多个班级的场景
@@ -21,15 +21,15 @@
 
 项目使用自有课件后缀 `.lume`（内容仍是可执行的 TSX/JSX/TS/JS 脚本文本）。
 
-- 教师端导入/导出、编辑器打开/保存统一使用 `.lume`
+- 教师端导入/导出、VSCode 插件打开/保存统一使用 `.lume`
 - 服务端扫描 `public/courses/` 时支持 `.lume`，并兼容旧格式（`.tsx/.ts/.jsx/.js`）
 - 教师/学生端渲染使用固定 1280×720 画布并按窗口缩放显示，尽量保证显示一致性
 
-## AI 课件编辑器（LumeSync Editor）
+## VSCode 插件编辑器
 
 - 自然语言创作：通过对话描述需求，AI 生成完整课件脚本
 - 流式实时预览：生成过程中预览区同步更新，固定 16:9 比例
-- 源码编辑体验：行号显示、滚动同步，便于精细化调整
+- 源码编辑体验：集成 VSCode 编辑器，支持语法高亮、智能提示等
 - 一键修复：课件编译错误可一键将错误信息回传给 AI 自动修复
 - **RAG 知识库**：内置教学知识库，支持按分类管理（系统API、互动组件、教学策略、动画效果等），AI 自动检索相关知识生成课件
 - **文件导入**：支持导入 TXT、Markdown、JSON 文件，自动切分为知识块
@@ -59,13 +59,14 @@ node server.js
 npm install
 npm run start:teacher
 npm run start:student
-npm run start:editor
 ```
+
+VSCode 插件编辑器请参考：[apps/editor-plugin/README.md](apps/editor-plugin/README.md)
 
 ## 打包
 
 ```bash
-# 一键打包（生成教师端 + 学生端 + 编辑器安装包）
+# 一键打包（生成教师端 + 学生端安装包）
 build\\build.bat
 
 # 或分步执行
@@ -73,7 +74,6 @@ python build/convert-icons.py
 npm run build:verify
 npm run build:teacher
 npm run build:student
-npm run build:editor
 ```
 
 更多细节见 [build/BUILD-README.md](build/BUILD-README.md)。
@@ -104,7 +104,7 @@ npm run build:editor
 
 ### RAG 知识库系统
 
-编辑器内置智能知识库，支持以下功能：
+VSCode 插件内置智能知识库，支持以下功能：
 
 - **分类管理**：知识按分类存储（系统API、互动组件、教学策略、动画效果、样式系统、状态管理、多媒体、最佳实践）
 - **智能检索**：基于关键词匹配和相似度计算，自动检索相关知识
@@ -146,7 +146,7 @@ window.CourseData = {
 
 - [docs/用户说明-教师端.md](./docs/用户说明-教师端.md)
 - [docs/用户说明-学生端.md](./docs/用户说明-学生端.md)
-- [docs/用户说明-AI课件编辑器.md](./docs/用户说明-AI课件编辑器.md)
+- [apps/editor-plugin/README.md](./apps/editor-plugin/README.md) - VSCode 插件编辑器使用说明
 
 ## 开发者文档
 
@@ -173,9 +173,7 @@ SyncClassroom/
 │   └── README.md                      # 架构详细说明
 ├── public/
 │   ├── index.html                     # Web 入口页面
-│   ├── editor.html                    # 编辑器入口页面
 │   ├── engine/                        # 前端引擎模块
-│   ├── editor/                        # 编辑器前端代码
 │   ├── courses/                       # 课件目录（.lume 为主，兼容 .tsx/.js 等）
 │   ├── lib/                           # 第三方库缓存目录
 │   ├── weights/                       # AI 模型权重缓存目录
@@ -191,12 +189,10 @@ SyncClassroom/
 │           ├── state-management.js   # 状态管理
 │           ├── multimedia.js         # 多媒体
 │           └── best-practices.js     # 最佳实践
-├── electron/
-│   ├── main-teacher.js                # 教师端主进程
-│   ├── main-student.js                # 学生端主进程
-│   ├── main-editor.js                 # 编辑器端主进程
-│   ├── preload.js                     # IPC 桥接
-│   └── logger.js                      # 日志系统
+├── apps/
+│   ├── teacher/                       # 教师端 Electron 应用
+│   ├── student/                       # 学生端 Electron 应用
+│   └── editor-plugin/                # VSCode 插件编辑器
 ├── build/                             # 打包相关脚本与资源
 └── .github/workflows/release.yml      # 打 tag 自动发布 Release
 ```
@@ -220,7 +216,7 @@ SyncClassroom/
 ### 桌面端
 - **框架**: Electron
 - **打包**: electron-builder
-- **多架构**: 教师端 / 学生端 / 编辑器
+- **多架构**: 教师端 / 学生端
 
 ## 许可证
 

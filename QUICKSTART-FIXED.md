@@ -32,10 +32,9 @@ npm run start:teacher
 
 # 启动学生端
 npm run start:student
-
-# 启动编辑器
-npm run start:editor
 ```
+
+VSCode 插件编辑器请参考：[apps/editor-plugin/README.md](apps/editor-plugin/README.md)
 
 ### 方式二：进入应用目录启动
 
@@ -46,10 +45,6 @@ npm start
 
 # 启动学生端
 cd ../student
-npm start
-
-# 启动编辑器
-cd ../editor
 npm start
 ```
 
@@ -94,22 +89,6 @@ npm start
    - 跟随教师端的课件进度
    - 参与投票和调查
    - 提交作业
-
-### 编辑器使用流程
-
-1. **启动编辑器**
-   ```bash
-   npm run start:editor
-   ```
-
-2. **创建课件**
-   - 点击"新建课件"
-   - 添加幻灯片
-   - 添加多媒体内容
-
-3. **保存课件**
-   - 导出为 `.lume` 格式
-   - 可以导入到教师端使用
 
 ## 常见问题
 
@@ -187,12 +166,6 @@ npm run build:teacher
 npm run build:student
 ```
 
-### 构建编辑器
-
-```bash
-npm run build:editor
-```
-
 ### 构建所有端
 
 ```bash
@@ -211,7 +184,7 @@ SyncClassroom/
 ├── apps/              # 应用
 │   ├── teacher/       # 教师端
 │   ├── student/       # 学生端
-│   └── editor/        # 编辑器端
+│   └── editor-plugin/ # VSCode 插件编辑器
 └── shared/            # 共享资源
     ├── public/        # 公共 HTML/CSS/JS
     ├── assets/        # 图标、图片

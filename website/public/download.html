@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>下载中心 - LumeSync (萤火课堂)</title>
+    
+    <link rel="icon" type="image/png" href="/tray-icon.png">
+    <link rel="apple-touch-icon" href="/tray-icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { techBlue: '#0A192F', techDeep: '#020C1B', amberGlow: '#F59E0B' },
+                    fontFamily: { sans: ['Inter', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #020C1B; color: #E2E8F0; overflow-x: hidden; min-height: 100vh; display: flex; flex-direction: column; scrollbar-width: none; -ms-overflow-style: none; }
+        body::-webkit-scrollbar { display: none; }
+        #firefly-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        
+        @keyframes firefly-glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 0 25px rgba(245, 158, 11, 0.8); }
+        }
+        .firefly-glow { animation: firefly-glow 3s ease-in-out infinite; }
+        
+        .text-glow-title {
+            background: linear-gradient(135deg, #ffffff 0%, #F59E0B 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.4));
+        }
+
+        .liquid-glass-nav {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(2, 12, 27, 0.6) 100%);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+            transition: all 0.3s ease;
+        }
+
+        .liquid-glass-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .glass-btn-teacher:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border-color: rgba(245, 158, 11, 0.3); border-top-color: rgba(245, 158, 11, 0.6); border-left-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(245, 158, 11, 0.2); transform: translateY(-5px);
+        }
+        .glass-btn-student:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border-color: rgba(59, 130, 246, 0.3); border-top-color: rgba(59, 130, 246, 0.6); border-left-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(59, 130, 246, 0.2); transform: translateY(-5px);
+        }
+        .glass-btn-editor:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border-color: rgba(99, 102, 241, 0.3); border-top-color: rgba(99, 102, 241, 0.6); border-left-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(99, 102, 241, 0.2); transform: translateY(-5px);
+        }
+
+        @keyframes slideUpFade { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slideUpFade { animation: slideUpFade 0.8s ease-out forwards; opacity: 0; }
+    </style>
+</head>
+<body class="antialiased font-sans">
+
+    <canvas id="firefly-bg"></canvas>
+
+    <nav class="fixed top-6 left-0 right-0 z-50 flex justify-center animate-slideUpFade px-4" style="animation-delay: 50ms;">
+        <div class="w-full max-w-5xl liquid-glass-nav rounded-full px-6 md:px-8 py-3 flex items-center justify-between">
+            <div class="flex items-center">
+                <a href="/" class="flex items-center cursor-pointer group">
+                    <div class="flex-shrink-0 text-amberGlow text-2xl font-bold tracking-tight firefly-glow rounded-full bg-techDeep border border-gray-700 group-hover:border-amberGlow/50 transition-colors">
+                        <img src="/tray-icon.png" alt="LumeSync Logo" class="w-9 h-9 rounded-full p-1 opacity-95">
+                    </div>
+                    <span class="ml-3 text-white text-lg md:text-xl font-bold tracking-tighter group-hover:text-amberGlow transition-colors">LumeSync</span>
+                </a>
+            </div>
+            
+            <div class="flex items-center space-x-6 md:space-x-8">
+                <div class="hidden md:flex space-x-6 text-sm font-medium">
+                    <a href="/" class="text-gray-300 hover:text-amberGlow transition">首页</a>
+                    <a href="/download.html" class="text-amberGlow border-b-2 border-amberGlow pb-1">下载中心</a>
+                </div>
+                <div class="h-4 w-px bg-white/20 hidden md:block"></div>
+                <a href="https://github.com/yc004/LumeSync" target="_blank" class="text-gray-300 hover:text-amberGlow transition flex items-center space-x-2 text-sm font-medium group">
+                    <i class="fab fa-github text-lg"></i>
+                    <span class="hidden md:inline group-hover:text-amberGlow">GitHub</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow relative z-10 flex flex-col items-center justify-center pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12 animate-slideUpFade" style="animation-delay: 150ms;">
+            <h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter text-glow-title mb-4">下载 LumeSync</h1>
+            <p class="text-xl text-gray-300 font-light">选择适合您的客户端版本，即刻开启互动课堂</p>
+        </div>
+
+        <div class="w-full max-w-5xl liquid-glass-card !border-white/10 !transform-none hover:!transform-none hover:!border-white/10 rounded-3xl p-8 md:p-12 animate-slideUpFade" style="animation-delay: 300ms;">
+            
+            <div id="release-loading" class="flex flex-col items-center justify-center py-16 space-y-5">
+                <svg class="animate-spin h-12 w-12 text-amberGlow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span id="loading-text" class="text-amberGlow text-lg font-medium tracking-wide">正在安全连接双重服务器库获取最新版本...</span>
+            </div>
+
+            <div id="release-loaded" class="hidden flex-col items-center w-full">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-10">
+                    <a id="download-teacher" href="/downloads/LumeSync-Teacher-Latest.exe" class="liquid-glass-card glass-btn-teacher rounded-2xl p-8 group flex flex-col items-center text-center">
+                        <div class="w-16 h-16 text-amberGlow bg-black/40 rounded-2xl mb-6 flex items-center justify-center border border-white/5 group-hover:bg-amberGlow/20 transition-colors shadow-inner">
+                            <i class="fas fa-chalkboard-teacher text-3xl group-hover:scale-110 transition-transform"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-3">教师端 (Win)</h3>
+                        <p class="text-sm text-gray-400 mb-8 flex-grow leading-relaxed font-light">主控机房秩序，使用 AI 自然语言一键生成交互式教学课件。</p>
+                        <span class="w-full inline-block bg-amberGlow/10 text-amberGlow border border-amberGlow/30 font-bold py-2.5 px-6 rounded-xl text-sm group-hover:bg-amberGlow group-hover:text-techDeep transition-all duration-300">
+                            <i class="fas fa-download mr-1.5"></i> 核心主程序
+                        </span>
+                    </a>
+
+                    <a id="download-student" href="/downloads/LumeSync-Student-Latest.exe" class="liquid-glass-card glass-btn-student rounded-2xl p-8 group flex flex-col items-center text-center">
+                        <div class="w-16 h-16 text-blue-400 bg-black/40 rounded-2xl mb-6 flex items-center justify-center border border-white/5 group-hover:bg-blue-500/20 transition-colors shadow-inner">
+                            <i class="fas fa-user-graduate text-3xl group-hover:scale-110 transition-transform"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-3">学生端 (Win)</h3>
+                        <p class="text-sm text-gray-400 mb-8 flex-grow leading-relaxed font-light">接收实时同步指令，在本地原生渲染课件并参与课堂实验交互。</p>
+                        <span class="w-full inline-block bg-blue-500/10 text-blue-400 border border-blue-500/30 font-bold py-2.5 px-6 rounded-xl text-sm group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
+                            <i class="fas fa-download mr-1.5"></i> 学生机守护程序
+                        </span>
+                    </a>
+
+                    <!-- 编辑器端修改为 VS Code 插件专属样式 -->
+                    <a id="download-editor" href="/downloads/LumeSync-Editor-Latest.vsix" class="liquid-glass-card glass-btn-editor rounded-2xl p-8 group flex flex-col items-center text-center">
+                        <div class="w-16 h-16 text-indigo-400 bg-black/40 rounded-2xl mb-6 flex items-center justify-center border border-white/5 group-hover:bg-indigo-500/20 transition-colors shadow-inner">
+                            <i class="fas fa-code text-3xl group-hover:scale-110 transition-transform"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-3">VS Code 编辑器插件</h3>
+                        <p class="text-sm text-gray-400 mb-8 flex-grow leading-relaxed font-light">作为跨平台 VS Code 扩展运行，提供代码感知、预览与课件打包生态。</p>
+                        <span class="w-full inline-block bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 font-bold py-2.5 px-6 rounded-xl text-sm group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
+                            <i class="fas fa-download mr-1.5"></i> 下载 .vsix 插件包
+                        </span>
+                    </a>
+                </div>
+
+                <div class="w-full border-t border-white/10 pt-6 flex flex-col xl:flex-row justify-between items-center text-sm text-gray-400">
+                    <div class="mb-4 xl:mb-0 flex items-center">
+                        <i class="fas fa-shield-alt text-emerald-500 mr-2 text-lg"></i>
+                        <span class="font-light">双重代码仓库资产均已就绪</span>
+                    </div>
+                    <div class="flex flex-wrap justify-center gap-3 font-mono bg-black/30 px-5 py-2.5 rounded-xl border border-white/5 shadow-inner">
+                        <span>主程序: <strong id="latest-version-main" class="text-amberGlow font-semibold">v-.-.-</strong></span>
+                        <span class="text-gray-700 hidden sm:inline">|</span>
+                        <span>插件: <strong id="latest-version-editor" class="text-indigo-400 font-semibold">v-.-.-</strong></span>
+                        <span class="text-gray-700 hidden sm:inline">|</span>
+                        <span>更新于: <strong id="publish-date" class="text-white font-medium">----/--/--</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-6 border-t border-white/10 text-center text-sm text-gray-500 relative z-10" style="background: rgba(2, 12, 27, 0.4); backdrop-filter: blur(10px);">
+        <p>&copy; 2026 LumeSync. 主程序为 Windows 环境构建, 插件跨平台通用.</p>
+    </footer>
+
+    <!-- 更新了分别读取主程序和插件版本号的解析逻辑 -->
+    <script>
+        const LOCAL_VERSION_API = '/downloads/version.json';
+        const elVersionMain = document.getElementById('latest-version-main');
+        const elVersionEditor = document.getElementById('latest-version-editor');
+        const elPublishDate = document.getElementById('publish-date');
+        const elLoading = document.getElementById('release-loading');
+        const elLoaded = document.getElementById('release-loaded');
+        const elLoadingText = document.getElementById('loading-text');
+
+        async function fetchLocalReleaseStatus() {
+            try {
+                const response = await fetch(`${LOCAL_VERSION_API}?t=${new Date().getTime()}`);
+                if (!response.ok) throw new Error('尚未生成版本信息');
+                
+                const data = await response.json();
+                
+                // 解析合并后的新格式 JSON
+                elVersionMain.innerText = data.mainVersion || data.version || 'v-.-.-';
+                elVersionEditor.innerText = data.editorVersion || 'v-.-.-';
+                elPublishDate.innerText = data.date ? new Date(data.date).toISOString().split('T')[0] : '----/--/--';
+
+                elLoading.classList.add('hidden');
+                elLoaded.classList.remove('hidden'); 
+                elLoaded.classList.add('flex'); 
+
+            } catch (error) {
+                console.error('获取版本失败:', error);
+                elLoadingText.innerHTML = '<span class="text-red-400">服务器缓存初始化中... 请稍后刷新或直接点击卡片尝试下载。</span>';
+                elLoading.classList.add('hidden');
+                elLoaded.classList.remove('hidden');
+                elLoaded.classList.add('flex');
+            }
+        }
+
+        setTimeout(fetchLocalReleaseStatus, 800);
+    </script>
+
+    <script>
+        const canvas = document.getElementById('firefly-bg');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        const mouse = { x: null, y: null, radius: 120 };
+
+        window.addEventListener('mousemove', (event) => { mouse.x = event.x; mouse.y = event.y; });
+        window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+
+        function resizeCanvas() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const blobs = [
+            { x: width * 0.2, y: height * 0.3, r: 450, color: 'rgba(245, 158, 11, 0.08)', vx: 0.3, vy: 0.2 },
+            { x: width * 0.8, y: height * 0.7, r: 600, color: 'rgba(30, 58, 138, 0.15)', vx: -0.2, vy: -0.3 },
+            { x: width * 0.5, y: height * 0.9, r: 500, color: 'rgba(245, 158, 11, 0.05)', vx: 0.15, vy: -0.15 }
+        ];
+
+        const particles = [];
+        const particleCount = 100;
+        for (let i = 0; i < particleCount; i++) {
+            particles.push({
+                x: Math.random() * width, y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+                size: Math.random() * 2.5 + 1, baseAlpha: Math.random() * 0.4 + 0.1, alphaPhase: Math.random() * Math.PI * 2
+            });
+        }
+
+        function drawParticles() {
+            ctx.clearRect(0, 0, width, height);
+
+            blobs.forEach(b => {
+                b.x += b.vx; b.y += b.vy;
+                if (b.x < -b.r || b.x > width + b.r) b.vx *= -1;
+                if (b.y < -b.r || b.y > height + b.r) b.vy *= -1;
+                
+                let grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+                grad.addColorStop(0, b.color);
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            particles.forEach(p => {
+                let dx = mouse.x - p.x;
+                let dy = mouse.y - p.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                let interactionAlphaBoost = 0;
+
+                if (mouse.x != null && distance < mouse.radius) {
+                    let forceDirectionX = dx / distance;
+                    let forceDirectionY = dy / distance;
+                    let force = (mouse.radius - distance) / mouse.radius;
+                    let repelSpeed = force * 2;
+                    p.x -= forceDirectionX * repelSpeed;
+                    p.y -= forceDirectionY * repelSpeed;
+                    interactionAlphaBoost = force * 0.6;
+                    p.alphaPhase += 0.05;
+                } else {
+                    p.alphaPhase += 0.005; 
+                }
+
+                p.x += p.vx; p.y += p.vy;
+
+                if (p.x < 0) p.x = width;
+                if (p.x > width) p.x = 0;
+                if (p.y < 0) p.y = height;
+                if (p.y > height) p.y = 0;
+
+                let currentAlpha = p.baseAlpha + Math.sin(p.alphaPhase) * 0.2 + interactionAlphaBoost;
+                currentAlpha = Math.max(0.1, Math.min(0.9, currentAlpha));
+
+                ctx.fillStyle = `rgba(245, 158, 11, ${currentAlpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            requestAnimationFrame(drawParticles);
+        }
+        drawParticles();
+    </script>
+</body>
+</html>

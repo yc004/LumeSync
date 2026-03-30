@@ -38,7 +38,7 @@ jobs:
           $version = $tag -replace '^v', ''
           Write-Host "Updating version to $version"
 
-          $files = @("package.json", "apps/teacher/package.json", "apps/student/package.json", "apps/editor/package.json")
+          $files = @("package.json", "apps/teacher/package.json", "apps/student/package.json")
           foreach ($file in $files) {
             Write-Host "Updating $file"
             $json = Get-Content $file -Raw | ConvertFrom-Json
@@ -50,7 +50,6 @@ jobs:
           Write-Host "Root version: $(Get-Content package.json | ConvertFrom-Json).version"
           Write-Host "Teacher version: $(Get-Content apps/teacher/package.json | ConvertFrom-Json).version"
           Write-Host "Student version: $(Get-Content apps/student/package.json | ConvertFrom-Json).version"
-          Write-Host "Editor version: $(Get-Content apps/editor/package.json | ConvertFrom-Json).version"
 
       - name: Generate icons
         run: python shared/build/convert-icons.py
@@ -65,7 +64,6 @@ jobs:
           if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
           New-Item -ItemType Directory -Force -Path "dist/teacher"
           New-Item -ItemType Directory -Force -Path "dist/student"
-          New-Item -ItemType Directory -Force -Path "dist/editor"
 
       - name: Build Teacher installer
         run: npm run build:teacher -- --config.electronVersion=29.4.6 --publish never
@@ -91,18 +89,6 @@ jobs:
           }
           Write-Host "Student installer: $($files[0].Name)"
 
-      - name: Build Editor installer
-        run: npm run build:editor -- --config.electronVersion=29.4.6 --publish never
-
-      - name: Verify Editor installer
-        run: |
-          $files = Get-ChildItem "dist/editor/*.exe"
-          if ($files.Count -ne 1) {
-            Write-Error "Expected 1 installer, found $($files.Count)"
-            exit 1
-          }
-          Write-Host "Editor installer: $($files[0].Name)"
-
       - name: Get tag name
         id: tag
         run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $env:GITHUB_OUTPUT
@@ -123,17 +109,9 @@ jobs:
             if ($_.Name -ne $newName) { Rename-Item $_.FullName $newName }
           }
 
-          Write-Host "Editor installers:"
-          Get-ChildItem "dist/editor/*.exe" | ForEach-Object {
-            Write-Host "  $($_.Name)"
-            $newName = $_.Name -replace ' ', '-'
-            if ($_.Name -ne $newName) { Rename-Item $_.FullName $newName }
-          }
-
           Write-Host "Final installers:"
           Get-ChildItem "dist/teacher/*.exe" | ForEach-Object { Write-Host "  $($_.Name)" }
           Get-ChildItem "dist/student/*.exe" | ForEach-Object { Write-Host "  $($_.Name)" }
-          Get-ChildItem "dist/editor/*.exe" | ForEach-Object { Write-Host "  $($_.Name)" }
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -151,7 +129,6 @@ jobs:
             |------|-------------|
             | `LumeSync-Teacher-Setup-*.exe` | Teacher installer, normal uninstall |
             | `LumeSync-Student-Setup-*.exe` | Student installer, requires admin password to uninstall (default: `admin123`) |
-            | `LumeSync-Editor-Setup-*.exe` | AI Courseware Editor installer, integrated AI assistant |
 
             ### Offline Install
             Both installers are fully self-contained. No internet connection required after installation.
@@ -163,6 +140,5 @@ jobs:
           files: |
             dist/teacher/LumeSync-Teacher-Setup-*.exe
             dist/student/LumeSync-Student-Setup-*.exe
-            dist/editor/LumeSync-Editor-Setup-*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

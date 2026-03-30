@@ -45,16 +45,16 @@ const makeKMeansCentroids = (k = 3) => {
     return centers;
 };
 
-// 特征空间演示：示例数据点
+// 特征空间演示：示例数据点（用于自主标注页）
 const FEATURE_SPACE_POINTS = [
-    { x: 22, y: 28, color: 'bg-blue-500', label: '小明', bg: '#3b82f6' },
-    { x: 28, y: 22, color: 'bg-blue-500', label: '小华', bg: '#3b82f6' },
-    { x: 18, y: 33, color: 'bg-blue-500', label: '小军', bg: '#3b82f6' },
-    { x: 72, y: 25, color: 'bg-rose-500', label: '小美', bg: '#f43f5e' },
-    { x: 78, y: 30, color: 'bg-rose-500', label: '小红', bg: '#f43f5e' },
-    { x: 68, y: 20, color: 'bg-rose-500', label: '小芳', bg: '#f43f5e' },
-    { x: 45, y: 72, color: 'bg-amber-500', label: '老李', bg: '#f59e0b' },
-    { x: 52, y: 78, color: 'bg-amber-500', label: '王老师', bg: '#f59e0b' },
+    { x: 22, y: 28, label: '小明', color: 'bg-blue-500', bg: '#3b82f6' },
+    { x: 28, y: 22, label: '小华', color: 'bg-blue-500', bg: '#3b82f6' },
+    { x: 18, y: 33, label: '小军', color: 'bg-blue-500', bg: '#3b82f6' },
+    { x: 72, y: 25, label: '小美', color: 'bg-rose-500', bg: '#f43f5e' },
+    { x: 78, y: 30, label: '小红', color: 'bg-rose-500', bg: '#f43f5e' },
+    { x: 68, y: 20, label: '小芳', color: 'bg-rose-500', bg: '#f43f5e' },
+    { x: 45, y: 72, label: '老李', color: 'bg-amber-500', bg: '#f59e0b' },
+    { x: 52, y: 78, label: '王老师', color: 'bg-amber-500', bg: '#f59e0b' },
 ];
 
 // 工具函数：计算两点欧氏距离
@@ -208,117 +208,998 @@ function ProblemIntroSlide() {
 // ---- 4. 学习方式分类 ----
 function LearningTypesSlide() {
     return (
-        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6 flex items-center shrink-0">
-                <i className="fas fa-code-branch mr-4 text-purple-500"></i> 核心认知：人工智能的两种学习方式
+        <div className="flex flex-col h-full p-6 md:p-8 bg-white overflow-hidden">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-5 flex items-center shrink-0">
+                <i className="fas fa-code-branch mr-3 text-purple-500"></i> 核心认知：人工智能的两种学习方式
             </h2>
-            <p className="text-lg text-slate-600 mb-8">要解决刚才的两个场景，AI 采用的是两种截然不同的“学习流派”：</p>
-
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-gradient-to-b from-green-50 to-white p-8 rounded-2xl border-2 border-green-200 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                    <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-sm">
-                        <i className="fas fa-chalkboard-teacher text-5xl text-green-500"></i>
+            
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-0">
+                {/* 有监督学习卡片 */}
+                <div className="bg-gradient-to-br from-green-50 to-white rounded-2xl border-2 border-green-200 shadow-md flex flex-col overflow-hidden">
+                    {/* 卡片头部 */}
+                    <div className="bg-green-100 px-5 py-4 border-b border-green-200">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center shadow-md">
+                                <i className="fas fa-chalkboard-teacher text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-extrabold text-green-700">有监督学习</h3>
+                                <p className="text-sm text-green-600">Supervised Learning</p>
+                            </div>
+                        </div>
                     </div>
-                    <h3 className="text-2xl font-extrabold text-green-700 mb-4">有监督学习 (Supervised)</h3>
-                    <p className="text-slate-700 text-lg leading-relaxed mb-6">
-                        就像<strong>做有标准答案的练习题</strong>。<br/>
-                        我们先给 AI 看大量带「标签」的数据（比如：这是小明的脸，那是小红的脸），AI 学会规律后，再去认新来的脸。
-                    </p>
-                    <div className="mt-auto bg-green-100 px-4 py-2 rounded-lg text-green-800 font-bold w-full">
-                        解决场景一的英雄：KNN 算法
+                    
+                    {/* 卡片内容 */}
+                    <div className="flex-1 p-5 space-y-4">
+                        <div className="bg-white rounded-xl p-4 border border-green-100 shadow-sm">
+                            <div className="flex items-center gap-2 mb-3">
+                                <i className="fas fa-book-open text-green-500 text-base"></i>
+                                <span className="font-bold text-green-700 text-base">📖 生活比喻</span>
+                            </div>
+                            <p className="text-slate-700 text-base leading-relaxed">
+                                就像<strong className="text-green-600 text-lg">做有标准答案的练习题</strong>，先看例题，再做新题。
+                            </p>
+                        </div>
+                        
+                        <div className="bg-white rounded-xl p-4 border border-green-100 shadow-sm">
+                            <div className="flex items-center gap-2 mb-3">
+                                <i className="fas fa-microchip text-green-500 text-base"></i>
+                                <span className="font-bold text-green-700 text-base">🤖 AI怎么做</span>
+                            </div>
+                            <p className="text-slate-700 text-base leading-relaxed">
+                                先给 AI 看大量带<strong className="text-green-600">「标签」</strong>的数据（比如：这是小明的脸，那是小红的脸），AI 学会规律后，再去认新来的脸。
+                            </p>
+                        </div>
+                        
+                        <div className="mt-3 bg-green-100 px-4 py-3 rounded-xl text-center border border-green-200">
+                            <span className="text-green-700 font-bold text-base">🎯 解决场景一的方法：</span>
+                            <span className="text-green-800 font-black text-xl ml-2">KNN 算法</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-b from-teal-50 to-white p-8 rounded-2xl border-2 border-teal-200 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                    <div className="w-24 h-24 bg-teal-100 rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-sm">
-                        <i className="fas fa-puzzle-piece text-5xl text-teal-500"></i>
+                {/* 无监督学习卡片 */}
+                <div className="bg-gradient-to-br from-teal-50 to-white rounded-2xl border-2 border-teal-200 shadow-md flex flex-col overflow-hidden">
+                    {/* 卡片头部 */}
+                    <div className="bg-teal-100 px-5 py-4 border-b border-teal-200">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center shadow-md">
+                                <i className="fas fa-puzzle-piece text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-extrabold text-teal-700">无监督学习</h3>
+                                <p className="text-sm text-teal-600">Unsupervised Learning</p>
+                            </div>
+                        </div>
                     </div>
-                    <h3 className="text-2xl font-extrabold text-teal-700 mb-4">无监督学习 (Unsupervised)</h3>
-                    <p className="text-slate-700 text-lg leading-relaxed mb-6">
-                        就像<strong>玩一堆没有图纸的拼图</strong>。<br/>
-                        没有任何标签和标准答案，AI 只能靠自己观察数据之间的相似性，把长得像的数据「自动抱团」分堆。
-                    </p>
-                    <div className="mt-auto bg-teal-100 px-4 py-2 rounded-lg text-teal-800 font-bold w-full">
-                        解决场景二的英雄：K-means 算法
+                    
+                    {/* 卡片内容 */}
+                    <div className="flex-1 p-5 space-y-4">
+                        <div className="bg-white rounded-xl p-4 border border-teal-100 shadow-sm">
+                            <div className="flex items-center gap-2 mb-3">
+                                <i className="fas fa-puzzle-piece text-teal-500 text-base"></i>
+                                <span className="font-bold text-teal-700 text-base">🧩 生活比喻</span>
+                            </div>
+                            <p className="text-slate-700 text-base leading-relaxed">
+                                就像<strong className="text-teal-600 text-lg">玩一堆没有图纸的拼图</strong>，自己找规律把相似的拼在一起。
+                            </p>
+                        </div>
+                        
+                        <div className="bg-white rounded-xl p-4 border border-teal-100 shadow-sm">
+                            <div className="flex items-center gap-2 mb-3">
+                                <i className="fas fa-chart-line text-teal-500 text-base"></i>
+                                <span className="font-bold text-teal-700 text-base">🤖 AI怎么做</span>
+                            </div>
+                            <p className="text-slate-700 text-base leading-relaxed">
+                                没有任何标签和标准答案，AI 只能靠自己观察数据之间的相似性，把长得像的数据<strong className="text-teal-600">「自动抱团」</strong>分堆。
+                            </p>
+                        </div>
+                        
+                        <div className="mt-3 bg-teal-100 px-4 py-3 rounded-xl text-center border border-teal-200">
+                            <span className="text-teal-700 font-bold text-base">🎯 解决场景二的方法：</span>
+                            <span className="text-teal-800 font-black text-xl ml-2">K-means 算法</span>
+                        </div>
                     </div>
                 </div>
+            </div>
+            
+            {/* 底部对比提示 */}
+            <div className="mt-4 text-center bg-gradient-to-r from-purple-50 to-indigo-50 p-3 rounded-xl border border-purple-200 shrink-0">
+                <p className="text-sm text-purple-700">
+                    🔍 <strong className="text-purple-800">KNN</strong> 需要「标准答案」来学习&nbsp;&nbsp;&nbsp;&nbsp;
+                    🔮 <strong className="text-indigo-800">K-means</strong> 自己发现「隐藏规律」
+                </p>
             </div>
         </div>
     );
 }
 
-// ---- 5. 特征空间概念 ----
+// ---- 4.5 特征映射演示：从数字到坐标 ----
+function FeatureMappingSlide() {
+    const [step, setStep] = window.CourseGlobalContext.useSyncVar('mapping:step', 0);
+    const [showPerson, setShowPerson] = window.CourseGlobalContext.useSyncVar('mapping:showPerson', null);
+    const [animatePoint, setAnimatePoint] = window.CourseGlobalContext.useSyncVar('mapping:animate', false);
+    const [autoPlayIndex, setAutoPlayIndex] = window.CourseGlobalContext.useSyncVar('mapping:autoPlay', -1);
+    const [autoPlaying, setAutoPlaying] = useState(false);
+    const [cardPositions, setCardPositions] = useState({});
+    const cardsRef = useRef({});
+    const mapContainerRef = useRef(null);
+    const svgRef = useRef(null);
+    
+    // 人物特征数据
+    const peopleData = [
+        { name: '小明', eyes: 22, face: 28, icon: '👦' },
+        { name: '小华', eyes: 28, face: 22, icon: '👦' },
+        { name: '小军', eyes: 18, face: 33, icon: '👦' },
+        { name: '小美', eyes: 72, face: 25, icon: '👧' },
+        { name: '小红', eyes: 78, face: 30, icon: '👧' },
+        { name: '小芳', eyes: 68, face: 20, icon: '👧' },
+        { name: '老李', eyes: 45, face: 72, icon: '👨' },
+        { name: '王老师', eyes: 52, face: 78, icon: '👩‍🏫' },
+    ];
+    
+    const nextStep = () => {
+        if (step < 3) setStep(step + 1);
+    };
+    
+    const prevStep = () => {
+        if (step > 0) setStep(step - 1);
+        setAutoPlaying(false);
+        setAutoPlayIndex(-1);
+        setShowPerson(null);
+    };
+    
+    const resetStep = () => {
+        setStep(0);
+        setShowPerson(null);
+        setAnimatePoint(false);
+        setAutoPlaying(false);
+        setAutoPlayIndex(-1);
+    };
+    
+    // 获取元素在容器中的百分比位置（相对于容器的宽度和高度）
+    const getElementPercentPosition = (element, container) => {
+        if (!element || !container) return null;
+        
+        const elemRect = element.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        
+        // 计算元素中心点相对于容器的百分比
+        const percentX = ((elemRect.left + elemRect.width / 2 - containerRect.left) / containerRect.width) * 100;
+        const percentY = ((elemRect.top + elemRect.height / 2 - containerRect.top) / containerRect.height) * 100;
+        
+        return { x: percentX, y: percentY };
+    };
+    
+    // 获取特征点在容器中的百分比位置（使用 bottom 定位，需要转换为 top 定位）
+    const getPointPercentPosition = (eyes, face) => {
+        // 计算在坐标系中的百分比（使用 bottom 定位）
+        const bottomPercent = 8 + (face / 100) * (100 - 16);
+        // 转换为 top 定位（SVG 使用 top）
+        const topPercent = 100 - bottomPercent;
+        // x 坐标不变
+        const xPercent = 8 + (eyes / 100) * (100 - 16);
+        
+        return { x: xPercent, y: topPercent };
+    };
+    
+    const handlePersonClick = (person, cardElement) => {
+        if (autoPlaying) return;
+        
+        // 获取卡片相对于地图容器的位置
+        const cardPos = getElementPercentPosition(cardElement, mapContainerRef.current);
+        if (cardPos) {
+            setCardPositions({ [person.name]: cardPos });
+        }
+        
+        setShowPerson(person);
+        setAnimatePoint(true);
+        setTimeout(() => setAnimatePoint(false), 800);
+    };
+    
+    // 自动播放映射过程
+    const startAutoPlay = () => {
+        setAutoPlaying(true);
+        let index = 0;
+        
+        const playNext = () => {
+            if (index < peopleData.length) {
+                setAutoPlayIndex(index);
+                const person = peopleData[index];
+                setShowPerson(person);
+                
+                const cardElement = cardsRef.current[person.name];
+                if (cardElement) {
+                    const cardPos = getElementPercentPosition(cardElement, mapContainerRef.current);
+                    if (cardPos) {
+                        setCardPositions({ [person.name]: cardPos });
+                    }
+                }
+                
+                setAnimatePoint(true);
+                setTimeout(() => setAnimatePoint(false), 600);
+                index++;
+                setTimeout(playNext, 1000);
+            } else {
+                setAutoPlaying(false);
+                setAutoPlayIndex(-1);
+                setTimeout(() => setShowPerson(null), 500);
+            }
+        };
+        
+        playNext();
+    };
+    
+    // 获取当前动画的起点和终点
+    const getAnimationLine = () => {
+        if (!showPerson || !animatePoint) return null;
+        
+        const cardPos = cardPositions[showPerson.name];
+        if (!cardPos) return null;
+        
+        const pointPos = getPointPercentPosition(showPerson.eyes, showPerson.face);
+        if (!pointPos) return null;
+        
+        return {
+            x1: cardPos.x,
+            y1: cardPos.y,
+            x2: pointPos.x,
+            y2: pointPos.y
+        };
+    };
+    
+    const linePoints = getAnimationLine();
+    
+    return (
+        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
+                <i className="fas fa-chart-line mr-4 text-indigo-500"></i> 特征地图：从人脸到坐标
+            </h2>
+            <p className="text-slate-600 mb-4 text-base shrink-0">
+                AI 把复杂的人脸变成了两个数字：<strong className="text-indigo-600">眼睛大小</strong> 和 <strong className="text-indigo-600">脸型宽度</strong>，然后就可以画在坐标图上啦！
+            </p>
+            
+            {/* 步骤指示器 */}
+            <div className="flex items-center justify-between mb-6 shrink-0">
+                <div className="flex items-center gap-2">
+                    {[0, 1, 2, 3].map((s) => (
+                        <div key={s} className="flex items-center">
+                            <div className={`
+                                w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300
+                                ${step >= s ? 'bg-indigo-500 text-white scale-105 shadow-md' : 'bg-slate-200 text-slate-400'}
+                            `}>
+                                {s + 1}
+                            </div>
+                            {s < 3 && <div className={`w-6 h-0.5 transition-all duration-500 ${step > s ? 'bg-indigo-500' : 'bg-slate-200'}`}></div>}
+                        </div>
+                    ))}
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={prevStep} disabled={step === 0} className="px-3 py-1.5 bg-slate-100 disabled:opacity-50 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">
+                        <i className="fas fa-arrow-left mr-1"></i> 上一步
+                    </button>
+                    <button onClick={nextStep} disabled={step === 3} className="px-3 py-1.5 bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">
+                        下一步 <i className="fas fa-arrow-right ml-1"></i>
+                    </button>
+                    <button onClick={resetStep} className="px-3 py-1.5 bg-slate-100 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">
+                        <i className="fas fa-redo-alt"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+                {/* 左侧：可视化区域 */}
+                <div className="flex-1 min-h-0">
+                    {/* 步骤1：显示人物列表 */}
+                    {step === 0 && (
+                        <div className="h-full flex flex-col animate-fade-in">
+                            <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 mb-4">
+                                <p className="text-indigo-800 font-bold flex items-center gap-2">
+                                    <i className="fas fa-address-card"></i> 第1步：认识这些人
+                                </p>
+                                <p className="text-indigo-700 text-sm mt-1">每个人脸都被 AI 提取了特征，变成两个数字</p>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-1">
+                                {peopleData.map((person, idx) => (
+                                    <div 
+                                        key={idx}
+                                        ref={el => cardsRef.current[person.name] = el}
+                                        onClick={() => handlePersonClick(person, cardsRef.current[person.name])}
+                                        className="bg-white border-2 border-slate-200 rounded-2xl p-4 text-center cursor-pointer hover:border-indigo-400 hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                                    >
+                                        <div className="text-5xl mb-2">{person.icon}</div>
+                                        <div className="font-bold text-slate-800">{person.name}</div>
+                                        <div className="text-xs text-slate-500 mt-2">
+                                            <div>👁️ 眼睛: {person.eyes}</div>
+                                            <div>👤 脸型: {person.face}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {showPerson && (
+                                <div className="mt-4 bg-green-50 p-3 rounded-xl border border-green-200 animate-slide-up">
+                                    <p className="text-green-800 text-sm font-bold flex items-center gap-2">
+                                        <i className="fas fa-check-circle"></i> 
+                                        你选中了 {showPerson.name}：特征数字 = [{showPerson.eyes}, {showPerson.face}]
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    
+                    {/* 步骤2：建立坐标系 */}
+                    {step === 1 && (
+                        <div className="h-full flex flex-col animate-fade-in">
+                            <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 mb-4">
+                                <p className="text-indigo-800 font-bold flex items-center gap-2">
+                                    <i className="fas fa-chart-simple"></i> 第2步：建立特征地图
+                                </p>
+                                <p className="text-indigo-700 text-sm mt-1">把「眼睛大小」和「脸型宽度」作为横轴和纵轴</p>
+                            </div>
+                            <div 
+                                ref={mapContainerRef}
+                                className="flex-1 relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner overflow-hidden"
+                            >
+                                {/* 坐标轴 */}
+                                <div className="absolute bottom-8 left-8 right-8 h-0.5 bg-slate-400 animate-draw-x origin-left"></div>
+                                <div className="absolute bottom-8 left-8 top-8 w-0.5 bg-slate-400 animate-draw-y origin-bottom"></div>
+                                
+                                {/* 轴标签 */}
+                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-sm font-bold text-slate-500 animate-fade-in-delay">
+                                    眼睛大小 →
+                                </div>
+                                <div className="absolute top-1/2 left-0 -translate-y-1/2 -rotate-90 text-sm font-bold text-slate-500 whitespace-nowrap animate-fade-in-delay">
+                                    脸型宽度 →
+                                </div>
+                                
+                                {/* 刻度 */}
+                                {[0, 20, 40, 60, 80, 100].map((v, i) => (
+                                    <div key={`x-${v}`} className="absolute bottom-8" style={{ left: `${8 + (v / 100) * (100 - 16)}%`, animationDelay: `${i * 0.1}s` }}>
+                                        <div className="w-px h-2 bg-slate-400 animate-scale-in"></div>
+                                        <div className="text-[10px] text-slate-400 -mt-1 animate-fade-in" style={{ animationDelay: `${i * 0.1}s` }}>{v}</div>
+                                    </div>
+                                ))}
+                                {[0, 20, 40, 60, 80, 100].map((v, i) => (
+                                    <div key={`y-${v}`} className="absolute left-8" style={{ bottom: `${8 + (v / 100) * (100 - 16)}%`, animationDelay: `${i * 0.1}s` }}>
+                                        <div className="h-px w-2 bg-slate-400 animate-scale-in"></div>
+                                        <div className="text-[10px] text-slate-400 absolute -left-4 animate-fade-in" style={{ animationDelay: `${i * 0.1}s` }}>{v}</div>
+                                    </div>
+                                ))}
+                                
+                                {/* 闪烁的提示点 */}
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="relative">
+                                        <div className="w-16 h-16 rounded-full border-2 border-indigo-300 animate-ping-slow opacity-50"></div>
+                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-400 text-sm whitespace-nowrap animate-pulse">
+                                            等待放置...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="text-center text-slate-500 text-sm mt-3 animate-fade-in">
+                                每个点都由 <strong>（眼睛大小，脸型宽度）</strong> 两个数字唯一确定
+                            </p>
+                        </div>
+                    )}
+                    
+                    {/* 步骤3：逐个映射到坐标上 */}
+                    {step === 2 && (
+                        <div className="h-full flex flex-col animate-fade-in">
+                            <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 mb-4 flex justify-between items-center">
+                                <div>
+                                    <p className="text-indigo-800 font-bold flex items-center gap-2">
+                                        <i className="fas fa-arrow-right-to-bracket"></i> 第3步：把真人「映射」到地图上
+                                    </p>
+                                    <p className="text-indigo-700 text-sm mt-1">点击任意人物卡片，看他/她在地图上的位置！</p>
+                                </div>
+                                {!autoPlaying && (
+                                    <button 
+                                        onClick={startAutoPlay}
+                                        className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-all hover:scale-105 flex items-center gap-1"
+                                    >
+                                        <i className="fas fa-play"></i> 自动演示
+                                    </button>
+                                )}
+                                {autoPlaying && (
+                                    <button 
+                                        onClick={() => { setAutoPlaying(false); setAutoPlayIndex(-1); setShowPerson(null); }}
+                                        className="px-3 py-1.5 bg-slate-500 text-white rounded-lg text-sm font-medium hover:bg-slate-600 transition-all"
+                                    >
+                                        <i className="fas fa-stop"></i> 停止
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+                                {/* 人物卡片列表 */}
+                                <div className="lg:w-48 shrink-0 overflow-y-auto space-y-2">
+                                    {peopleData.map((person, idx) => {
+                                        const isSelected = showPerson?.name === person.name;
+                                        const isAutoPlaying = autoPlayIndex === idx;
+                                        return (
+                                            <div 
+                                                key={idx}
+                                                ref={el => cardsRef.current[person.name] = el}
+                                                onClick={() => !autoPlaying && handlePersonClick(person, cardsRef.current[person.name])}
+                                                className={`
+                                                    bg-white border-2 rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all duration-300
+                                                    ${isSelected || isAutoPlaying ? 'border-indigo-500 bg-indigo-50 scale-105 shadow-md' : 'border-slate-200 hover:border-indigo-300 hover:scale-102'}
+                                                    ${isAutoPlaying ? 'animate-pulse-glow' : ''}
+                                                `}
+                                            >
+                                                <div className="text-3xl">{person.icon}</div>
+                                                <div>
+                                                    <div className="font-bold text-slate-800 text-sm">{person.name}</div>
+                                                    <div className="text-xs text-slate-500">({person.eyes}, {person.face})</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                
+                                {/* 特征地图 */}
+                                <div 
+                                    ref={mapContainerRef}
+                                    className="flex-1 relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner min-h-[280px] overflow-hidden"
+                                    style={{ position: 'relative' }}
+                                >
+                                    {/* 坐标轴 */}
+                                    <div className="absolute bottom-8 left-8 right-8 h-0.5 bg-slate-400"></div>
+                                    <div className="absolute bottom-8 left-8 top-8 w-0.5 bg-slate-400"></div>
+                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400">眼睛大小 →</div>
+                                    <div className="absolute top-1/2 left-0 -translate-y-1/2 -rotate-90 text-xs font-bold text-slate-400">脸型宽度 →</div>
+                                    
+                                    {/* SVG 虚线层 */}
+                                    {animatePoint && linePoints && (
+                                        <svg 
+                                            ref={svgRef}
+                                            className="absolute inset-0 w-full h-full pointer-events-none" 
+                                            style={{ zIndex: 20 }}
+                                        >
+                                            <defs>
+                                                <linearGradient id="gradientLine" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                    <stop offset="0%" stopColor="#818cf8" stopOpacity="0.8"/>
+                                                    <stop offset="100%" stopColor="#6366f1" stopOpacity="0.8"/>
+                                                </linearGradient>
+                                            </defs>
+                                            <line 
+                                                x1={`${linePoints.x1}%`}
+                                                y1={`${linePoints.y1}%`}
+                                                x2={`${linePoints.x2}%`}
+                                                y2={`${linePoints.y2}%`}
+                                                stroke="url(#gradientLine)"
+                                                strokeWidth="3"
+                                                strokeDasharray="8,6"
+                                                className="animate-dash-move"
+                                            />
+                                            {/* 终点标记 */}
+                                            <circle 
+                                                cx={`${linePoints.x2}%`}
+                                                cy={`${linePoints.y2}%`}
+                                                r="8"
+                                                fill="none"
+                                                stroke="#6366f1"
+                                                strokeWidth="2"
+                                                className="animate-pulse-glow-simple"
+                                            />
+                                            <circle 
+                                                cx={`${linePoints.x2}%`}
+                                                cy={`${linePoints.y2}%`}
+                                                r="3"
+                                                fill="#6366f1"
+                                            />
+                                        </svg>
+                                    )}
+                                    
+                                    {/* 已放置的点 */}
+                                    {peopleData.map((person, idx) => {
+                                        const isSelected = showPerson?.name === person.name;
+                                        const isAutoPlaying = autoPlayIndex === idx;
+                                        const isAlreadyPlaced = autoPlayIndex >= idx || (!autoPlaying && showPerson?.name === person.name);
+                                        const xPercent = 8 + (person.eyes / 100) * (100 - 16);
+                                        const bottomPercent = 8 + (person.face / 100) * (100 - 16);
+                                        
+                                        return (
+                                            <div 
+                                                key={idx}
+                                                className="absolute transition-all duration-500"
+                                                style={{ 
+                                                    left: `${xPercent}%`, 
+                                                    bottom: `${bottomPercent}%`,
+                                                    transform: 'translate(-50%, 50%)',
+                                                    opacity: isAlreadyPlaced ? 1 : (autoPlaying && autoPlayIndex > idx ? 1 : 0.3),
+                                                    scale: isSelected || isAutoPlaying ? '1.2' : '1',
+                                                    zIndex: isSelected || isAutoPlaying ? 15 : 10
+                                                }}
+                                            >
+                                                <div className={`
+                                                    w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-md border-2 transition-all duration-300
+                                                    ${isSelected || isAutoPlaying ? 'bg-indigo-500 scale-110 ring-2 ring-indigo-300 ring-offset-1' : 'bg-slate-400'}
+                                                `}
+                                                style={{ borderColor: 'white' }}>
+                                                    {person.icon}
+                                                </div>
+                                                {(isSelected || isAutoPlaying) && (
+                                                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap animate-float">
+                                                        {person.name}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    
+                                    {/* 粒子爆炸效果 */}
+                                    {animatePoint && linePoints && (
+                                        <div 
+                                            className="absolute pointer-events-none"
+                                            style={{ 
+                                                left: `${linePoints.x2}%`, 
+                                                top: `${linePoints.y2}%`,
+                                                transform: 'translate(-50%, -50%)'
+                                            }}
+                                        >
+                                            {[...Array(12)].map((_, i) => {
+                                                const angle = (i * 30) * Math.PI / 180;
+                                                const dx = Math.cos(angle) * 12;
+                                                const dy = Math.sin(angle) * 12;
+                                                return (
+                                                    <div 
+                                                        key={i}
+                                                        className="absolute w-1.5 h-1.5 rounded-full bg-indigo-500"
+                                                        style={{
+                                                            animation: `particle-fly 0.5s ease-out forwards`,
+                                                            animationDelay: `${i * 0.03}s`,
+                                                            transform: `translate(${dx}px, ${dy}px)`
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    
+                                    {/* 引导提示 */}
+                                    {!showPerson && !autoPlaying && (
+                                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/90 px-3 py-1.5 rounded-full shadow-md text-xs text-slate-500 flex items-center gap-1 animate-bounce-subtle" style={{ zIndex: 25 }}>
+                                            <i className="fas fa-hand-pointer text-indigo-500"></i>
+                                            点击左侧卡片，观看飞入动画
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <p className="text-center text-slate-500 text-sm mt-3 animate-fade-in">
+                                💡 每个人的位置完全由特征数字决定：<strong>（眼睛大小，脸型宽度）</strong>
+                            </p>
+                        </div>
+                    )}
+                    
+                    {/* 步骤4：完整特征地图 */}
+                    {step === 3 && (
+                        <div className="h-full flex flex-col animate-fade-in">
+                            <div className="bg-green-50 p-4 rounded-2xl border border-green-100 mb-4">
+                                <p className="text-green-800 font-bold flex items-center gap-2">
+                                    <i className="fas fa-check-double"></i> 完成！所有人的特征地图
+                                </p>
+                                <p className="text-green-700 text-sm mt-1">
+                                    每个人脸都变成了地图上的一个点，位置由特征数字决定。
+                                </p>
+                            </div>
+                            <div 
+                                ref={mapContainerRef}
+                                className="flex-1 relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner overflow-hidden"
+                            >
+                                {/* 坐标轴 */}
+                                <div className="absolute bottom-8 left-8 right-8 h-0.5 bg-slate-400"></div>
+                                <div className="absolute bottom-8 left-8 top-8 w-0.5 bg-slate-400"></div>
+                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-sm font-bold text-slate-500">眼睛大小 →</div>
+                                <div className="absolute top-1/2 left-0 -translate-y-1/2 -rotate-90 text-sm font-bold text-slate-500">脸型宽度 →</div>
+                                
+                                {/* 所有点 */}
+                                {peopleData.map((person, idx) => {
+                                    const xPercent = 8 + (person.eyes / 100) * (100 - 16);
+                                    const bottomPercent = 8 + (person.face / 100) * (100 - 16);
+                                    return (
+                                        <div 
+                                            key={idx}
+                                            className="absolute group"
+                                            style={{ 
+                                                left: `${xPercent}%`, 
+                                                bottom: `${bottomPercent}%`,
+                                                transform: 'translate(-50%, 50%)',
+                                                animation: `ripple-appear 0.5s ease-out ${idx * 0.1}s both`
+                                            }}
+                                        >
+                                            <div className="w-7 h-7 rounded-full bg-slate-500 flex items-center justify-center text-sm shadow-md border-2 border-white transition-all duration-300 group-hover:scale-110 group-hover:bg-indigo-400">
+                                                {person.icon}
+                                            </div>
+                                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-white/80 px-1 rounded">
+                                                {person.name}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-center text-slate-500 text-sm mt-3 animate-fade-in">
+                                📍 每个点 = 一个人，坐标 = 他的两个特征数字
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+            
+            <style jsx>{`
+                @keyframes fade-in {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                    animation: fade-in 0.4s ease-out;
+                }
+                .animate-fade-in-delay {
+                    animation: fade-in 0.4s ease-out 0.2s both;
+                }
+                @keyframes draw-x {
+                    from { width: 0; }
+                    to { width: calc(100% - 64px); }
+                }
+                .animate-draw-x {
+                    animation: draw-x 0.6s ease-out;
+                }
+                @keyframes draw-y {
+                    from { height: 0; }
+                    to { height: calc(100% - 64px); }
+                }
+                .animate-draw-y {
+                    animation: draw-y 0.6s ease-out;
+                }
+                @keyframes scale-in {
+                    from { transform: scale(0); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+                .animate-scale-in {
+                    animation: scale-in 0.2s ease-out forwards;
+                }
+                @keyframes ping-slow {
+                    0% { transform: scale(0.8); opacity: 0.5; }
+                    100% { transform: scale(1.5); opacity: 0; }
+                }
+                .animate-ping-slow {
+                    animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+                }
+                @keyframes dash-move {
+                    to { stroke-dashoffset: 28; }
+                }
+                .animate-dash-move {
+                    stroke-dasharray: 14, 10;
+                    animation: dash-move 0.6s linear infinite;
+                }
+                @keyframes particle-fly {
+                    0% { opacity: 1; transform: translate(0, 0) scale(1); }
+                    100% { opacity: 0; transform: translate(0, 0) scale(0); }
+                }
+                @keyframes pulse-glow-simple {
+                    0%, 100% { r: 6; opacity: 0.6; stroke-width: 2; }
+                    50% { r: 12; opacity: 1; stroke-width: 3; }
+                }
+                .animate-pulse-glow-simple {
+                    animation: pulse-glow-simple 0.6s ease-in-out infinite;
+                }
+                @keyframes float {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-3px); }
+                }
+                .animate-float {
+                    animation: float 1s ease-in-out infinite;
+                }
+                @keyframes bounce-subtle {
+                    0%, 100% { transform: translateX(-50%) translateY(0); }
+                    50% { transform: translateX(-50%) translateY(-3px); }
+                }
+                .animate-bounce-subtle {
+                    animation: bounce-subtle 1s ease-in-out infinite;
+                }
+                @keyframes ripple-appear {
+                    0% { transform: translate(-50%, 50%) scale(0); opacity: 0; }
+                    50% { transform: translate(-50%, 50%) scale(1.2); opacity: 0.6; }
+                    100% { transform: translate(-50%, 50%) scale(1); opacity: 1; }
+                }
+                @keyframes pulse-glow {
+                    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+                    50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.2); }
+                }
+                .animate-pulse-glow {
+                    animation: pulse-glow 0.8s ease-in-out infinite;
+                }
+                @keyframes slide-up {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-slide-up {
+                    animation: slide-up 0.3s ease-out;
+                }
+                .hover\:scale-102:hover {
+                    transform: scale(1.02);
+                }
+            `}</style>
+        </div>
+    );
+}
+
+// ---- 5. 特征空间概念（学生自主标注版） ----
 function FeatureSpaceSlide() {
+    // 初始点数据：无颜色（neutral）
+    const [points, setPoints] = window.CourseGlobalContext.useSyncVar('feature:points', [
+        { x: 22, y: 28, label: '小明', color: null, bg: null, studentLabeled: false },
+        { x: 28, y: 22, label: '小华', color: null, bg: null, studentLabeled: false },
+        { x: 18, y: 33, label: '小军', color: null, bg: null, studentLabeled: false },
+        { x: 72, y: 25, label: '小美', color: null, bg: null, studentLabeled: false },
+        { x: 78, y: 30, label: '小红', color: null, bg: null, studentLabeled: false },
+        { x: 68, y: 20, label: '小芳', color: null, bg: null, studentLabeled: false },
+        { x: 45, y: 72, label: '老李', color: null, bg: null, studentLabeled: false },
+        { x: 52, y: 78, label: '王老师', color: null, bg: null, studentLabeled: false },
+    ]);
+    
+    const [selectedPointId, setSelectedPointId] = window.CourseGlobalContext.useSyncVar('feature:selected', null);
     const [showLabels, setShowLabels] = window.CourseGlobalContext.useSyncVar('feature:labels', true);
     const [showGroups, setShowGroups] = window.CourseGlobalContext.useSyncVar('feature:groups', true);
-    const [highlightGroup, setHighlightGroup] = window.CourseGlobalContext.useSyncVar('feature:highlight', null);
-
+    
+    // 颜色选项（预定义的几组颜色）
+    const colorOptions = [
+        { name: '蓝组', color: 'bg-blue-500', bg: '#3b82f6', id: 'blue' },
+        { name: '红组', color: 'bg-rose-500', bg: '#f43f5e', id: 'red' },
+        { name: '黄组', color: 'bg-amber-500', bg: '#f59e0b', id: 'yellow' },
+        { name: '绿组', color: 'bg-emerald-500', bg: '#10b981', id: 'green' },
+        { name: '紫组', color: 'bg-purple-500', bg: '#8b5cf6', id: 'purple' },
+    ];
+    
+    // 获取已分配颜色的分组统计
+    const getGroupStats = () => {
+        const stats = {};
+        points.forEach(p => {
+            if (p.color) {
+                const colorInfo = colorOptions.find(c => c.color === p.color);
+                const groupName = colorInfo ? colorInfo.name : p.color;
+                stats[groupName] = (stats[groupName] || 0) + 1;
+            }
+        });
+        return stats;
+    };
+    
+    // 标注当前选中的点
+    const handleColorPoint = (colorClass, bgColor) => {
+        if (selectedPointId !== null) {
+            const newPoints = [...points];
+            const pointIndex = newPoints.findIndex(p => p.label === selectedPointId);
+            if (pointIndex !== -1) {
+                newPoints[pointIndex] = {
+                    ...newPoints[pointIndex],
+                    color: colorClass,
+                    bg: bgColor,
+                    studentLabeled: true
+                };
+                setPoints(newPoints);
+                setSelectedPointId(null);
+            }
+        }
+    };
+    
+    // 重置所有标注
+    const resetAllLabels = () => {
+        const resetPoints = points.map(p => ({
+            ...p,
+            color: null,
+            bg: null,
+            studentLabeled: false
+        }));
+        setPoints(resetPoints);
+        setSelectedPointId(null);
+    };
+    
+    // 自动按原分类标注（教师演示用）
+    const autoLabelByOriginal = () => {
+        const originalColors = {
+            '小明': { color: 'bg-blue-500', bg: '#3b82f6' },
+            '小华': { color: 'bg-blue-500', bg: '#3b82f6' },
+            '小军': { color: 'bg-blue-500', bg: '#3b82f6' },
+            '小美': { color: 'bg-rose-500', bg: '#f43f5e' },
+            '小红': { color: 'bg-rose-500', bg: '#f43f5e' },
+            '小芳': { color: 'bg-rose-500', bg: '#f43f5e' },
+            '老李': { color: 'bg-amber-500', bg: '#f59e0b' },
+            '王老师': { color: 'bg-amber-500', bg: '#f59e0b' },
+        };
+        const newPoints = points.map(p => ({
+            ...p,
+            color: originalColors[p.label]?.color || null,
+            bg: originalColors[p.label]?.bg || null,
+            studentLabeled: true
+        }));
+        setPoints(newPoints);
+    };
+    
+    const stats = getGroupStats();
+    const labeledCount = points.filter(p => p.color !== null).length;
+    const totalCount = points.length;
+    
     return (
         <div className="flex flex-col min-h-full p-6 md:p-10 bg-white overflow-hidden">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3 md:mb-4 flex items-center shrink-0">
-                <i className="fas fa-map-marker-alt mr-4 text-green-500"></i> 理解「特征空间」：把数字画成地图
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2 flex items-center shrink-0">
+                <i className="fas fa-paint-bucket mr-4 text-green-500"></i> 特征空间探索：你来当分类师！
             </h2>
-            <p className="text-slate-600 mb-3 md:mb-4 text-lg shrink-0">
-                128 个数字太抽象？假设每个人的脸只用「眼睛大小」和「脸型宽度」两个特征描述，把人画在坐标图上：
+            <p className="text-slate-600 mb-3 text-base shrink-0">
+                下面的点是不同人的「人脸特征」坐标。请根据你的观察，<strong className="text-green-600">点击任意点，再选择颜色给它分类</strong>！
             </p>
-
-            <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 min-h-0">
+            
+            {/* 进度提示 */}
+            <div className="mb-3 shrink-0">
+                <div className="flex items-center justify-between text-sm text-slate-500 mb-1">
+                    <span>标注进度</span>
+                    <span>{labeledCount} / {totalCount} 个点已标注</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div className="bg-green-500 h-2 rounded-full transition-all duration-300" style={{ width: `${(labeledCount / totalCount) * 100}%` }}></div>
+                </div>
+            </div>
+            
+            <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+                {/* 左侧：特征空间画布 */}
                 <div className="relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner flex-1 min-h-[280px] lg:min-h-0">
+                    {/* 坐标轴标签 */}
                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs md:text-sm font-bold text-slate-400">眼睛大小 →</div>
                     <div className="absolute top-1/2 left-2 -translate-y-1/2 -rotate-90 text-xs md:text-sm font-bold text-slate-400 whitespace-nowrap">脸型宽度 →</div>
                     
-                    {FEATURE_SPACE_POINTS.map((p, i) => {
-                        const isHighlighted = highlightGroup === p.color;
+                    {/* 绘制点 */}
+                    {points.map((p, i) => {
+                        const isSelected = selectedPointId === p.label;
+                        const hasColor = p.color !== null;
                         return (
-                            <div key={i} className="absolute transition-all duration-300" style={{ left: `${p.x}%`, bottom: `${p.y}%`, transform: 'translate(-50%, 50%)' }}>
-                                <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full ${p.color} border-2 border-white shadow-md ${isHighlighted ? 'ring-2 ring-offset-1 ring-slate-800 scale-125' : ''}`}></div>
+                            <div 
+                                key={i} 
+                                className="absolute cursor-pointer transition-all duration-200 hover:scale-125"
+                                style={{ left: `${p.x}%`, bottom: `${p.y}%`, transform: 'translate(-50%, 50%)' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedPointId(isSelected ? null : p.label);
+                                }}
+                            >
+                                <div className={`
+                                    w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white shadow-md 
+                                    transition-all duration-200
+                                    ${hasColor ? p.color : 'bg-slate-300'}
+                                    ${isSelected ? 'ring-2 ring-offset-2 ring-green-500 scale-125' : ''}
+                                    ${!hasColor && !isSelected ? 'animate-pulse' : ''}
+                                `}>
+                                    {!hasColor && !isSelected && (
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <i className="fas fa-question text-white text-[8px]"></i>
+                                        </div>
+                                    )}
+                                </div>
                                 {showLabels && (
-                                    <div className={`absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] md:text-xs font-bold whitespace-nowrap bg-white/80 px-1 rounded ${isHighlighted ? 'text-slate-800 bg-yellow-100' : 'text-slate-700'}`}>{p.label}</div>
+                                    <div className={`absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] md:text-xs font-bold whitespace-nowrap px-1.5 py-0.5 rounded-full transition-all
+                                        ${isSelected ? 'bg-green-500 text-white' : hasColor ? 'bg-white/90 text-slate-700 shadow-sm' : 'bg-slate-200/90 text-slate-500'}`}>
+                                        {p.label}
+                                        {!hasColor && <span className="ml-1 text-[8px]">(未标注)</span>}
+                                    </div>
                                 )}
                             </div>
                         );
                     })}
                     
+                    {/* 分组圆圈提示（可选） */}
                     {showGroups && (
                         <>
-                            <div className={`absolute rounded-full border-2 ${highlightGroup === 'bg-blue-500' ? 'border-blue-500 border-solid' : 'border-blue-300 border-dashed'} opacity-70`} style={{ left: '9%', bottom: '14%', width: '30%', height: '30%' }}></div>
-                            <div className={`absolute rounded-full border-2 ${highlightGroup === 'bg-rose-500' ? 'border-rose-500 border-solid' : 'border-rose-300 border-dashed'} opacity-70`} style={{ left: '57%', bottom: '12%', width: '30%', height: '30%' }}></div>
-                            <div className={`absolute rounded-full border-2 ${highlightGroup === 'bg-amber-500' ? 'border-amber-500 border-solid' : 'border-amber-300 border-dashed'} opacity-70`} style={{ left: '33%', bottom: '60%', width: '30%', height: '30%' }}></div>
+                            <div className="absolute rounded-full border-2 border-blue-300 border-dashed opacity-50 pointer-events-none" style={{ left: '9%', bottom: '14%', width: '30%', height: '30%' }}></div>
+                            <div className="absolute rounded-full border-2 border-rose-300 border-dashed opacity-50 pointer-events-none" style={{ left: '57%', bottom: '12%', width: '30%', height: '30%' }}></div>
+                            <div className="absolute rounded-full border-2 border-amber-300 border-dashed opacity-50 pointer-events-none" style={{ left: '33%', bottom: '60%', width: '30%', height: '30%' }}></div>
                         </>
                     )}
+                    
+                    {/* 提示文字 */}
+                    {selectedPointId === null && labeledCount < totalCount && (
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/90 px-3 py-1.5 rounded-full shadow-md text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                            <i className="fas fa-fingerprint text-green-500"></i>
+                            点击任意点开始分类
+                        </div>
+                    )}
                 </div>
-
-                <div className="flex flex-col gap-3 w-full lg:w-56 xl:w-64 shrink-0">
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                        <p className="font-bold text-slate-700 mb-2 text-sm">探索控制</p>
-                        <div className="space-y-2">
-                            <button onClick={() => setShowLabels(v => !v)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-                                {showLabels ? '隐藏姓名标签' : '显示姓名标签'}
-                            </button>
-                            <button onClick={() => setShowGroups(v => !v)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-                                {showGroups ? '隐藏分组圆圈' : '显示分组圆圈'}
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                        <p className="font-bold text-slate-700 mb-2 text-sm">高亮显示</p>
-                        <div className="flex gap-2">
-                            {['bg-blue-500', 'bg-rose-500', 'bg-amber-500'].map(color => (
-                                <button key={color} onClick={() => setHighlightGroup(highlightGroup === color ? null : color)}
-                                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold ${highlightGroup === color ? 'ring-2 ring-offset-1 ring-slate-400' : ''}`}
-                                    style={{ backgroundColor: color === 'bg-blue-500' ? '#3b82f6' : color === 'bg-rose-500' ? '#f43f5e' : '#f59e0b' }}>
-                                    {color === 'bg-blue-500' ? '蓝组' : color === 'bg-rose-500' ? '红组' : '黄组'}
+                
+                {/* 右侧：操作面板 */}
+                <div className="w-full lg:w-64 xl:w-72 shrink-0 flex flex-col gap-3">
+                    {/* 当前选中的点 */}
+                    {selectedPointId !== null && (
+                        <div className="bg-green-50 p-3 rounded-xl border border-green-200 animate-fade-in">
+                            <p className="font-bold text-green-800 text-sm mb-2 flex items-center justify-between">
+                                <span><i className="fas fa-tag mr-1"></i> 正在标注：{selectedPointId}</span>
+                                <button onClick={() => setSelectedPointId(null)} className="text-xs text-slate-400 hover:text-slate-600">
+                                    <i className="fas fa-times"></i>
                                 </button>
-                            ))}
+                            </p>
+                            <p className="text-xs text-green-700 mb-2">请选择这个点属于哪个组：</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                {colorOptions.map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        onClick={() => handleColorPoint(opt.color, opt.bg)}
+                                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02]"
+                                        style={{ backgroundColor: opt.bg + '20', border: `1px solid ${opt.bg}` }}
+                                    >
+                                        <div className={`w-3 h-3 rounded-full ${opt.color}`}></div>
+                                        <span className="text-slate-700">{opt.name}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
+                    )}
+                    
+                    {/* 统计面板 */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <p className="font-bold text-slate-700 mb-2 text-sm flex items-center">
+                            <i className="fas fa-chart-pie mr-1 text-green-500"></i> 当前分组统计
+                        </p>
+                        {Object.keys(stats).length > 0 ? (
+                            <div className="space-y-1.5">
+                                {Object.entries(stats).map(([group, count]) => {
+                                    const colorInfo = colorOptions.find(c => c.name === group);
+                                    return (
+                                        <div key={group} className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-1.5">
+                                                {colorInfo && <div className={`w-2.5 h-2.5 rounded-full ${colorInfo.color}`}></div>}
+                                                <span className="text-slate-600">{group}</span>
+                                            </div>
+                                            <span className="font-bold text-slate-700">{count} 人</span>
+                                        </div>
+                                    );
+                                })}
+                                <div className="border-t border-slate-100 pt-1.5 mt-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-500">未标注</span>
+                                        <span className="text-slate-500">{totalCount - labeledCount} 人</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-400 text-center py-2">点击点并选择颜色开始分类</p>
+                        )}
                     </div>
                     
-                    <div className="bg-green-50 p-3 rounded-xl border border-green-100 flex-1">
-                        <p className="font-bold text-green-800 mb-2 text-sm">💡 小组讨论</p>
-                        <p className="text-slate-700 text-sm leading-relaxed">
-                            1. 为什么相似的人会聚集在一起？<br />
-                            2. 计算机怎么判断两个人距离“近不近”？
+                    {/* 控制按钮 */}
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={autoLabelByOriginal}
+                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 rounded-xl transition-colors"
+                        >
+                            <i className="fas fa-robot mr-1"></i> 教师演示 (AI自动标注)
+                        </button>
+                        <button 
+                            onClick={resetAllLabels}
+                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold py-2 rounded-xl transition-colors"
+                        >
+                            <i className="fas fa-undo-alt mr-1"></i> 重置所有标注
+                        </button>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setShowLabels(v => !v)}
+                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold py-1.5 rounded-xl transition-colors"
+                        >
+                            <i className="fas fa-tag mr-1"></i> {showLabels ? '隐藏姓名' : '显示姓名'}
+                        </button>
+                        <button 
+                            onClick={() => setShowGroups(v => !v)}
+                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold py-1.5 rounded-xl transition-colors"
+                        >
+                            <i className="fas fa-circle mr-1"></i> {showGroups ? '隐藏分组圈' : '显示分组圈'}
+                        </button>
+                    </div>
+                    
+                    {/* 思考引导 */}
+                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-200">
+                        <p className="font-bold text-amber-800 text-sm mb-1 flex items-center">
+                            <i className="fas fa-lightbulb mr-1"></i> 💡 思考一下
+                        </p>
+                        <p className="text-slate-700 text-xs leading-relaxed">
+                            1. 你认为哪些人应该分在同一组？为什么？<br />
+                            2. 如果让你给这些点分组，你会分成几组？<br />
+                            3. 你的分组依据是什么？（距离远近？还是其他？）
                         </p>
                     </div>
                 </div>
@@ -330,6 +1211,7 @@ function FeatureSpaceSlide() {
 // ---- 6. 数学原理：距离计算 ----
 function DistanceIntroSlide() {
     const [katexLoaded, setKatexLoaded] = useState(false);
+    const [activePoint, setActivePoint] = useState(null);
 
     useEffect(() => {
         if (typeof window.katex !== 'undefined') {
@@ -348,107 +1230,703 @@ function DistanceIntroSlide() {
     const pythagoreanTex = "c^2 = a^2 + b^2";
     const distanceTex = "\\sqrt{(X_A - X_B)^2 + (Y_A - Y_B)^2}";
 
+    // 示例点坐标
+    const pointA = { x: 28, y: 72, label: '小明', icon: '👦' };
+    const pointB = { x: 72, y: 28, label: '小美', icon: '👧' };
+    
+    // 计算差值
+    const dx = Math.abs(pointB.x - pointA.x);
+    const dy = Math.abs(pointB.y - pointA.y);
+    const distance = Math.sqrt(dx * dx + dy * dy).toFixed(1);
+
     return (
-        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6 flex items-center shrink-0">
-                <i className="fas fa-ruler-combined mr-4 text-blue-500"></i> 底层揭秘：距离是怎么算出来的？
+        <div className="flex flex-col h-full p-5 md:p-6 bg-white overflow-hidden">
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
+                <i className="fas fa-ruler-combined mr-3 text-blue-500"></i> 底层揭秘：距离是怎么算出来的？
             </h2>
             
-            <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 shadow-sm mb-6 flex flex-col lg:flex-row gap-6 items-center">
-                <div className="flex-1 text-slate-700 text-lg leading-relaxed w-full">
-                    <p className="mb-4">
-                        在特征地图上，要找“邻居”，首先要学会量距离。这里用到的是初中数学的超级英雄：<strong className="text-blue-600">勾股定理</strong>！
-                    </p>
-                    
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-200 mb-4 flex justify-center text-blue-800 min-h-[60px] items-center">
-                        {katexLoaded ? (
-                            <div dangerouslySetInnerHTML={{
-                                __html: window.katex.renderToString(pythagoreanTex, { throwOnError: false, displayMode: true })
-                            }} />
-                        ) : (
-                            <span className="text-slate-400 text-sm"><i className="fas fa-spinner fa-spin mr-2"></i>公式加载中...</span>
-                        )}
+            {/* 核心概念卡片 - 更紧凑 */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-200 shadow-sm mb-3 shrink-0">
+                <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
+                        <i className="fas fa-lightbulb text-white text-xs"></i>
                     </div>
-                    
-                    <p>
-                        把它转化一下，在 2 维空间里，点 A 和点 B 之间的直线距离（<strong>欧氏距离</strong>）公式就是：
+                    <p className="text-sm text-slate-700">
+                        计算机使用<strong className="text-blue-600">欧氏距离（直线距离）</strong>，核心是<strong className="text-indigo-600">勾股定理</strong>
                     </p>
-                    
-                    <div className="mt-4 bg-blue-100/50 py-3 px-4 rounded-xl border border-blue-200 flex justify-center items-center text-blue-900 overflow-x-auto min-h-[80px]">
-                        <span className="font-bold mr-4 text-xl shrink-0">距离 = </span>
-                        {katexLoaded ? (
-                            <div className="mt-3" dangerouslySetInnerHTML={{
-                                __html: window.katex.renderToString(distanceTex, { throwOnError: false, displayMode: true })
-                            }} />
-                        ) : (
-                            <span className="text-slate-400 text-sm"><i className="fas fa-spinner fa-spin mr-2"></i>公式加载中...</span>
-                        )}
-                    </div>
-                </div>
-                
-                <div className="w-full lg:w-1/3 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-center shrink-0">
-                    <svg width="200" height="200" viewBox="0 0 200 200">
-                        <line x1="40" y1="160" x2="160" y2="160" stroke="#94a3b8" strokeWidth="2" strokeDasharray="5,5"/>
-                        <line x1="160" y1="160" x2="160" y2="40" stroke="#94a3b8" strokeWidth="2" strokeDasharray="5,5"/>
-                        <line x1="40" y1="160" x2="160" y2="40" stroke="#3b82f6" strokeWidth="3"/>
-                        
-                        <circle cx="40" cy="160" r="6" fill="#f43f5e" />
-                        <text x="15" y="175" className="text-xs font-bold" fill="#f43f5e">点A</text>
-                        
-                        <circle cx="160" cy="40" r="6" fill="#10b981" />
-                        <text x="170" y="35" className="text-xs font-bold" fill="#10b981">点B</text>
-                        
-                        <text x="100" y="180" className="text-sm font-bold" fill="#64748b">a (X差值)</text>
-                        <text x="170" y="100" className="text-sm font-bold" fill="#64748b">b (Y差值)</text>
-                        <text x="80" y="90" className="text-sm font-bold" fill="#3b82f6">c (距离)</text>
-                    </svg>
                 </div>
             </div>
 
-            <div className="bg-orange-50 p-5 rounded-xl border border-orange-200 flex items-start gap-4">
-                <i className="fas fa-rocket text-2xl text-orange-500 mt-1"></i>
-                <div>
-                    <h4 className="font-bold text-orange-800 text-lg mb-2">升维打击：如果是 128 维呢？</h4>
-                    <p className="text-slate-700">
-                        人脸特征有 128 个数字，虽然人类画不出 128 维度的坐标系，但数学公式依然有效！<br/>
-                        计算机把 128 个特征各自相减求平方，再全部加起来开根号。这就是高维空间中的欧氏距离。
-                    </p>
+            {/* 主内容区域 - 使用网格布局防止溢出 */}
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
+                {/* 左侧：可视化示意图 - 占2列 */}
+                <div className="lg:col-span-2 bg-slate-50 rounded-xl border border-slate-200 p-3 flex flex-col min-h-0">
+                    <div className="text-xs font-bold text-slate-500 mb-2 flex items-center justify-between shrink-0">
+                        <span><i className="fas fa-chart-line mr-1"></i> 特征空间中的两个人</span>
+                        <span className="text-[10px] text-slate-400">鼠标悬停查看坐标</span>
+                    </div>
+                    
+                    <div className="relative flex-1 bg-white rounded-lg border border-slate-200 min-h-[200px]">
+                        {/* 坐标轴 */}
+                        <div className="absolute bottom-5 left-5 right-5 h-0.5 bg-slate-300"></div>
+                        <div className="absolute bottom-5 left-5 top-5 w-0.5 bg-slate-300"></div>
+                        
+                        {/* 轴标签 */}
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[8px] text-slate-400 font-bold whitespace-nowrap">
+                            特征 X (眼睛大小) →
+                        </div>
+                        <div className="absolute top-1/2 left-0 -translate-y-1/2 -rotate-90 text-[8px] text-slate-400 font-bold whitespace-nowrap">
+                            特征 Y (脸型宽度) →
+                        </div>
+                        
+                        {/* 点 A */}
+                        <div 
+                            className="absolute cursor-pointer transition-all duration-300 hover:scale-125"
+                            style={{ left: `${pointA.x}%`, bottom: `${pointA.y}%`, transform: 'translate(-50%, 50%)' }}
+                            onMouseEnter={() => setActivePoint('A')}
+                            onMouseLeave={() => setActivePoint(null)}
+                        >
+                            <div className={`w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-lg shadow-md border-2 border-white transition-all ${activePoint === 'A' ? 'ring-2 ring-blue-300 scale-110' : ''}`}>
+                                {pointA.icon}
+                            </div>
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-blue-600 whitespace-nowrap bg-white/80 px-1 rounded">
+                                小明
+                            </div>
+                        </div>
+                        
+                        {/* 点 B */}
+                        <div 
+                            className="absolute cursor-pointer transition-all duration-300 hover:scale-125"
+                            style={{ left: `${pointB.x}%`, bottom: `${pointB.y}%`, transform: 'translate(-50%, 50%)' }}
+                            onMouseEnter={() => setActivePoint('B')}
+                            onMouseLeave={() => setActivePoint(null)}
+                        >
+                            <div className={`w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-lg shadow-md border-2 border-white transition-all ${activePoint === 'B' ? 'ring-2 ring-rose-300 scale-110' : ''}`}>
+                                {pointB.icon}
+                            </div>
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-rose-600 whitespace-nowrap bg-white/80 px-1 rounded">
+                                小美
+                            </div>
+                        </div>
+                        
+                        {/* SVG 连线 */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                            <line 
+                                x1={`${pointA.x}%`} 
+                                y1={`${100 - pointA.y}%`} 
+                                x2={`${pointB.x}%`} 
+                                y2={`${100 - pointB.y}%`}
+                                stroke="#3b82f6"
+                                strokeWidth="2"
+                                strokeDasharray="5,3"
+                            />
+                            {/* 辅助虚线 */}
+                            <line 
+                                x1={`${pointA.x}%`} 
+                                y1={`${100 - pointA.y}%`} 
+                                x2={`${pointB.x}%`} 
+                                y2={`${100 - pointA.y}%`}
+                                stroke="#94a3b8"
+                                strokeWidth="1"
+                                strokeDasharray="4,3"
+                            />
+                            <line 
+                                x1={`${pointB.x}%`} 
+                                y1={`${100 - pointA.y}%`} 
+                                x2={`${pointB.x}%`} 
+                                y2={`${100 - pointB.y}%`}
+                                stroke="#94a3b8"
+                                strokeWidth="1"
+                                strokeDasharray="4,3"
+                            />
+                        </svg>
+                        
+                        {/* 差值标签 - 更小巧 */}
+                        <div className="absolute text-[9px] font-bold text-slate-500 bg-white/80 px-1 rounded" 
+                            style={{ left: `${(pointA.x + pointB.x) / 2}%`, top: `${100 - pointA.y - 3}%`, transform: 'translateX(-50%)' }}>
+                            Δx = {dx}
+                        </div>
+                        <div className="absolute text-[9px] font-bold text-slate-500 bg-white/80 px-1 rounded" 
+                            style={{ left: `${pointB.x + 3}%`, top: `${100 - (pointA.y + pointB.y) / 2}%`, transform: 'translateY(-50%)' }}>
+                            Δy = {dy}
+                        </div>
+                        <div className="absolute text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full shadow-sm"
+                            style={{ left: `${(pointA.x + pointB.x) / 2 + 8}%`, top: `${100 - (pointA.y + pointB.y) / 2 - 8}%`, transform: 'translate(-50%, -50%)' }}>
+                            距离 = {distance}
+                        </div>
+                    </div>
+                    
+                    {/* 提示信息 */}
+                    {activePoint && (
+                        <div className="mt-2 text-[10px] text-center text-slate-500 animate-fade-in shrink-0">
+                            {activePoint === 'A' ? `小明坐标: (${pointA.x}, ${pointA.y})` : `小美坐标: (${pointB.x}, ${pointB.y})`}
+                        </div>
+                    )}
+                </div>
+                
+                {/* 右侧：公式区域 - 占1列 */}
+                <div className="flex flex-col gap-3 min-h-0 overflow-y-auto">
+                    {/* 勾股定理卡片 */}
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-xl border border-green-200">
+                        <h3 className="font-bold text-green-700 text-sm mb-2 flex items-center gap-1">
+                            <i className="fas fa-square-root-alt text-green-600 text-xs"></i>
+                            勾股定理
+                        </h3>
+                        <div className="bg-white p-2 rounded-lg flex justify-center">
+                            {katexLoaded ? (
+                                <div className="text-sm" dangerouslySetInnerHTML={{
+                                    __html: window.katex.renderToString(pythagoreanTex, { throwOnError: false, displayMode: true })
+                                }} />
+                            ) : (
+                                <span className="text-xs text-slate-400">加载中...</span>
+                            )}
+                        </div>
+                        <p className="text-[10px] text-green-600 mt-1 text-center">斜边平方 = 两直角边平方和</p>
+                    </div>
+                    
+                    {/* 欧氏距离卡片 */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-200">
+                        <h3 className="font-bold text-blue-700 text-sm mb-2 flex items-center gap-1">
+                            <i className="fas fa-ruler text-blue-600 text-xs"></i>
+                            欧氏距离公式
+                        </h3>
+                        <div className="bg-white p-2 rounded-lg flex justify-center">
+                            {katexLoaded ? (
+                                <div className="text-sm" dangerouslySetInnerHTML={{
+                                    __html: window.katex.renderToString(distanceTex, { throwOnError: false, displayMode: true })
+                                }} />
+                            ) : (
+                                <span className="text-xs text-slate-400">加载中...</span>
+                            )}
+                        </div>
+                        <div className="mt-2 text-[10px] text-blue-700 space-y-0.5">
+                            <div className="flex justify-between">
+                                <span>X 差值:</span>
+                                <span className="font-mono font-bold">{dx}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Y 差值:</span>
+                                <span className="font-mono font-bold">{dy}</span>
+                            </div>
+                            <div className="border-t border-blue-200 my-1"></div>
+                            <div className="flex justify-between">
+                                <span>距离:</span>
+                                <span className="font-mono font-bold text-blue-800">√({dx}²+{dy}²) = {distance}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* 生活类比卡片 */}
+                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-200">
+                        <div className="flex items-start gap-2">
+                            <i className="fas fa-compass text-amber-500 text-sm mt-0.5"></i>
+                            <div>
+                                <p className="text-[10px] text-slate-700 leading-relaxed">
+                                    💡 <strong>直线距离</strong> = 鸟飞过的路径，而不是走街道的折线
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* 升维思考 */}
+                    <div className="bg-orange-50 p-3 rounded-xl border border-orange-200">
+                        <div className="flex items-start gap-2">
+                            <i className="fas fa-rocket text-orange-500 text-sm mt-0.5"></i>
+                            <div>
+                                <p className="text-[10px] text-slate-700 leading-relaxed">
+                                    <strong className="text-orange-600">128维空间</strong>：同样公式拓展
+                                </p>
+                                <p className="text-[8px] text-orange-600 mt-0.5 font-mono">
+                                    √[(x₁-y₁)² + ... + (x₁₂₈-y₁₂₈)²]
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+            
+            <style jsx>{`
+                @keyframes fade-in {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .animate-fade-in {
+                    animation: fade-in 0.2s ease-out;
+                }
+            `}</style>
         </div>
     );
 }
 
 // ---- 7. KNN 介绍 ----
 function KNNIntroSlide() {
+    const [activeStep, setActiveStep] = window.CourseGlobalContext.useSyncVar('knnIntro:step', 0);
+    const [autoPlay, setAutoPlay] = window.CourseGlobalContext.useSyncVar('knnIntro:autoPlay', false);
+    const [showTooltip, setShowTooltip] = window.CourseGlobalContext.useLocalVar('knnIntro:tooltip', false);
+    
+    // 三个步骤的详细说明
+    const steps = [
+        {
+            icon: 'fa-user-plus',
+            title: '步骤1：新同学来了',
+            desc: '新同学走进教室，站在某个位置',
+            detail: '新同学进入班级，我们需要根据周围同学的兴趣爱好，判断他可能喜欢什么。',
+            animation: 'animate-float'
+        },
+        {
+            icon: 'fa-ruler-combined',
+            title: '步骤2：找 K 个最近的同学',
+            desc: '计算距离，找到离他最近的 3 个同学',
+            detail: '用距离公式计算新同学到每个人的距离，选出距离最近的 3 个同学作为邻居。',
+            animation: 'animate-pulse-slow'
+        },
+        {
+            icon: 'fa-vote-yea',
+            title: '步骤3：投票决定！',
+            desc: '邻居们投票，票数最多的就是新同学的兴趣',
+            detail: '3 个邻居进行投票，得票最多的兴趣爱好就是新同学的分类结果。',
+            animation: 'animate-bounce-slight'
+        }
+    ];
+    
+    // 自动播放
+    useEffect(() => {
+        let timer;
+        if (autoPlay) {
+            timer = setInterval(() => {
+                setActiveStep((prev) => {
+                    if (prev >= 2) {
+                        setAutoPlay(false);
+                        return prev;
+                    }
+                    return prev + 1;
+                });
+            }, 2500);
+            return () => clearInterval(timer);
+        }
+    }, [autoPlay, setActiveStep, setAutoPlay]);
+    
+    const handleStepClick = (index) => {
+        setActiveStep(index);
+        setAutoPlay(false);
+    };
+    
+    const startAutoPlay = () => {
+        setActiveStep(0);
+        setAutoPlay(true);
+    };
+    
+    const resetSteps = () => {
+        setActiveStep(0);
+        setAutoPlay(false);
+    };
+    
+    // 定义同学在教室中的坐标（百分比）
+    const students = [
+        { x: 15, y: 30, label: '小明', hobby: '足球', color: '#3b82f6' },
+        { x: 25, y: 45, label: '小华', hobby: '足球', color: '#3b82f6' },
+        { x: 48, y: 52, label: '小军', hobby: '篮球', color: '#ef4444' },
+        { x: 55, y: 65, label: '小强', hobby: '篮球', color: '#ef4444' },
+        { x: 62, y: 38, label: '小刚', hobby: '篮球', color: '#ef4444' },
+        { x: 70, y: 55, label: '小伟', hobby: '篮球', color: '#ef4444' }
+    ];
+    
+    // 新同学位置
+    const newStudent = { x: 85, y: 48 };
+    
+    // 计算距离并找出最近的3个同学
+    const calculateNearest = () => {
+        const withDistance = students.map(s => ({
+            ...s,
+            distance: Math.sqrt(Math.pow(s.x - newStudent.x, 2) + Math.pow(s.y - newStudent.y, 2))
+        }));
+        return [...withDistance].sort((a, b) => a.distance - b.distance).slice(0, 3);
+    };
+    
+    const nearestStudents = calculateNearest();
+    
+    // 统计投票结果
+    const voteResult = { 足球: 0, 篮球: 0 };
+    nearestStudents.forEach(s => {
+        if (s.hobby === '足球') voteResult.足球++;
+        else voteResult.篮球++;
+    });
+    const winner = voteResult.足球 > voteResult.篮球 ? '足球' : '篮球';
+
     return (
-        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6 flex items-center shrink-0">
-                <i className="fas fa-users mr-4 text-green-500"></i> KNN：「问问我的邻居是谁」
+        <div className="flex flex-col h-full p-5 md:p-6 bg-white overflow-hidden">
+            <style>{`
+                @keyframes float-soft {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-5px); }
+                }
+                .animate-float {
+                    animation: float-soft 1s ease-in-out infinite;
+                    display: inline-block;
+                }
+                @keyframes pulse-soft {
+                    0%, 100% { opacity: 0.6; transform: scale(1); }
+                    50% { opacity: 1; transform: scale(1.1); }
+                }
+                .animate-pulse-slow {
+                    animation: pulse-soft 1s ease-in-out infinite;
+                    display: inline-block;
+                }
+                @keyframes bounce-soft {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-4px); }
+                }
+                .animate-bounce-slight {
+                    animation: bounce-soft 0.5s ease-in-out infinite;
+                    display: inline-block;
+                }
+                @keyframes fade-quick {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                    animation: fade-quick 0.2s ease-out;
+                }
+                @keyframes dash-flow {
+                    to { stroke-dashoffset: 20; }
+                }
+                .animate-dash-flow {
+                    stroke-dasharray: 8, 5;
+                    animation: dash-flow 0.4s linear infinite;
+                }
+                @keyframes vote-pop {
+                    0% { transform: scale(0); opacity: 0; }
+                    80% { transform: scale(1.2); }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                .animate-vote-pop {
+                    animation: vote-pop 0.3s ease-out forwards;
+                }
+                @keyframes float-slow {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-5px); }
+                }
+                .animate-float-slow {
+                    animation: float-slow 1.5s ease-in-out infinite;
+                }
+                @keyframes pulse-ring {
+                    0% { transform: scale(0.8); opacity: 0.6; }
+                    100% { transform: scale(1.2); opacity: 0; }
+                }
+                .animate-pulse-ring {
+                    animation: pulse-ring 0.8s ease-out infinite;
+                }
+            `}</style>
+            
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
+                <i className="fas fa-users mr-3 text-green-500"></i> KNN：「问问我的邻居是谁」
             </h2>
-
-            <div className="flex-1 flex flex-col gap-5">
-                <div className="bg-green-50 p-6 md:p-8 rounded-2xl border border-green-100 shadow-sm shrink-0">
-                    <h3 className="text-xl md:text-2xl font-bold text-green-800 mb-3">🏫 生活中你早就用过 KNN！</h3>
-                    <p className="text-slate-700 text-base md:text-xl leading-relaxed">
-                        你来到一个新班级，放学后离你最近的 <strong className="text-green-600">3 个同学</strong>，有 2 个喜欢踢足球，1 个喜欢打篮球。<br /><br />
-                        那你大概率是个<strong>足球爱好者</strong>！—— KNN 的核心思想：<strong>看距离，找邻居，少数服从多数</strong>。
-                    </p>
+            
+            <div className="flex-1 flex flex-col gap-4 min-h-0">
+                {/* 生活类比卡片 */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200 shadow-sm shrink-0">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                            <i className="fas fa-school text-white text-xl"></i>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-bold text-green-800 text-lg mb-2">🏫 生活中你早就用过 KNN！</h3>
+                            <p className="text-slate-700 text-base leading-relaxed">
+                                你来到一个新班级，放学后离你最近的 <strong className="text-green-600">3 个同学</strong>，有 <strong className="text-green-600">{voteResult.足球} 个喜欢踢足球</strong>，<strong className="text-green-600">{voteResult.篮球} 个喜欢打篮球</strong>。<br />
+                                那你大概率是个<strong className="text-green-600">{winner === '足球' ? '足球' : '篮球'}爱好者</strong>！<br />
+                                KNN 的核心思想：<strong className="text-green-600">看距离，找邻居，少数服从多数</strong>。
+                            </p>
+                        </div>
+                    </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {[
-                        { n: '1', icon: 'fa-user-plus', title: '出现新人脸', desc: '把它的 128 个特征放进空间，找到它的「位置」' },
-                        { n: '2', icon: 'fa-ruler-combined', title: '找 K 个最近邻', desc: '利用欧氏距离计算它和所有人的距离，取最近的 K 个' },
-                        { n: '3', icon: 'fa-vote-yea', title: '投票决定！', desc: 'K 个邻居中票数最多的类别，就是新人的身份' },
-                    ].map(item => (
-                        <div key={item.n} className="bg-white p-5 rounded-2xl border-2 border-green-200 shadow-sm flex flex-col items-center text-center">
-                            <div className="bg-green-500 text-white w-11 h-11 rounded-full flex items-center justify-center font-black text-lg mb-3 shadow border-4 border-white shrink-0">{item.n}</div>
-                            <i className={`fas ${item.icon} text-2xl text-green-400 mb-2`}></i>
-                            <h4 className="font-bold text-green-800 text-base mb-1">{item.title}</h4>
-                            <p className="text-slate-600 text-sm">{item.desc}</p>
+                
+                {/* 步骤卡片 - 三个步骤 */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0">
+                    {steps.map((step, idx) => (
+                        <div 
+                            key={idx}
+                            onClick={() => handleStepClick(idx)}
+                            className={`
+                                bg-white rounded-xl border-2 cursor-pointer transition-all duration-300
+                                flex flex-col p-4 hover:shadow-md
+                                ${activeStep === idx ? 'border-green-500 shadow-lg ring-2 ring-green-200' : 'border-slate-200 hover:border-green-300'}
+                            `}
+                        >
+                            {/* 步骤序号 */}
+                            <div className="flex items-center justify-between mb-3">
+                                <div className={`
+                                    w-8 h-8 rounded-full flex items-center justify-center text-base font-bold transition-all
+                                    ${activeStep === idx ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-600'}
+                                `}>
+                                    {idx + 1}
+                                </div>
+                                {activeStep === idx && (
+                                    <i className="fas fa-play text-green-500 text-sm animate-pulse"></i>
+                                )}
+                            </div>
+                            
+                            {/* 图标 */}
+                            <div className="text-3xl text-green-400 mb-3">
+                                <i className={`fas ${step.icon} ${activeStep === idx ? step.animation : ''}`}></i>
+                            </div>
+                            
+                            {/* 标题 */}
+                            <h4 className="font-bold text-slate-800 text-base mb-2 leading-tight">
+                                {step.title}
+                            </h4>
+                            
+                            {/* 简短描述 */}
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                                {step.desc}
+                            </p>
+                            
+                            {/* 动画时显示的详细说明 */}
+                            {activeStep === idx && (
+                                <div className="mt-3 pt-3 border-t border-green-100 animate-fade-in">
+                                    <p className="text-green-600 text-xs leading-relaxed">
+                                        <i className="fas fa-lightbulb mr-1"></i> {step.detail}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     ))}
+                </div>
+                
+                {/* 动画演示区域 - 带交互 */}
+                <div className="bg-gradient-to-br from-slate-50 to-green-50/30 rounded-xl border border-slate-200 p-4 shrink-0">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-slate-700 text-base flex items-center gap-2">
+                            <i className="fas fa-tv text-green-500"></i>
+                            动画演示
+                            {activeStep !== null && (
+                                <span className="text-green-600 text-sm bg-green-100 px-2 py-0.5 rounded-full">
+                                    当前: {steps[activeStep].title}
+                                </span>
+                            )}
+                        </h3>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={startAutoPlay}
+                                disabled={autoPlay}
+                                className="text-xs bg-green-500 hover:bg-green-600 disabled:bg-slate-300 text-white px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                                <i className="fas fa-play mr-1"></i> 自动播放
+                            </button>
+                            <button 
+                                onClick={resetSteps}
+                                className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-600 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                                <i className="fas fa-redo-alt mr-1"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* 动态示意图 */}
+                    <div className="relative bg-white rounded-lg border border-slate-200 h-40 flex items-center justify-center overflow-hidden">
+                        {/* 步骤1：新同学来了 */}
+                        {activeStep === 0 && (
+                            <div className="flex items-center justify-center gap-8">
+                                <div className="relative">
+                                    <div className="w-10 h-10 rounded-full bg-slate-400 flex items-center justify-center shadow-lg">
+                                        <i className="fas fa-user-plus text-white text-base"></i>
+                                    </div>
+                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-slate-500 whitespace-nowrap">
+                                        新同学
+                                    </div>
+                                </div>
+                                <i className="fas fa-arrow-right text-green-400 text-base animate-pulse"></i>
+                                <div className="relative animate-float-slow">
+                                    <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
+                                        <i className="fas fa-map-marker-alt text-white text-base"></i>
+                                    </div>
+                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-green-500 whitespace-nowrap">
+                                        站在教室某个位置
+                                    </div>
+                                </div>
+                                <div className="text-sm text-slate-400">✨ 定位完成 ✨</div>
+                            </div>
+                        )}
+                        
+                        {/* 步骤2：找最近的3个同学 */}
+                        {activeStep === 1 && (
+                            <div className="relative w-full h-full">
+                                {/* 所有同学 */}
+                                {students.map((s, idx) => {
+                                    const isNeighbor = nearestStudents.some(n => n.label === s.label);
+                                    const distance = Math.sqrt(Math.pow(s.x - newStudent.x, 2) + Math.pow(s.y - newStudent.y, 2)).toFixed(1);
+                                    return (
+                                        <div 
+                                            key={idx}
+                                            className="absolute group"
+                                            style={{ left: `${s.x}%`, top: `${s.y}%`, transform: 'translate(-50%, -50%)' }}
+                                            onMouseEnter={() => setShowTooltip(true)}
+                                            onMouseLeave={() => setShowTooltip(false)}
+                                        >
+                                            <div className={`
+                                                w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center
+                                                ${isNeighbor ? 'ring-2 ring-green-400 ring-offset-1' : ''}
+                                            `}
+                                                style={{ backgroundColor: s.color }}>
+                                                <span className="text-white text-[10px]">{s.hobby === '足球' ? '⚽' : '🏀'}</span>
+                                            </div>
+                                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] text-slate-600 font-medium whitespace-nowrap">
+                                                {s.label}
+                                            </div>
+                                            {/* 鼠标悬停显示距离 */}
+                                            {showTooltip && (
+                                                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] text-green-600 bg-white/90 px-1 rounded whitespace-nowrap">
+                                                    距离: {distance}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                
+                                {/* 新同学 */}
+                                <div 
+                                    className="absolute"
+                                    style={{ left: `${newStudent.x}%`, top: `${newStudent.y}%`, transform: 'translate(-50%, -50%)' }}
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-green-500 border-2 border-white shadow-lg flex items-center justify-center">
+                                        <i className="fas fa-star text-white text-xs"></i>
+                                    </div>
+                                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-green-600 whitespace-nowrap">
+                                        新同学
+                                    </div>
+                                </div>
+                                
+                                {/* SVG 连线 */}
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}>
+                                    {nearestStudents.map((s, idx) => {
+                                        const distance = Math.sqrt(Math.pow(s.x - newStudent.x, 2) + Math.pow(s.y - newStudent.y, 2)).toFixed(1);
+                                        return (
+                                            <g key={idx}>
+                                                <line 
+                                                    x1={`${newStudent.x}%`}
+                                                    y1={`${newStudent.y}%`}
+                                                    x2={`${s.x}%`}
+                                                    y2={`${s.y}%`}
+                                                    stroke="#10b981"
+                                                    strokeWidth="2.5"
+                                                    strokeDasharray="6,4"
+                                                    className="animate-dash-flow"
+                                                    style={{ animationDelay: `${idx * 0.15}s` }}
+                                                />
+                                                {/* 距离标签 */}
+                                                <text 
+                                                    x={`${(newStudent.x + s.x) / 2}%`}
+                                                    y={`${(newStudent.y + s.y) / 2 - 2}%`}
+                                                    textAnchor="middle"
+                                                    fontSize="8"
+                                                    fill="#10b981"
+                                                    className="font-bold"
+                                                >
+                                                    {distance}
+                                                </text>
+                                            </g>
+                                        );
+                                    })}
+                                    {/* 高亮最近的3个同学 */}
+                                    {nearestStudents.map((s, idx) => (
+                                        <circle 
+                                            key={`highlight-${idx}`}
+                                            cx={`${s.x}%`}
+                                            cy={`${s.y}%`}
+                                            r="14"
+                                            fill="none"
+                                            stroke="#10b981"
+                                            strokeWidth="2"
+                                            className="animate-pulse-ring"
+                                            style={{ animationDelay: `${idx * 0.2}s` }}
+                                        />
+                                    ))}
+                                </svg>
+                                
+                                {/* 底部说明文字 */}
+                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-medium text-green-600 whitespace-nowrap bg-white/90 px-3 py-1 rounded-full shadow-sm z-20">
+                                    最近的3个同学：
+                                    {nearestStudents.map((s, idx) => (
+                                        <span key={idx}>
+                                            {idx > 0 ? '、' : ''}{s.label}{s.hobby === '足球' ? '⚽' : '🏀'}
+                                            ({Math.sqrt(Math.pow(s.x - newStudent.x, 2) + Math.pow(s.y - newStudent.y, 2)).toFixed(1)})
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* 步骤3：投票决定 */}
+                        {activeStep === 2 && (
+                            <div className="flex flex-col items-center justify-center gap-2 w-full">
+                                <div className="flex items-center justify-center gap-4">
+                                    {/* 邻居们 */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex gap-3 mb-1">
+                                            {nearestStudents.map((s, idx) => (
+                                                <div key={idx} className="flex flex-col items-center">
+                                                    <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-md"
+                                                        style={{ backgroundColor: s.color }}>
+                                                        <span className="text-white text-sm">{s.hobby === '足球' ? '⚽' : '🏀'}</span>
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-500 mt-0.5">{s.label}</div>
+                                                    <div className="text-[8px] text-slate-400">{Math.sqrt(Math.pow(s.x - newStudent.x, 2) + Math.pow(s.y - newStudent.y, 2)).toFixed(1)}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="text-[11px] text-slate-500">最近的3个同学</div>
+                                    </div>
+                                    
+                                    <i className="fas fa-arrow-right text-green-500 text-sm"></i>
+                                    
+                                    {/* 投票箱 */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex gap-5 mb-1">
+                                            <div className="flex flex-col items-center">
+                                                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-lg animate-vote-pop">
+                                                    <i className="fas fa-futbol text-white text-base"></i>
+                                                </div>
+                                                <div className="text-sm font-bold text-blue-600 mt-0.5">{voteResult.足球} 票</div>
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
+                                                    <i className="fas fa-basketball-ball text-white text-base"></i>
+                                                </div>
+                                                <div className="text-sm font-bold text-red-500 mt-0.5">{voteResult.篮球} 票</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-[11px] text-slate-500">投票结果</div>
+                                    </div>
+                                    
+                                    <i className="fas fa-arrow-right text-green-500 text-sm"></i>
+                                    
+                                    {/* 结果 */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-11 h-11 rounded-full bg-green-500 flex items-center justify-center shadow-lg animate-bounce-slight">
+                                            <i className={`fas ${winner === '足球' ? 'fa-futbol' : 'fa-basketball-ball'} text-white text-lg`}></i>
+                                        </div>
+                                        <div className="text-sm font-bold text-green-600 mt-0.5">{winner}爱好者！</div>
+                                    </div>
+                                </div>
+                                <div className="text-[11px] text-green-600 mt-1 animate-pulse font-medium">
+                                    🏆 少数服从多数，{voteResult.足球}票{voteResult.篮球 === 0 ? '全票' : ` vs ${voteResult.篮球}票`}，新同学加入{winner}队！
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* 初始状态 */}
+                        {activeStep === null && (
+                            <div className="text-sm text-slate-400 animate-pulse">
+                                点击上方步骤查看KNN算法演示
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* 当前步骤提示 */}
+                    <div className="mt-3 text-center">
+                        <p className="text-xs text-slate-500">
+                            {activeStep !== null ? steps[activeStep].detail : '点击任意步骤卡片，观看KNN算法演示'}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -461,13 +1939,167 @@ function KNNDemoSlide() {
     const [k, setK] = window.CourseGlobalContext.useSyncVar('knn:k', 3);
     const [result, setResult] = window.CourseGlobalContext.useSyncVar('knn:result', null);
     const [showDistances, setShowDistances] = window.CourseGlobalContext.useSyncVar('knn:showDistances', false);
+    const [showHeatmap, setShowHeatmap] = window.CourseGlobalContext.useSyncVar('knn:showHeatmap', true);
     const containerRef = useRef(null);
-
+    const canvasRef = useRef(null);
+    const drawTimeoutRef = useRef(null);
+    
+    // KNN 已知点数据
+    const knownPoints = [
+        { x: 20, y: 75, label: '小明', color: '#3b82f6', grp: '蓝组(男生)' },
+        { x: 30, y: 65, label: '小华', color: '#3b82f6', grp: '蓝组(男生)' },
+        { x: 15, y: 85, label: '小军', color: '#3b82f6', grp: '蓝组(男生)' },
+        { x: 75, y: 70, label: '小美', color: '#f43f5e', grp: '红组(女生)' },
+        { x: 82, y: 78, label: '小红', color: '#f43f5e', grp: '红组(女生)' },
+        { x: 68, y: 62, label: '小芳', color: '#f43f5e', grp: '红组(女生)' },
+        { x: 48, y: 20, label: '老李', color: '#f59e0b', grp: '黄组(老师)' },
+        { x: 55, y: 28, label: '王老师', color: '#f59e0b', grp: '黄组(老师)' },
+        { x: 40, y: 15, label: '张老师', color: '#f59e0b', grp: '黄组(老师)' },
+    ];
+    
+    // 颜色映射
+    const groupColors = {
+        '蓝组(男生)': { r: 59, g: 130, b: 246 },
+        '红组(女生)': { r: 244, g: 63, b: 94 },
+        '黄组(老师)': { r: 245, g: 158, b: 11 }
+    };
+    
+    // 预计算网格分类结果（使用较低分辨率）
+    const gridDataRef = useRef(null);
+    const gridSize = 25; // 25x25 的网格，只有625个点，性能大幅提升
+    
+    // 计算网格分类
+    const computeGrid = useCallback(() => {
+        const grid = [];
+        for (let i = 0; i <= gridSize; i++) {
+            grid[i] = [];
+            for (let j = 0; j <= gridSize; j++) {
+                const percentX = (i / gridSize) * 100;
+                const percentY = (j / gridSize) * 100;
+                
+                // 计算距离并找出最近的K个点
+                const distances = knownPoints.map(p => ({
+                    ...p,
+                    distance: Math.sqrt(Math.pow(p.x - percentX, 2) + Math.pow(p.y - percentY, 2))
+                }));
+                const nearest = [...distances].sort((a, b) => a.distance - b.distance).slice(0, k);
+                
+                // 投票
+                const votes = {};
+                nearest.forEach(n => {
+                    votes[n.grp] = (votes[n.grp] || 0) + 1;
+                });
+                
+                let winner = null;
+                let maxVotes = 0;
+                for (const [grp, count] of Object.entries(votes)) {
+                    if (count > maxVotes) {
+                        maxVotes = count;
+                        winner = grp;
+                    }
+                }
+                
+                grid[i][j] = winner;
+            }
+        }
+        return grid;
+    }, [k]);
+    
+    // 绘制热力图
+    const drawHeatmap = useCallback(() => {
+        if (!canvasRef.current || !containerRef.current || !showHeatmap) return;
+        
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        const rect = container.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+        
+        if (width === 0 || height === 0) return;
+        
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        // 获取或计算网格数据
+        if (!gridDataRef.current) {
+            gridDataRef.current = computeGrid();
+        }
+        const grid = gridDataRef.current;
+        
+        // 绘制每个网格块
+        const cellW = width / gridSize;
+        const cellH = height / gridSize;
+        
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const winner = grid[i][j];
+                let color;
+                if (winner === '蓝组(男生)') color = groupColors['蓝组(男生)'];
+                else if (winner === '红组(女生)') color = groupColors['红组(女生)'];
+                else if (winner === '黄组(老师)') color = groupColors['黄组(老师)'];
+                else continue;
+                
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.35)`;
+                ctx.fillRect(i * cellW, j * cellH, cellW + 1, cellH + 1);
+            }
+        }
+    }, [showHeatmap, computeGrid, gridSize]);
+    
+    // 当k值变化时重新计算网格
+    useEffect(() => {
+        if (showHeatmap) {
+            gridDataRef.current = computeGrid();
+            requestAnimationFrame(() => {
+                drawHeatmap();
+            });
+        }
+    }, [k, showHeatmap, computeGrid, drawHeatmap]);
+    
+    // 窗口大小变化时重新绘制（不重新计算网格）
+    useEffect(() => {
+        const handleResize = () => {
+            if (showHeatmap && canvasRef.current) {
+                requestAnimationFrame(() => {
+                    drawHeatmap();
+                });
+            }
+        };
+        
+        const resizeObserver = new ResizeObserver(handleResize);
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
+        
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            resizeObserver.disconnect();
+        };
+    }, [showHeatmap, drawHeatmap]);
+    
+    // 初始绘制
+    useEffect(() => {
+        if (showHeatmap) {
+            gridDataRef.current = computeGrid();
+            setTimeout(() => {
+                drawHeatmap();
+            }, 100);
+        }
+    }, [showHeatmap, computeGrid, drawHeatmap]);
+    
     const handleClick = (e) => {
         const rect = containerRef.current.getBoundingClientRect();
-        const np = { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 };
+        const np = { 
+            x: ((e.clientX - rect.left) / rect.width) * 100, 
+            y: ((e.clientY - rect.top) / rect.height) * 100 
+        };
         setNewPoint(np);
-        const sorted = [...KNN_KNOWN_POINTS].sort((a, b) => calculateDistance(a, np) - calculateDistance(b, np));
+        const sorted = [...knownPoints].sort((a, b) => calculateDistance(a, np) - calculateDistance(b, np));
         const neighbors = sorted.slice(0, k);
         const votes = {};
         neighbors.forEach(n => { votes[n.grp] = (votes[n.grp] || 0) + 1; });
@@ -476,74 +2108,187 @@ function KNNDemoSlide() {
     };
 
     return (
-        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
-                <i className="fas fa-hand-pointer mr-4 text-green-500"></i> KNN 互动演示：点击放一个新人进来
+        <div className="flex flex-col h-full p-5 md:p-6 bg-white overflow-hidden">
+            <style>{`
+                @keyframes dash-flow {
+                    to { stroke-dashoffset: 20; }
+                }
+                .animate-dash-flow {
+                    stroke-dasharray: 8, 5;
+                    animation: dash-flow 0.4s linear infinite;
+                }
+            `}</style>
+            
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
+                <i className="fas fa-hand-pointer mr-3 text-green-500"></i> KNN 互动演示：点击放一个新人进来
             </h2>
             <div className="flex items-center gap-3 mb-4 shrink-0 flex-wrap">
                 <span className="text-slate-600 font-bold">K 值（找几个邻居）：</span>
                 {[1, 2, 3, 5, 7].map(val => (
                     <button key={val} onClick={() => { setK(val); setNewPoint(null); setResult(null); }}
-                        className={`px-4 py-1.5 rounded-xl font-bold text-sm border-2 ${k === val ? 'bg-green-500 text-white border-green-500' : 'bg-white text-slate-600 border-slate-300'}`}>
+                        className={`px-4 py-1.5 rounded-xl font-bold text-sm border-2 transition-all ${k === val ? 'bg-green-500 text-white border-green-500' : 'bg-white text-slate-600 border-slate-300 hover:border-green-400'}`}>
                         K={val}
                     </button>
                 ))}
-                <button onClick={() => setShowDistances(v => !v)} className="px-3 py-1.5 rounded-xl font-bold text-sm border-2 bg-slate-100">
-                    {showDistances ? '隐藏距离' : '显示距离'}
-                </button>
+                <div className="flex items-center gap-2 ml-2">
+                    <button 
+                        onClick={() => setShowHeatmap(v => !v)} 
+                        className={`px-3 py-1.5 rounded-xl font-bold text-sm border-2 transition-all ${showHeatmap ? 'bg-green-500 text-white border-green-500' : 'bg-white text-slate-600 border-slate-300'}`}
+                    >
+                        <i className={`fas ${showHeatmap ? 'fa-eye-slash' : 'fa-chart-line'} mr-1`}></i>
+                        {showHeatmap ? '隐藏分布图' : '显示分布图'}
+                    </button>
+                    <button onClick={() => setShowDistances(v => !v)} 
+                        className={`px-3 py-1.5 rounded-xl font-bold text-sm border-2 transition-all ${showDistances ? 'bg-green-500 text-white border-green-500' : 'bg-white text-slate-600 border-slate-300'}`}>
+                        {showDistances ? '隐藏距离' : '显示距离'}
+                    </button>
+                </div>
             </div>
 
-            <div className="flex-1 flex flex-col md:flex-row gap-4">
-                <div ref={containerRef} onClick={handleClick} className="relative bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 shadow-inner flex-1 cursor-crosshair min-h-[260px]">
+            <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+                <div ref={containerRef} onClick={handleClick} className="relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner flex-1 cursor-crosshair min-h-[300px] overflow-hidden">
+                    {/* Canvas 热力图背景 */}
+                    {showHeatmap && (
+                        <canvas 
+                            ref={canvasRef} 
+                            className="absolute inset-0 w-full h-full pointer-events-none"
+                            style={{ opacity: 0.5 }}
+                        />
+                    )}
+                    
+                    {/* 网格线 */}
+                    <div className="absolute inset-0 pointer-events-none">
+                        {Array.from({ length: 10 }).map((_, i) => (
+                            <React.Fragment key={`grid-${i}`}>
+                                <div className="absolute top-0 bottom-0 w-px bg-slate-300/50" style={{ left: `${i * 10}%` }}></div>
+                                <div className="absolute left-0 right-0 h-px bg-slate-300/50" style={{ top: `${i * 10}%` }}></div>
+                            </React.Fragment>
+                        ))}
+                    </div>
+                    
+                    {/* 连线动画 */}
                     {result && newPoint && (
                         <svg className="absolute inset-0 w-full h-full pointer-events-none">
                             {result.neighbors.map((n, i) => (
-                                <line key={i} x1={`${newPoint.x}%`} y1={`${newPoint.y}%`} x2={`${n.x}%`} y2={`${n.y}%`} stroke="#86efac" strokeWidth="2" strokeDasharray="5,3" />
+                                <line key={i} 
+                                    x1={`${newPoint.x}%`} 
+                                    y1={`${newPoint.y}%`} 
+                                    x2={`${n.x}%`} 
+                                    y2={`${n.y}%`} 
+                                    stroke="#86efac" 
+                                    strokeWidth="2" 
+                                    strokeDasharray="5,3"
+                                    className="animate-dash-flow" />
                             ))}
                         </svg>
                     )}
-                    {KNN_KNOWN_POINTS.map((p, i) => {
+                    
+                    {/* 已知点 */}
+                    {knownPoints.map((p, i) => {
                         const isNeighbor = result?.neighbors.some(n => n.label === p.label);
                         const distance = result?.sorted.findIndex(item => item.label === p.label) + 1;
                         return (
-                            <div key={i} className="absolute" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}>
-                                <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white shadow-md ${isNeighbor ? 'scale-150 ring-2 ring-green-400 ring-offset-1' : ''}`} style={{ backgroundColor: p.color }}>
-                                    {showDistances && result && !isNeighbor && distance <= 7 && (
-                                        <div className="absolute -top-3 -right-3 bg-slate-700 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{distance}</div>
-                                    )}
+                            <div key={i} className="absolute group" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                <div className={`w-6 h-6 rounded-full border-2 border-white shadow-md transition-all duration-300 ${isNeighbor ? 'scale-125 ring-2 ring-green-400 ring-offset-1' : ''}`} 
+                                    style={{ backgroundColor: p.color }}>
                                 </div>
-                                <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-600 whitespace-nowrap">{p.label}</div>
+                                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-600 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 px-1 rounded">
+                                    {p.label}
+                                </div>
+                                {showDistances && result && !isNeighbor && distance <= 7 && (
+                                    <div className="absolute -top-3 -right-3 bg-slate-700 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                                        {distance}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
+                    
+                    {/* 新点 */}
                     {newPoint && (
                         <div className="absolute" style={{ left: `${newPoint.x}%`, top: `${newPoint.y}%`, transform: 'translate(-50%, -50%)' }}>
                             <div className="w-8 h-8 rounded-full bg-purple-500 border-4 border-white shadow-xl animate-bounce flex items-center justify-center">
                                 <i className="fas fa-question text-white text-xs font-black"></i>
                             </div>
+                            {result && (
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-bold text-purple-600 whitespace-nowrap bg-white/80 px-1.5 py-0.5 rounded-full shadow-sm">
+                                    预测: {result.winner}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    
+                    {/* 图例 */}
+                    <div className="absolute bottom-2 left-2 bg-white/90 rounded-lg px-2 py-1 text-[10px] shadow-sm z-10">
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                            <span>蓝组(男生)</span>
+                            <div className="w-3 h-3 rounded-full bg-rose-500 ml-2"></div>
+                            <span>红组(女生)</span>
+                            <div className="w-3 h-3 rounded-full bg-amber-500 ml-2"></div>
+                            <span>黄组(老师)</span>
+                        </div>
+                        {showHeatmap && (
+                            <div className="text-[8px] text-slate-400 mt-1">背景颜色 = KNN分类区域 (K={k})</div>
+                        )}
+                    </div>
+                    
+                    {/* 提示文字 */}
+                    {!newPoint && (
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/90 px-3 py-1.5 rounded-full shadow-md text-xs text-slate-500 flex items-center gap-1 z-10">
+                            <i className="fas fa-hand-pointer text-green-500"></i>
+                            点击画布放置新人脸
                         </div>
                     )}
                 </div>
 
+                {/* 右侧结果面板 */}
                 <div className="w-full md:w-56 shrink-0 flex flex-col gap-3">
                     {result ? (
                         <div className="bg-green-50 p-4 rounded-xl border border-green-200">
                             <p className="font-bold text-green-800 text-sm mb-2">✅ K={k} 投票结果：</p>
-                            <div className="bg-green-600 text-white p-2.5 rounded-lg text-center font-bold mb-3">{result.winner}</div>
+                            <div className="bg-green-600 text-white p-2.5 rounded-lg text-center font-bold mb-3">
+                                {result.winner}
+                            </div>
                             <div className="space-y-1">
-                                {Object.entries(result.votes).map(([group, count]) => (
-                                    <div key={group} className="flex items-center text-xs">
-                                        <span className="flex-1 text-slate-600">{group}</span>
-                                        <span className="font-bold text-slate-500">{count} 票</span>
-                                    </div>
-                                ))}
+                                {Object.entries(result.votes).map(([group, count]) => {
+                                    let color = '';
+                                    if (group === '蓝组(男生)') color = 'text-blue-600';
+                                    else if (group === '红组(女生)') color = 'text-rose-600';
+                                    else color = 'text-amber-600';
+                                    return (
+                                        <div key={group} className="flex items-center text-xs">
+                                            <span className="flex-1 text-slate-600">{group}</span>
+                                            <span className={`font-bold ${color}`}>{count} 票</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="mt-3 pt-2 border-t border-green-200 text-[10px] text-green-700">
+                                <i className="fas fa-chart-line mr-1"></i>
+                                K={k}，最近邻居投票决定
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 text-center text-slate-400 text-sm flex-1 flex items-center justify-center">点击左侧画布放置新人脸</div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 text-center text-slate-400 text-sm flex-1 flex items-center justify-center">
+                            <div>
+                                <i className="fas fa-hand-pointer text-2xl mb-2 block text-green-400"></i>
+                                点击左侧画布<br />放置新人脸
+                            </div>
+                        </div>
                     )}
-                    <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-200 text-xs text-yellow-800 font-bold leading-relaxed">
-                        💡 实验任务：<br />1. 对比 K=1 和 K=5 的结果差异<br />2. 在不同颜色边界处放置新人脸，观察变化
+                    
+                    {/* KNN原理说明 */}
+                    <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-200 text-xs text-yellow-800 font-medium leading-relaxed">
+                        <i className="fas fa-lightbulb mr-1"></i> KNN工作原理：
+                        <ul className="mt-1 ml-4 list-disc text-[11px] text-yellow-700">
+                            <li>计算新点到所有点的距离</li>
+                            <li>选出距离最近的 K 个邻居</li>
+                            <li>邻居投票，少数服从多数</li>
+                        </ul>
+                        <div className="mt-2 pt-1 border-t border-yellow-200 text-[10px]">
+                            💡 背景色块 = K={k} 时的分类区域
+                        </div>
                     </div>
                 </div>
             </div>
@@ -708,41 +2453,372 @@ function KNNExperimentSlide() {
 
 // ---- 10. K-means 介绍 ----
 function KMeansIntroSlide() {
+    const [activeStep, setActiveStep] = window.CourseGlobalContext.useSyncVar('kmeansIntro:step', 0);
+    const [autoPlay, setAutoPlay] = window.CourseGlobalContext.useSyncVar('kmeansIntro:autoPlay', false);
+    const [showDetail, setShowDetail] = window.CourseGlobalContext.useLocalVar('kmeansIntro:detail', false);
+    
+    // 四个步骤的详细说明
+    const steps = [
+        {
+            icon: 'fa-random',
+            title: '步骤1：随机扔 K 个圆心',
+            desc: '在空间里随机选 K 个位置作为初始组长',
+            detail: '计算机随机选择 K 个点作为初始聚类中心，K 值需要提前指定。这些圆心就像小组长，刚开始还不知道谁该归谁管。',
+            animation: 'animate-float',
+            demoDesc: '✨ 随机生成 K 个圆心 ✨'
+        },
+        {
+            icon: 'fa-ruler',
+            title: '步骤2：每个点归队',
+            desc: '每个点计算距离，加入离自己最近的圆心那组',
+            detail: '计算所有数据点到每个圆心的距离，选择最近的圆心加入该组。就像每个学生找离自己最近的组长报到。',
+            animation: 'animate-pulse-slow',
+            demoDesc: '📍 每个点飞向最近的圆心 📍'
+        },
+        {
+            icon: 'fa-crosshairs',
+            title: '步骤3：更新圆心位置',
+            desc: '重新计算每组成员的平均位置，圆心移过去',
+            detail: '计算每组所有点的平均值，将圆心移动到新的中心位置。组长根据组员位置重新定位。',
+            animation: 'animate-bounce-slight',
+            demoDesc: '⭐ 圆心向组内中心移动 ⭐'
+        },
+        {
+            icon: 'fa-redo',
+            title: '步骤4：重复直到稳定',
+            desc: '反复进行，直到圆心不再移动为止',
+            detail: '重复步骤2和3，直到圆心位置不再变化，分组稳定。就像组长和组员不断调整，直到大家都满意。',
+            animation: 'icon-spin',
+            demoDesc: '🔄 重复迭代直到稳定 🔄'
+        }
+    ];
+    
+    // 自动播放
+    useEffect(() => {
+        let timer;
+        if (autoPlay) {
+            timer = setInterval(() => {
+                setActiveStep((prev) => {
+                    if (prev >= 3) {
+                        setAutoPlay(false);
+                        return prev;
+                    }
+                    return prev + 1;
+                });
+            }, 3000);
+            return () => clearInterval(timer);
+        }
+    }, [autoPlay, setActiveStep, setAutoPlay]);
+    
+    const handleStepClick = (index) => {
+        setActiveStep(index);
+        setAutoPlay(false);
+    };
+    
+    const startAutoPlay = () => {
+        setActiveStep(0);
+        setAutoPlay(true);
+    };
+    
+    const resetSteps = () => {
+        setActiveStep(0);
+        setAutoPlay(false);
+    };
+    
+    // 演示数据 - 用于动画
+    const demoPoints = [
+        { x: 20, y: 30 }, { x: 28, y: 35 }, { x: 25, y: 45 }, { x: 32, y: 40 },
+        { x: 55, y: 60 }, { x: 62, y: 65 }, { x: 58, y: 55 }, { x: 65, y: 70 },
+        { x: 75, y: 25 }, { x: 82, y: 30 }, { x: 78, y: 35 }, { x: 85, y: 28 }
+    ];
+    
+    const demoCentroids = [
+        { x: 28, y: 38 }, { x: 60, y: 62 }, { x: 80, y: 30 }
+    ];
+    
+    // 根据步骤显示不同的动画
+    const renderStepAnimation = () => {
+        switch(activeStep) {
+            case 0: // 随机圆心
+                return (
+                    <div className="flex items-center justify-center gap-8">
+                        {demoCentroids.map((c, i) => (
+                            <div key={i} className="relative animate-float-slow" style={{ animationDelay: `${i * 0.2}s` }}>
+                                <div className="w-10 h-10 rounded-full bg-teal-400/80 flex items-center justify-center shadow-lg">
+                                    <span className="text-white text-sm font-bold">⭐</span>
+                                </div>
+                                <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-teal-500 whitespace-nowrap">
+                                    圆心{i+1}
+                                </div>
+                            </div>
+                        ))}
+                        <div className="text-xs text-slate-400 animate-pulse">✨ 随机位置 ✨</div>
+                    </div>
+                );
+            case 1: // 点归队
+                return (
+                    <div className="relative w-full h-full">
+                        <svg className="absolute inset-0 w-full h-full">
+                            {demoCentroids.map((c, i) => (
+                                <circle key={i} cx={`${c.x}%`} cy={`${c.y}%`} r="10" fill={`rgba(20, 184, 166, 0.2)`} stroke="#14b8a6" strokeWidth="1.5" />
+                            ))}
+                            {demoPoints.slice(0, 8).map((p, i) => {
+                                const nearestIdx = demoCentroids.reduce((best, c, idx) => 
+                                    Math.hypot(c.x - p.x, c.y - p.y) < Math.hypot(demoCentroids[best].x - p.x, demoCentroids[best].y - p.y) ? idx : best, 0);
+                                return (
+                                    <g key={i} className="animate-move-to-center" style={{ animationDelay: `${i * 0.1}s` }}>
+                                        <circle cx={`${p.x}%`} cy={`${p.y}%`} r="4" fill="#94a3b8" />
+                                        <line x1={`${p.x}%`} y1={`${p.y}%`} x2={`${demoCentroids[nearestIdx].x}%`} y2={`${demoCentroids[nearestIdx].y}%`}
+                                            stroke="#14b8a6" strokeWidth="1.5" strokeDasharray="4,3" className="animate-dash-flow" />
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] text-teal-500 whitespace-nowrap">
+                            每个点飞向最近的圆心 →
+                        </div>
+                    </div>
+                );
+            case 2: // 更新圆心
+                return (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                        <svg className="w-full h-full">
+                            {demoCentroids.map((c, i) => {
+                                const targetX = c.x + (i === 0 ? 5 : i === 1 ? -3 : 2);
+                                const targetY = c.y + (i === 0 ? -2 : i === 1 ? 4 : -3);
+                                return (
+                                    <g key={i}>
+                                        <circle cx={`${c.x}%`} cy={`${c.y}%`} r="18" fill={`rgba(20, 184, 166, 0.1)`} stroke="#14b8a6" strokeWidth="1.5" strokeDasharray="5,3" />
+                                        <circle cx={`${c.x}%`} cy={`${c.y}%`} r="6" fill="#14b8a6">
+                                            <animate attributeName="cx" values={`${c.x};${targetX};${c.x}`} dur="0.8s" repeatCount="indefinite" />
+                                            <animate attributeName="cy" values={`${c.y};${targetY};${c.y}`} dur="0.8s" repeatCount="indefinite" />
+                                        </circle>
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] text-teal-500 whitespace-nowrap">
+                            ⭐ 圆心向组内中心移动 ⭐
+                        </div>
+                    </div>
+                );
+            case 3: // 重复直到稳定
+                return (
+                    <div className="flex items-center justify-center gap-6">
+                        <div className="flex flex-col items-center">
+                            <div className="relative w-12 h-12 flex items-center justify-center">
+                                <div className="absolute inset-0 rounded-full border-2 border-teal-300 animate-ping-slow"></div>
+                                <i className="fas fa-sync-alt text-teal-500 text-xl icon-spin"></i>
+                            </div>
+                            <div className="text-[10px] text-teal-600 mt-1 font-medium">重复迭代</div>
+                        </div>
+                        <i className="fas fa-arrow-right text-teal-400 text-sm"></i>
+                        <div className="flex flex-col items-center">
+                            <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
+                                <i className="fas fa-check text-white text-sm"></i>
+                            </div>
+                            <div className="text-[10px] text-green-600 mt-1 font-medium">稳定收敛</div>
+                        </div>
+                        <div className="text-xs text-teal-500 animate-pulse ml-1">🏆 完成！</div>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
     return (
-        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6 flex items-center shrink-0">
-                <i className="fas fa-bullseye mr-4 text-teal-500"></i> K-means：「自动找圆心来分堆」
+        <div className="flex flex-col h-full p-5 md:p-6 bg-white overflow-hidden">
+            <style>{`
+                @keyframes icon-rotate {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                .icon-spin {
+                    animation: icon-rotate 1s linear infinite !important;
+                    display: inline-block;
+                }
+                @keyframes float-slow {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-5px); }
+                }
+                .animate-float-slow {
+                    animation: float-slow 1.5s ease-in-out infinite;
+                }
+                @keyframes dash-flow {
+                    to { stroke-dashoffset: 20; }
+                }
+                .animate-dash-flow {
+                    stroke-dasharray: 8, 5;
+                    animation: dash-flow 0.4s linear infinite;
+                }
+                @keyframes move-to-center {
+                    0% { opacity: 0; }
+                    100% { opacity: 1; }
+                }
+                .animate-move-to-center {
+                    animation: move-to-center 0.3s ease-out forwards;
+                }
+                @keyframes ping-slow {
+                    0% { transform: scale(0.8); opacity: 0.5; }
+                    100% { transform: scale(1.2); opacity: 0; }
+                }
+                .animate-ping-slow {
+                    animation: ping-slow 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+                }
+                @keyframes pulse-soft {
+                    0%, 100% { opacity: 0.6; transform: scale(1); }
+                    50% { opacity: 1; transform: scale(1.1); }
+                }
+                .animate-pulse-slow {
+                    animation: pulse-soft 1s ease-in-out infinite;
+                    display: inline-block;
+                }
+                @keyframes bounce-soft {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-4px); }
+                }
+                .animate-bounce-slight {
+                    animation: bounce-soft 0.5s ease-in-out infinite;
+                    display: inline-block;
+                }
+                .animate-float {
+                    animation: float-slow 1s ease-in-out infinite;
+                    display: inline-block;
+                }
+                @keyframes fade-quick {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                    animation: fade-quick 0.2s ease-out;
+                }
+            `}</style>
+            
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
+                <i className="fas fa-bullseye mr-3 text-teal-500"></i> K-means：「自动找圆心来分堆」
             </h2>
-
-            <div className="flex-1 flex flex-col gap-5">
-                <div className="bg-teal-50 p-6 md:p-8 rounded-2xl border border-teal-100 shadow-sm shrink-0">
-                    <h3 className="text-xl md:text-2xl font-bold text-teal-800 mb-3">🍬 想象一袋混在一起的糖果</h3>
-                    <p className="text-slate-700 text-base md:text-xl leading-relaxed">
-                        一袋糖果里有草莓味、柠檬味、薄荷味的，但包装一模一样。你不知道谁是谁。<br />
-                        你只能按颜色把它们<strong>自己分成 3 堆</strong>。K-means 就是干这件事：<strong className="text-teal-600">不依赖标签，全靠算距离，自动分成 K 堆</strong>。
-                    </p>
+            
+            <div className="flex-1 flex flex-col gap-4 min-h-0">
+                {/* 生活类比卡片 */}
+                <div className="bg-gradient-to-r from-teal-50 to-emerald-50 p-5 rounded-xl border border-teal-200 shadow-sm shrink-0">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center shrink-0">
+                            <i className="fas fa-candy-cane text-white text-xl"></i>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-bold text-teal-800 text-lg mb-2">🍬 想象一袋混在一起的糖果</h3>
+                            <p className="text-slate-700 text-base leading-relaxed">
+                                一袋糖果里有草莓味、柠檬味、薄荷味的，但包装一模一样。你不知道谁是谁。<br />
+                                你只能按味道把它们<strong className="text-teal-600">自己分成 3 堆</strong>。<br />
+                                K-means 就是干这件事：<strong className="text-teal-600">不依赖标签，全靠算距离，自动分成 K 堆</strong>。
+                            </p>
+                        </div>
+                    </div>
                 </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                    {[
-                        { n: '1', icon: 'fa-random', title: '随机扔 K 个圆心', desc: '在空间里随机选 K 个位置作为初始组长' },
-                        { n: '2', icon: 'fa-ruler', title: '每个点归队', desc: '每个点计算距离，加入离自己最近的圆心那组' },
-                        { n: '3', icon: 'fa-crosshairs', title: '更新圆心位置', desc: '重新计算每组成员的平均位置，圆心移过去' },
-                        { n: '4', icon: 'fa-redo', title: '重复直到稳定', desc: '反复进行，直到圆心不再移动为止' },
-                    ].map(item => (
-                        <div key={item.n} className="bg-white p-4 rounded-2xl border-2 border-teal-200 shadow-sm flex flex-col items-center text-center">
-                            <div className="bg-teal-500 text-white w-10 h-10 rounded-full flex items-center justify-center font-black text-lg mb-3 shadow border-4 border-white">{item.n}</div>
-                            <i className={`fas ${item.icon} text-2xl text-teal-400 mb-2`}></i>
-                            <h4 className="font-bold text-teal-800 text-sm mb-1">{item.title}</h4>
-                            <p className="text-slate-600 text-xs">{item.desc}</p>
+                
+                {/* 步骤卡片 - 四个步骤，支持交互同步 */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 min-h-0">
+                    {steps.map((step, idx) => (
+                        <div 
+                            key={idx}
+                            onClick={() => handleStepClick(idx)}
+                            className={`
+                                bg-white rounded-xl border-2 cursor-pointer transition-all duration-300
+                                flex flex-col p-4 hover:shadow-md
+                                ${activeStep === idx ? 'border-teal-500 shadow-lg ring-2 ring-teal-200' : 'border-slate-200 hover:border-teal-300'}
+                            `}
+                        >
+                            {/* 步骤序号 */}
+                            <div className="flex items-center justify-between mb-3">
+                                <div className={`
+                                    w-8 h-8 rounded-full flex items-center justify-center text-base font-bold transition-all
+                                    ${activeStep === idx ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-600'}
+                                `}>
+                                    {idx + 1}
+                                </div>
+                                {activeStep === idx && (
+                                    <i className="fas fa-play text-teal-500 text-sm animate-pulse"></i>
+                                )}
+                            </div>
+                            
+                            {/* 图标 */}
+                            <div className="text-3xl text-teal-400 mb-3">
+                                <i className={`fas ${step.icon} ${activeStep === idx ? step.animation : ''}`}></i>
+                            </div>
+                            
+                            {/* 标题 */}
+                            <h4 className="font-bold text-slate-800 text-base mb-2 leading-tight">
+                                {step.title}
+                            </h4>
+                            
+                            {/* 简短描述 */}
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                                {step.desc}
+                            </p>
+                            
+                            {/* 动画时显示的详细说明 */}
+                            {activeStep === idx && (
+                                <div className="mt-3 pt-3 border-t border-teal-100 animate-fade-in">
+                                    <p className="text-teal-600 text-xs leading-relaxed">
+                                        <i className="fas fa-lightbulb mr-1"></i> {step.detail}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     ))}
+                </div>
+                
+                {/* 动画演示区域 - 带交互同步 */}
+                <div className="bg-gradient-to-br from-slate-50 to-teal-50/30 rounded-xl border border-slate-200 p-4 shrink-0">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-slate-700 text-base flex items-center gap-2">
+                            <i className="fas fa-tv text-teal-500"></i>
+                            动画演示
+                            {activeStep !== null && (
+                                <span className="text-teal-600 text-sm bg-teal-100 px-2 py-0.5 rounded-full">
+                                    当前: {steps[activeStep].title}
+                                </span>
+                            )}
+                        </h3>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={startAutoPlay}
+                                disabled={autoPlay}
+                                className="text-xs bg-teal-500 hover:bg-teal-600 disabled:bg-slate-300 text-white px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                                <i className="fas fa-play mr-1"></i> 自动播放
+                            </button>
+                            <button 
+                                onClick={resetSteps}
+                                className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-600 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                                <i className="fas fa-redo-alt mr-1"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* 动态示意图 */}
+                    <div className="relative bg-white rounded-lg border border-slate-200 h-32 flex items-center justify-center overflow-hidden">
+                        {renderStepAnimation()}
+                    </div>
+                    
+                    {/* 当前步骤提示 */}
+                    <div className="mt-3 text-center">
+                        <p className="text-xs text-slate-500">
+                            {activeStep !== null ? steps[activeStep].detail : '点击任意步骤卡片，观看K-means算法演示'}
+                        </p>
+                        {activeStep !== null && (
+                            <p className="text-[10px] text-teal-500 mt-1">
+                                {steps[activeStep].demoDesc}
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
-
 // ---- 11. K-means 互动演示 ----
 function KMeansDemoSlide() {
     const [points, setPoints] = window.CourseGlobalContext.useSyncVar('kmeans:points', makeKMeansPoints());
@@ -824,7 +2900,7 @@ function KMeansDemoSlide() {
     );
 }
 
-// ---- 12. K-means K值选择实验 (原版) ----
+// ---- 12. K-means K值选择实验 (带分布图) ----
 function KMeansKSelectSlide() {
     const [k, setK] = window.CourseGlobalContext.useSyncVar('kmeans-k:k', 3);
     const [points] = window.CourseGlobalContext.useSyncVar('kmeans-k:points', makeKMeansPoints());
@@ -832,7 +2908,131 @@ function KMeansKSelectSlide() {
     const [iterations, setIterations] = window.CourseGlobalContext.useSyncVar('kmeans-k:iterations', 0);
     const [autoRunning, setAutoRunning] = useState(false);
     const [results, setResults] = useState({});
-
+    const [showHeatmap, setShowHeatmap] = useState(true);
+    const containerRef = useRef(null);
+    const canvasRef = useRef(null);
+    const gridDataRef = useRef(null);
+    const gridSize = 30; // 30x30 网格
+    
+    // 颜色映射
+    const colors = [
+        { r: 59, g: 130, b: 246 },  // 蓝色
+        { r: 244, g: 63, b: 94 },   // 红色
+        { r: 16, g: 185, b: 129 },  // 绿色
+        { r: 245, g: 158, b: 11 },  // 橙色
+        { r: 139, g: 92, b: 246 }   // 紫色
+    ];
+    
+    // 计算网格分类（每个点属于哪个圆心）
+    const computeGrid = useCallback(() => {
+        if (!centroids.length) return null;
+        
+        const grid = [];
+        for (let i = 0; i <= gridSize; i++) {
+            grid[i] = [];
+            for (let j = 0; j <= gridSize; j++) {
+                const percentX = (i / gridSize) * 100;
+                const percentY = (j / gridSize) * 100;
+                
+                // 找到最近的圆心
+                let minDist = Infinity;
+                let nearestIdx = 0;
+                for (let c = 0; c < centroids.length; c++) {
+                    const dist = Math.sqrt(Math.pow(centroids[c].x - percentX, 2) + Math.pow(centroids[c].y - percentY, 2));
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestIdx = c;
+                    }
+                }
+                grid[i][j] = nearestIdx;
+            }
+        }
+        return grid;
+    }, [centroids]);
+    
+    // 绘制热力图
+    const drawHeatmap = useCallback(() => {
+        if (!canvasRef.current || !containerRef.current || !showHeatmap) return;
+        
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        const rect = container.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+        
+        if (width === 0 || height === 0) return;
+        
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        // 获取或计算网格数据
+        if (!gridDataRef.current) {
+            gridDataRef.current = computeGrid();
+        }
+        const grid = gridDataRef.current;
+        if (!grid) return;
+        
+        // 绘制每个网格块
+        const cellW = width / gridSize;
+        const cellH = height / gridSize;
+        
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const clusterIdx = grid[i][j];
+                const color = colors[clusterIdx % colors.length];
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`;
+                ctx.fillRect(i * cellW, j * cellH, cellW + 1, cellH + 1);
+            }
+        }
+    }, [showHeatmap, computeGrid, gridSize]);
+    
+    // 当圆心变化时重新计算网格
+    useEffect(() => {
+        if (showHeatmap && centroids.length) {
+            gridDataRef.current = computeGrid();
+            requestAnimationFrame(() => {
+                drawHeatmap();
+            });
+        }
+    }, [centroids, showHeatmap, computeGrid, drawHeatmap]);
+    
+    // 窗口大小变化时重新绘制
+    useEffect(() => {
+        const handleResize = () => {
+            if (showHeatmap && canvasRef.current) {
+                requestAnimationFrame(() => {
+                    drawHeatmap();
+                });
+            }
+        };
+        
+        const resizeObserver = new ResizeObserver(handleResize);
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
+        
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            resizeObserver.disconnect();
+        };
+    }, [showHeatmap, drawHeatmap]);
+    
+    // 初始绘制
+    useEffect(() => {
+        if (showHeatmap && centroids.length) {
+            gridDataRef.current = computeGrid();
+            setTimeout(() => {
+                drawHeatmap();
+            }, 100);
+        }
+    }, [showHeatmap, centroids, computeGrid, drawHeatmap]);
+    
     const runKMeans = () => {
         let currentCentroids = [...centroids];
         let currentPoints = [...points];
@@ -894,6 +3094,7 @@ function KMeansKSelectSlide() {
         setCentroids(makeKMeansCentroids(newK));
         setIterations(0);
         setAutoRunning(false);
+        gridDataRef.current = null; // 清空网格缓存
     };
 
     const startAutoRun = () => {
@@ -902,42 +3103,99 @@ function KMeansKSelectSlide() {
     };
 
     return (
-        <div className="flex flex-col min-h-full p-6 md:p-10 bg-white">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
-                <i className="fas fa-cogs mr-4 text-teal-500"></i> K-means 关键问题：K 值怎么选？
+        <div className="flex flex-col h-full p-5 md:p-6 bg-white overflow-hidden">
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3 flex items-center shrink-0">
+                <i className="fas fa-cogs mr-3 text-teal-500"></i> K-means 关键问题：K 值怎么选？
             </h2>
-            <p className="text-slate-600 mb-4 text-sm shrink-0">
+            <p className="text-slate-600 mb-3 text-sm shrink-0">
                 K-means 需要提前指定 K（分成几组），但现实中我们往往不知道最优的 K 值是多少
             </p>
 
-            <div className="flex-1 flex flex-col md:flex-row gap-4">
+            <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+                {/* 左侧：可视化区域 */}
                 <div className="flex-1 flex flex-col min-h-0">
-                    <div className="relative bg-slate-50 rounded-2xl border-2 border-slate-200 shadow-inner flex-1 min-h-[300px]">
+                    <div 
+                        ref={containerRef}
+                        className="relative bg-slate-50 rounded-xl border-2 border-slate-200 shadow-inner flex-1 min-h-[280px] overflow-hidden"
+                    >
+                        {/* Canvas 热力图背景 */}
+                        {showHeatmap && centroids.length > 0 && (
+                            <canvas 
+                                ref={canvasRef} 
+                                className="absolute inset-0 w-full h-full pointer-events-none"
+                                style={{ opacity: 0.5 }}
+                            />
+                        )}
+                        
+                        {/* 网格线 */}
+                        <div className="absolute inset-0 pointer-events-none">
+                            {Array.from({ length: 10 }).map((_, i) => (
+                                <React.Fragment key={`grid-${i}`}>
+                                    <div className="absolute top-0 bottom-0 w-px bg-slate-300/50" style={{ left: `${i * 10}%` }}></div>
+                                    <div className="absolute left-0 right-0 h-px bg-slate-300/50" style={{ top: `${i * 10}%` }}></div>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                        
+                        {/* 数据点 */}
                         {points.map((p, i) => (
-                            <div key={i} className="absolute transition-all duration-500" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}>
-                                <div className="w-4 h-4 rounded-full border-2 border-white shadow-md"
+                            <div key={i} className="absolute transition-all duration-500" 
+                                style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                <div className="w-3 h-3 md:w-4 md:h-4 rounded-full border border-white shadow-sm"
                                     style={{ 
-                                        backgroundColor: p.cluster >= 0 && p.cluster < KMEANS_COLORS.length ? KMEANS_COLORS[p.cluster].bg : '#94a3b8'
-                                    }}></div>
+                                        backgroundColor: p.cluster >= 0 && p.cluster < colors.length ? 
+                                            `rgba(${colors[p.cluster].r}, ${colors[p.cluster].g}, ${colors[p.cluster].b}, 0.9)` : '#94a3b8'
+                                    }}>
+                                </div>
                             </div>
                         ))}
 
+                        {/* 圆心 */}
                         {centroids.slice(0, k).map((c, i) => (
-                            <div key={i} className="absolute transition-all duration-700" style={{ left: `${c.x}%`, top: `${c.y}%`, transform: 'translate(-50%, -50%)' }}>
-                                <div className="w-7 h-7 rounded-full border-3 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold"
-                                    style={{ backgroundColor: KMEANS_COLORS[i % KMEANS_COLORS.length].bg }}>
+                            <div key={i} className="absolute transition-all duration-700" 
+                                style={{ left: `${c.x}%`, top: `${c.y}%`, transform: 'translate(-50%, -50%)' }}>
+                                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white text-xs font-bold"
+                                    style={{ backgroundColor: colors[i % colors.length].r ? 
+                                        `rgba(${colors[i % colors.length].r}, ${colors[i % colors.length].g}, ${colors[i % colors.length].b}, 1)` : '#10b981' }}>
                                     {i+1}
                                 </div>
                             </div>
                         ))}
+                        
+                        {/* 控制按钮 - 修复图标类名 */}
+                        <div className="absolute bottom-2 left-2 flex gap-2 z-10">
+                            <button 
+                                onClick={() => setShowHeatmap(v => !v)}
+                                className="bg-white/80 hover:bg-white text-xs px-2 py-1 rounded-lg shadow-sm transition-colors"
+                            >
+                                <i className={`fas ${showHeatmap ? 'fa-eye-slash' : 'fa-chart-line'} mr-1`}></i>
+                                {showHeatmap ? '隐藏区域' : '显示区域'}
+                            </button>
+                        </div>
+                        
+                        {/* 图例 */}
+                        <div className="absolute bottom-2 right-2 bg-white/90 rounded-lg px-2 py-1 text-[10px] shadow-sm z-10">
+                            <div className="flex items-center gap-2">
+                                {centroids.slice(0, k).map((_, idx) => (
+                                    <div key={idx} className="flex items-center gap-1">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `rgba(${colors[idx].r}, ${colors[idx].g}, ${colors[idx].b}, 1)` }}></div>
+                                        <span>组{idx+1}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            {showHeatmap && (
+                                <div className="text-[8px] text-slate-400 mt-1">背景颜色 = 分组区域 (K={k})</div>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="mt-3 bg-white p-3 rounded-xl border border-slate-200">
+                    {/* K值选择滑块 */}
+                    <div className="mt-3 bg-white p-3 rounded-xl border border-slate-200 shrink-0">
                         <p className="font-bold text-slate-700 mb-2 text-sm">选择 K 值（分成几组）</p>
-                        <div className="flex gap-1">
+                        <div className="flex gap-2">
                             {[2, 3, 4, 5].map(val => (
                                 <button key={val} onClick={() => handleKChange(val)}
-                                    className={`flex-1 py-2 rounded-lg text-sm font-bold ${k === val ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${k === val ? 'bg-teal-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                                     K = {val}
                                 </button>
                             ))}
@@ -945,6 +3203,7 @@ function KMeansKSelectSlide() {
                     </div>
                 </div>
 
+                {/* 右侧：控制面板 */}
                 <div className="w-full md:w-64 shrink-0 flex flex-col gap-3">
                     <div className="flex gap-2">
                         <button onClick={startAutoRun} disabled={autoRunning}
@@ -953,12 +3212,12 @@ function KMeansKSelectSlide() {
                         </button>
                         <button onClick={() => handleKChange(k)} 
                             className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm">
-                            重新随机
+                            <i className="fas fa-random mr-1"></i> 重置
                         </button>
                     </div>
 
                     <div className="bg-teal-50 p-3 rounded-xl border border-teal-200">
-                        <p className="font-bold text-teal-800 text-sm mb-1">当前状态</p>
+                        <p className="font-bold text-teal-800 text-sm mb-1">📊 当前状态</p>
                         <div className="text-xs text-teal-600 space-y-1">
                             <div>K 值：{k}</div>
                             <div>迭代次数：{iterations}</div>
@@ -966,9 +3225,9 @@ function KMeansKSelectSlide() {
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 rounded-xl border border-slate-200">
-                        <p className="font-bold text-slate-700 mb-2 text-sm">不同 K 值结果对比</p>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 overflow-y-auto max-h-48">
+                        <p className="font-bold text-slate-700 mb-2 text-sm">📈 不同 K 值结果对比</p>
+                        <div className="space-y-2">
                             {Object.entries(results).map(([kVal, data]) => (
                                 <div key={kVal} className={`p-2 rounded-lg border ${parseInt(kVal) === k ? 'border-teal-300 bg-teal-50' : 'border-slate-200'}`}>
                                     <div className="flex justify-between items-center">
@@ -981,6 +3240,9 @@ function KMeansKSelectSlide() {
                                 </div>
                             ))}
                         </div>
+                        {Object.keys(results).length === 0 && (
+                            <p className="text-xs text-slate-400 text-center py-2">点击"运行 K-means"查看结果</p>
+                        )}
                     </div>
 
                     <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
@@ -989,6 +3251,13 @@ function KMeansKSelectSlide() {
                             通过尝试不同 K 值，计算每个点到其圆心的平均距离。<br />
                             当 K 增加到某个值时，距离下降变缓，形成"肘部"，这就是最佳 K 值。
                         </p>
+                        {Object.keys(results).length >= 2 && (
+                            <div className="mt-2 pt-2 border-t border-blue-200">
+                                <p className="text-[10px] text-blue-600">
+                                    💡 观察平均距离的变化，找到下降变缓的 K 值
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1234,7 +3503,7 @@ const surveyConfig = {
     questions: [
         {
             type: 'single',
-            title: '1. K 近邻（KNN）算法的核心分类逻辑是（ ）',
+            title: 'K 近邻（KNN）算法的核心分类逻辑是（ ）',
             options: [
                 { value: 'A', label: 'A. 自动寻找数据中心点进行聚类' },
                 { value: 'B', label: 'B. 少数服从多数的投票机制' },
@@ -1244,7 +3513,7 @@ const surveyConfig = {
         },
         {
             type: 'single',
-            title: '2. 下列哪种场景最适合使用 K 均值（K-means）算法（ ）',
+            title: '下列哪种场景最适合使用 K 均值（K-means）算法（ ）',
             options: [
                 { value: 'A', label: 'A. 已标注好类别的表情数据分类' },
                 { value: 'B', label: 'B. 大量未标注的图片自动分组' },
@@ -1254,7 +3523,7 @@ const surveyConfig = {
         },
         {
             type: 'single',
-            title: '3. KNN 算法中，K 值的选择对结果影响描述正确的是（ ）',
+            title: 'KNN 算法中，K 值的选择对结果影响描述正确的是（ ）',
             options: [
                 { value: 'A', label: 'A. K 值越大，邻居数量越少，结果越极端' },
                 { value: 'B', label: 'B. K 值越大，邻居数量越多，结果越稳定' },
@@ -1264,7 +3533,7 @@ const surveyConfig = {
         },
         {
             type: 'single',
-            title: '4. 有监督学习与无监督学习的核心区别是（ ）',
+            title: '有监督学习与无监督学习的核心区别是（ ）',
             options: [
                 { value: 'A', label: 'A. 有监督学习无需训练直接分类' },
                 { value: 'B', label: 'B. 无监督学习需要提前标注数据' },
@@ -1274,7 +3543,7 @@ const surveyConfig = {
         },
         {
             type: 'single',
-            title: '5. 表情识别中 “置信度” 的含义是（ ）',
+            title: '表情识别中 “置信度” 的含义是（ ）',
             options: [
                 { value: 'A', label: 'A. AI 对识别结果的确定程度' },
                 { value: 'B', label: 'B. 表情样本的数量' },
@@ -1284,25 +3553,27 @@ const surveyConfig = {
         }
     ]
 };
+
 // ========================================================
-// 🎯 课程配置 (完美融合版：共 16 页)
+// 🎯 课程配置 (完美融合版：共 17 页)
 // ========================================================
 
 const mySlides = [
     { id: 'intro',             component: <IntroSlide /> },
     { id: 'review',            component: <ReviewSlide /> },                 // CNN复习
-    { id: 'problem-intro',     component: <ProblemIntroSlide /> },           // [新增] 提出场景问题
-    { id: 'learning-types',    component: <LearningTypesSlide /> },          // [新增] 有监督 vs 无监督
-    { id: 'feature-space',     component: <FeatureSpaceSlide /> },           // 特征地图
-    { id: 'distance-intro',    component: <DistanceIntroSlide /> },          // [新增] KaTeX数学公式
+    { id: 'problem-intro',     component: <ProblemIntroSlide /> },           // 提出场景问题
+    { id: 'learning-types',    component: <LearningTypesSlide /> },          // 有监督 vs 无监督
+    { id: 'feature-mapping',   component: <FeatureMappingSlide /> },         // [新增] 特征映射演示
+    { id: 'feature-space',     component: <FeatureSpaceSlide /> },           // [修改] 学生自主标注版
+    { id: 'distance-intro',    component: <DistanceIntroSlide /> },          // KaTeX数学公式
     { id: 'knn-intro',         component: <KNNIntroSlide /> },               // KNN介绍
     { id: 'knn-demo',          component: <KNNDemoSlide /> },                // KNN点按演示
-    { id: 'knn-experiment',    component: <KNNExperimentSlide /> },          // [原版保留] KNN参数实验
+    { id: 'knn-experiment',    component: <KNNExperimentSlide /> },          // KNN参数实验
     { id: 'kmeans-intro',      component: <KMeansIntroSlide /> },            // KMeans介绍
     { id: 'kmeans-demo',       component: <KMeansDemoSlide /> },             // KMeans自动分堆演示
-    { id: 'kmeans-k-select',   component: <KMeansKSelectSlide /> },          // [原版保留] K值选择实验
-    { id: 'compare',           component: <CompareSlide /> },                // [原版保留] 场景选择对比
-    { id: 'edge-cases',        component: <EdgeCasesSlide /> },              // [新增] 翻车挑战卡片
+    { id: 'kmeans-k-select',   component: <KMeansKSelectSlide /> },          // K值选择实验
+    { id: 'compare',           component: <CompareSlide /> },                // 场景选择对比
+    { id: 'edge-cases',        component: <EdgeCasesSlide /> },              // 翻车挑战卡片
     { id: 'summary',           component: <SummarySlide /> },                // 知识总结
     { id: 'survey',            component: <SurveySlide config={surveyConfig} /> } // 自动问卷
 ];
@@ -1310,7 +3581,7 @@ const mySlides = [
 window.CourseData = {
     title: "KNN 与 K-means 特征分类（终极完全版）",
     icon: "🎯",
-    desc: "全景式课堂！包含数学原理推导、原版深度实验、极限场景挑战以及随堂测验自动收集。",
+    desc: "全景式课堂！包含特征映射演示、学生自主标注、数学原理推导、深度实验、极限场景挑战以及随堂测验自动收集。",
     color: "from-green-500 to-teal-600",
     dependencies: [
         {

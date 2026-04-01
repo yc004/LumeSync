@@ -446,7 +446,7 @@ ipcMain.handle('import-course', async () => {
     if (result.canceled || !result.filePaths.length) {
         return { success: false, canceled: true };
     }
-    const coursesDir = path.join(__dirname, '..', '..', '..', 'shared', 'public', 'courses');
+    const coursesDir = path.join(__dirname, '..', 'shared', 'public', 'courses');
     if (!require('fs').existsSync(coursesDir)) {
         require('fs').mkdirSync(coursesDir, { recursive: true });
     }
@@ -484,7 +484,7 @@ ipcMain.handle('import-course', async () => {
 // IPC: 导出课程文件（从 public/courses/ 复制到用户选择的位置）
 ipcMain.handle('export-course', async (event, { courseFile } = {}) => {
     try {
-        const coursesDir = path.join(__dirname, '..', '..', '..', 'shared', 'public', 'courses');
+        const coursesDir = path.join(__dirname, '..', 'shared', 'public', 'courses');
         const resolvedCoursesDir = path.resolve(coursesDir);
         const requested = String(courseFile || '').trim();
         if (!requested) return { success: false, error: 'Missing courseFile' };

@@ -1,0 +1,12 @@
+[submodule "repos/core"]
+	path = repos/core
+	url = https://github.com/yc004/LumeSync-Core.git
+[submodule "repos/teacher"]
+	path = repos/teacher
+	url = https://github.com/yc004/LumeSync-Teacher.git
+[submodule "repos/student"]
+	path = repos/student
+	url = https://github.com/yc004/LumeSync-Student.git
+[submodule "repos/editor-plugin"]
+	path = repos/editor-plugin
+	url = https://github.com/yc004/LumeSync-Editor-Plugin.git

@@ -3,18 +3,14 @@
   "version": "1.0.0",
   "description": "萤火课堂 - AI-powered face recognition LAN classroom sync tool",
   "private": true,
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
-    "start": "node packages/server/index.js",
-    "start:teacher": "npm run start -w @lumesync/teacher",
-    "start:student": "npm run start -w @lumesync/student",
+    "repos:init": "git submodule sync --recursive && git submodule update --init --recursive",
+    "repos:update": "git submodule update --remote --merge --recursive",
+    "start:core": "npm --prefix repos/core run start",
+    "start:teacher": "npm --prefix repos/teacher run start",
+    "start:teacher-server": "npm --prefix repos/teacher run start:server",
+    "start:student": "npm --prefix repos/student run start",
     "build:verify": "pkg shared/build/verify-password.js --target node18-win-x64 --output shared/build/verify-password.exe",
-    "build:teacher": "npm run build -w @lumesync/teacher --",
-    "build:student": "npm run build -w @lumesync/student --",
-    "build:all": "npm run build:teacher && npm run build:student",
     "build:icons": "python shared/build/convert-icons.py",
     "build:icons:js": "node shared/build/convert-icons.js",
     "migrate": "node migrate-all.js"

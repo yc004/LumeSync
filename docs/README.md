@@ -8,7 +8,7 @@
 - [学生端使用说明](./user/用户说明-学生端.md)
 - [机房视图使用指南](./user/classroom-view-guide.md)
 - [课程文件夹管理功能说明](./user/course-folder-guide.md)
-- [VSCode 插件编辑器](../../apps/editor-plugin/README.md)
+- [VSCode 插件编辑器](../repos/editor-plugin/README.md)
 
 ## 2) 课件开发与 API（`docs/dev/`）
 

@@ -1,0 +1,7 @@
+﻿{
+  "name": "@lumesync/runtime-control",
+  "version": "1.0.0",
+  "description": "LumeSync runtime socket/session control",
+  "main": "index.js",
+  "license": "MIT"
+}

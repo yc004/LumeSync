@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "lumesync-website",
   "version": "1.0.0",
-  "description": "LumeSync 官网及自动发布下载服务",
+  "description": "LumeSync website and auto-publish download service",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -6,7 +6,7 @@
   "scripts": {
     "repos:init": "git submodule sync --recursive && git submodule update --init --recursive",
     "repos:update": "git submodule update --remote --merge --recursive",
-    "start:core": "pnpm --dir repos/core run start",
+    "start:core": "pnpm --dir repos/teacher/core run start",
     "start:teacher": "pnpm --dir repos/teacher run start",
     "start:teacher-server": "pnpm --dir repos/teacher run start:server",
     "start:student": "pnpm --dir repos/student run start",

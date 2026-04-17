@@ -5,3 +5,4 @@ packages:
   - "repos/teacher/core"
   - "repos/student"
   - "repos/editor-plugin"
+  - "repos/ai-editor"

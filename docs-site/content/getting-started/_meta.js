@@ -1,5 +1,4 @@
+// Generated from docs/ by docs-site/scripts/sync-content.mjs.
 export default {
-  'quick-start': '快速开始',
-  installation: '安装',
-  'first-example': '第一个课件示例'
+  "running": "获取源码与运行现状"
 }

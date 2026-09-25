@@ -4,8 +4,10 @@
   "private": true,
   "description": "LumeSync documentation site",
   "scripts": {
-    "dev": "pnpm exec next dev",
-    "build": "pnpm exec next build",
+    "sync": "node scripts/sync-content.mjs",
+    "check:sync": "node scripts/sync-content.mjs --check",
+    "dev": "pnpm run sync && pnpm exec next dev",
+    "build": "pnpm run sync && pnpm exec next build",
     "start": "pnpm exec next start"
   },
   "dependencies": {

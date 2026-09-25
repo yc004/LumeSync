@@ -1,0 +1,51 @@
+---
+title: LumeSync（萤火课堂）文档
+description: 面向局域网课堂的课件编辑、渲染、同步和学生互动工作区。
+---
+
+<div className="sc-hero">
+  <div className="sc-kicker">LumeSync（萤火课堂）文档</div>
+  <h1>把可交互课件稳定地运行在真实教室里。</h1>
+  <p>
+    LumeSync（萤火课堂）把教师端、学生端、课件运行时、AI 课件编辑器和 VS Code 插件组织在同一个工作区中，适合局域网课堂、机房教学和本地部署场景。
+  </p>
+  <div className="sc-actions">
+    <a className="sc-button sc-button-primary" href="/getting-started/quick-start">快速开始</a>
+    <a className="sc-button" href="/guides/course-authoring">编写课件</a>
+    <a className="sc-button" href="/api/http">API 参考</a>
+    <a className="sc-button" href="https://github.com/yc004/SyncClassroom">GitHub</a>
+  </div>
+</div>
+
+## 核心能力
+
+<div className="sc-grid">
+  <div className="sc-card">
+    <h3>教师端课堂控制</h3>
+    <p>教师端服务扫描课程、维护当前课程和页码、管理座位表、收集学生提交，并通过 Socket.IO 同步课堂状态。</p>
+  </div>
+  <div className="sc-card">
+    <h3>学生端连接与监控</h3>
+    <p>学生端连接教师机地址，接收课件状态、提交作业、参与投票，并可按教师端设置上报课堂行为和截图。</p>
+  </div>
+  <div className="sc-card">
+    <h3>.lume 课件运行时</h3>
+    <p>当前运行时优先加载 Zip 格式 `.lume` 包，通过 `manifest.json`、`pages` 和 `assets` 组织 TSX/JSX 页面与资源。</p>
+  </div>
+  <div className="sc-card">
+    <h3>编辑器与插件</h3>
+    <p>AI Editor 负责本地创建、预览和导出 `.lume` 包；VS Code 插件提供 `.lume` 自定义编辑器和本地预览服务。</p>
+  </div>
+</div>
+
+## 推荐阅读路径
+
+第一次运行项目，先阅读 [快速开始](/getting-started/quick-start) 和 [安装](/getting-started/installation)，确认 submodule、pnpm 依赖和桌面端构建前置条件。
+
+准备开发课件，阅读 [第一个课件示例](/getting-started/first-example)、[课件运行时](/concepts/course-runtime) 和 [课件开发指南](/guides/course-authoring)。当前主格式是 Zip `.lume` 包，旧的单文件 `.lume` 不再作为可播放格式。
+
+需要对接或排障，阅读 [HTTP API](/api/http)、[Socket 事件](/api/socket)、[配置项](/api/config) 和 [排障](/guides/troubleshooting)。
+
+## 当前文档依据
+
+这些页面基于此前的业务源码阅读。2026-09-25 已取得教师端、学生端、Core 和插件源码，但学生端与 Core 的锁定提交在远端缺失，AI Editor 按计划未克隆；API、Socket、SDK 和桌面端行为尚未重新复核。根仓的现状与问题见 [审查报告](https://github.com/yc004/SyncClassroom/blob/main/docs/status/audit.md)。

@@ -1,0 +1,44 @@
+# 配置、目录与环境变量
+
+状态：**当前源码默认值**，依据 `repos/teacher/server/src/config.js`、`server/index.js`、两端 Windows 壳和 `website/server.js`。相对路径以下均相对教师仓库或对应服务。公开部署前需先处理[安全缺口](../architecture/runtime-mechanisms.md#信任边界与现状风险)。
+
+## 教师 Node 服务
+
+| 变量 | 默认或作用 |
+| --- | --- |
+| `PORT` | `3000`；HTTP 与 Socket.IO 共用 |
+| `LUMESYNC_PUBLIC_DIR` / `STATIC_DIR` | 公共资源根；前者优先，默认 `shared/public` |
+| `LUMESYNC_DOCS_ROOT` | 旧课件开发文档根，默认 `shared/docs` |
+| `LUMESYNC_COURSES_DIR` | 课程文件，默认 `shared/public/courses` |
+| `LUMESYNC_FOLDER_DATA_PATH` | 文件夹元数据，默认 `shared/public/data/course-folders.json` |
+| `LUMESYNC_CLASSROOM_LAYOUT_PATH` | 座位布局，默认 `shared/public/data/classroom-layout-v1.json` |
+| `LUMESYNC_SUBMISSIONS_DIR` | 默认提交根目录，默认 `repos/teacher/submissions` |
+| `LUMESYNC_SUBMISSIONS_CONFIG` | 提交目录选择记录，默认 `repos/teacher/submissions-config.json` |
+| `SUBMISSIONS_DIR` | 实际提交目录的进程环境覆盖值；启动时可被上述配置文件写入 |
+| `LUMESYNC_CACHE_DIR` | 总缓存根，默认公共资源根 |
+| `LUMESYNC_LIB_DIR`、`LUMESYNC_WEIGHTS_DIR`、`LUMESYNC_IMAGES_DIR`、`LUMESYNC_WEBFONTS_DIR` | 各类依赖缓存目录，默认位于缓存根下对应子目录 |
+| `LUMESYNC_SKILL_PATH`、`LUMESYNC_COURSE_GUIDE_PATH` | `/api/download-skill`、`/api/course-guide` 下载的源文件 |
+| `LUMESYNC_STUDENT_LOG_MAX` | 进程内学生日志上限，默认 `500` |
+| `LUMESYNC_ANNOTATION_MAX_SEGMENTS_PER_SLIDE` | 每页标注上限，默认 `5000` |
+| `LUMESYNC_SERVER_PID_FILE` | 可选 PID 文件，服务启动写入、退出删除 |
+
+服务启动会创建公共目录、缓存、课程、布局父目录和提交目录；`POST /api/submission-config` 会更新目录并写配置文件。静态 bundle 与 `/protocol-client.js`（协议版本与事件清单，由 `packages/classroom-protocol` 生成）启动时按需重建；`/teacher-app.js`、`/render-engine.js` 以 no-store 提供。Socket 心跳固定为 `pingInterval=5000ms`、`pingTimeout=8000ms`，HTTP JSON 限制 2 MB；当前不是环境变量配置项。
+
+## 会话配置
+
+| 变量 | 当前行为 |
+| --- | --- |
+| `LUMESYNC_HOST_TOKEN` | host 共享凭证；独立启动时若未设置，由服务随机生成；Windows 教师壳会注入 |
+| `LUMESYNC_VIEWER_TOKEN_SECRET` | viewer token HS256 密钥；独立启动时若未设置，由服务随机生成；Windows 教师壳会注入 |
+| `LUMESYNC_VIEWER_TOKEN_TTL_SEC` | viewer token 默认 `14400` 秒 |
+| `LUMESYNC_HOST_TOKEN_TTL_SEC` | **已废弃**：源码中不再读取。host bootstrap 现返回 `expiresAt: null`，Socket 只比较共享 token |
+| `LUMESYNC_IDENTITY_LEGACY_COMPAT` | **Core 独立 runtime** 的兼容身份开关，默认开启；不是教师业务服务的统一配置 |
+| `LUMESYNC_PROTOCOL_ALLOW_UNDECLARED` | 教师服务 Socket 是否放行不在[契约事件表](contracts.md)中的事件；默认关闭（拒绝）。仅在旧客户端过渡窗口临时开启 |
+
+随机密钥在进程重启后改变；如果需要复现会话，应显式持久化或注入相同材料。host bootstrap 现在只接受带本机凭证的 loopback 请求，viewer 分支签发短期凭证；不要把凭证提交到 Git。
+
+## 本地壳与下载站
+
+教师 Windows 壳保存教师 IP/端口、密码哈希、窗口/课堂设置，负责启动 Node 子进程并注入会话环境变量。学生 Windows 壳保存教师 IP/端口、clientId、viewer 会话、开机自启/守护/全屏配置；守护服务在相应开关启用时周期拉起学生壳。两端均有管理密码哈希，属于本机配置，**不等同于服务端 HTTP 授权**。
+
+下载站使用自己的 `PORT` 和 `WEBHOOK_SECRET`，以 GitHub webhook 更新 `downloads/version.json` 与下载资产；它不是教师服务的 API 路由。三个服务默认端口均可为 3000，分别运行时需要避免冲突。完整路由见 [HTTP API](http-api.md)。

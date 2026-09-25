@@ -1,15 +1,14 @@
+// Generated from docs/ by docs-site/scripts/sync-content.mjs.
 export default {
-  index: {
-    title: '首页',
-    theme: {
-      toc: false
+  "index": {
+    "title": "首页",
+    "theme": {
+      "toc": false
     }
   },
-  'getting-started': '开始使用',
-  concepts: '核心概念',
-  guides: '进阶指南',
-  api: 'API 参考',
-  examples: '示例',
-  reference: '项目参考',
-  community: '社区与维护'
+  "getting-started": "入门与运行",
+  "architecture": "架构",
+  "reference": "接口与实现参考",
+  "development": "开发与维护",
+  "status": "项目状态"
 }

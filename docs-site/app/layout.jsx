@@ -21,7 +21,7 @@ const navbar = (
 
 const footer = (
   <Footer>
-    MIT © {new Date().getFullYear()} LumeSync（萤火课堂）. Built with Nextra.
+    © {new Date().getFullYear()} LumeSync（萤火课堂）. Built with Nextra.
   </Footer>
 )
 
@@ -42,6 +42,9 @@ export default async function RootLayout({ children }) {
           themeSwitch={{ dark: '深色', light: '浅色', system: '跟随系统' }}
           nextThemes={{ defaultTheme: 'system' }}
         >
+          <aside style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--x-color-gray-300)', fontSize: '0.875rem', textAlign: 'center' }}>
+            本站区分当前实现与目标设计：跨平台教师端、教室中继和新编辑器尚未实现；学生端与 Core 的当前检出不匹配根仓锁定提交。
+          </aside>
           {children}
         </Layout>
       </body>

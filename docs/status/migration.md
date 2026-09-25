@@ -13,7 +13,7 @@
 | 教师/学生页面协议握手 | 已接入 | 连接声明 `protocolVersion`；不兼容版本收到 `protocol-rejected` 并断开；服务端发 `session:accepted`（含 `sessionId`、`revision`）与 `classroom:snapshot`；学生页按 `revision` 应用快照恢复课程与页码，教师页记录权威 `sessionId`/`revision` 供排查。 |
 | 原生桥契约 | 契约已固化，壳未改 | `native-contract` 定义消息封装、回执与按角色能力清单；对照测试发现教师壳 `classStarted`/`classEnded`/`setFullscreen` 与学生壳 `maximizeWindow` 在 C++ 中未分派，调用被静默丢弃，需在原生壳补齐。 |
 | Windows/macOS 教师桌面 | 未完成 | 现有教师壳仍是 Windows C++/WebView2。 |
-| 教室中继、自动发现、验证码、租约 | 未完成 | 现有教师服务只支持直接模式。 |
+| 教室中继、自动发现、验证码、租约 | 契约层完成，传输与桌面端未开始 | `packages/classroom-protocol/src/relay/` 已提供：8 位验证码配对（CSPRNG、3 分钟、5 次尝试、绑定请求与设备、HMAC 握手证明）、唯一授课租约与 `epoch` 递增、固定机状态机与发现 TXT、提交转发队列（容量满明确拒绝、`submission:delivered` 后才释放副本）、按 `courseHash` 的课件暂存与发布；事件表新增 `scope` 区分直接/中继。尚未实现：`apps/classroom-hub`（mDNS 广播、WSS 网关、课件上传与凭证签发）、教师端 session-agent、TLS 与证书分发。 |
 | 学生课堂 UI 归位 | 已完成（改为分发构建产物） | 正式课堂页移到学生端工作区包 `repos/student/ui/classroom`（`@lumesync/student-ui`）：`src/classroom-app.js`、`src/index.html` 按原字节迁移，`scripts/build.mjs` 产出 `dist/<version>/`（版本 = 包版本 + 构建输入内容哈希）、`dist/manifest.json` 与 `dist/current.json`。教师仓库删除 `shared/public/student.html`、`shared/public/student-app.js`，依赖改为 `@lumesync/student-ui: workspace:*`，新增稳定入口 `GET /student.html` 与版本化路径 `GET /classroom/<version>/*`（可用 `LUMESYNC_STUDENT_UI_DIR` 覆盖产物目录）；产物缺失时返回 503 并给出预期路径与构建命令，不回退旧副本。仍缺：学生 Windows 壳按版本路径做原生校验、教师端 Windows 打包脚本（`native/package-native.ps1`）尚未把 `repos/student/ui/classroom/dist` 暂存进安装包（打包产物里只能靠 `LUMESYNC_STUDENT_UI_DIR` 指向外部产物，否则服务器会明确报 503）、两机实测；页面仍在浏览器里由 Babel Standalone 编译（`/lib/babel.min.js` 由教师服务提供）。 |
 | 新编辑器 | 未开始 | 旧 AI Editor 和 VS Code 插件不作为新架构基础。 |
 | 可复现版本与跨端验收 | 部分改善 | 根工作区 `pnpm run test` 现覆盖契约包、学生课堂 UI 构建产物与教师服务（含协议握手、课程目录、会话引导回归、学生 UI 分发）；学生/Core 检出仍与锁定指针不一致，Windows/macOS 构建与多机联调未验证。 |

@@ -51,7 +51,7 @@
 | `register-dependencies` / host | `[{filename, publicSrc}]` | 写入服务端依赖 URL 映射，无回执；URL 目标策略尚未补齐 |
 | `set-admin-password` / host | `{hash}` | `set-admin-password` → viewers `{hash}` |
 
-当前主要设置字段包括 `forceFullscreen`、`syncFollow`、`syncInteraction`、`allowInteract`、`podiumAtTop`、`renderScale`、`uiScale`、加入/离开/退出全屏提醒、`monitorEnabled`、`monitorIntervalSec`。服务端把监看间隔限制在 0.5–5 秒之间。设置是进程内状态，重启后的恢复不由此 Socket 模块保证。
+当前主要设置字段包括 `forceFullscreen`、`syncFollow`、`syncInteraction`、`allowInteract`、`podiumAtTop`、`renderScale`、`uiScale`、加入/离开/退出全屏提醒、`monitorEnabled`、`monitorIntervalSec`。服务端把监看间隔限制在 0.5–5 秒之间。`uiScale`（教师端「课件页面缩放」）的有效上限是 1：1 已经等于把 1280×720 画布等比铺满可视区，再大就会被舞台的 `overflow-hidden` 裁掉课件边缘，因此渲染时会夹到 ≤1，教师端滑块区间是 80%–100%；`renderScale`（「课件内容缩放」）仍是 0.6–1.2，只缩放课件内部内容。设置是进程内状态，重启后的恢复不由此 Socket 模块保证。
 
 ### 学生状态、监看与设备控制
 

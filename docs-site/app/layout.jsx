@@ -43,7 +43,7 @@ export default async function RootLayout({ children }) {
           nextThemes={{ defaultTheme: 'system' }}
         >
           <aside style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--x-color-gray-300)', fontSize: '0.875rem', textAlign: 'center' }}>
-            本站区分当前实现与目标设计：跨平台教师端、教室中继和新编辑器尚未实现；学生端与 Core 的当前检出不匹配根仓锁定提交。
+            本站区分当前实现与目标设计：Electron 教师桌面壳已在 macOS 运行直接模式源码预览，教室 Hub 与会话代理（含验证码配对、授课租约）已完成首轮落地；中继桌面接线、TLS 与跨机实测尚未完成，新编辑器仅有设计文档。学生端与 Core 的当前检出不匹配根仓锁定提交。
           </aside>
           {children}
         </Layout>

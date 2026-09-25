@@ -10,8 +10,8 @@
 | --- | --- | --- |
 | [`@lumesync/classroom-protocol`](../../packages/classroom-protocol/README.md) | 协议版本与协商、角色矩阵、入站/出站事件表、HTTP 路由授权表、消息信封、课堂快照、入站守卫；教室中继的配对/租约/状态机/队列契约；短期会话凭证签发与校验 | 教师服务、教室 Hub、教师页面、学生页面 |
 | [`@lumesync/course-format`](../../packages/course-format/README.md) | `.lume` manifest schema 与校验、ZIP 读写与安全限制、内容 hash、旧脚本课件迁移 | 教师服务（课程扫描、导入）、教室 Hub（课件暂存校验）、编辑器与播放器（后续接入） |
-| [`@lumesync/native-contract`](../../packages/native-contract/README.md) | 原生桥消息封装与回执、按角色的动作能力清单、教师/学生桥类型 | 两端页面、C++ 原生壳（对照校验）、未来的 Electron preload |
-| [`@lumesync/teacher-platform`](../../packages/teacher-platform/README.md) | 教师端平台能力接口（文件、导入导出、提交目录、日志、窗口、全屏、受保护会话凭证）与 WebView2 / Electron 适配器 | 教师 React UI、现有 Windows 壳、未来的 Electron 宿主 |
+| [`@lumesync/native-contract`](../../packages/native-contract/README.md) | 原生桥消息封装与回执、按角色的动作能力清单、教师/学生桥类型 | 两端页面、C++ 原生壳（对照校验）、Electron preload |
+| [`@lumesync/teacher-platform`](../../packages/teacher-platform/README.md) | 教师端平台能力接口（文件、导入导出、提交目录、日志、窗口、全屏、受保护会话凭证）与 WebView2 / Electron 适配器 | 教师 React UI、现有 Windows 壳、Electron 桌面壳（`apps/teacher/desktop`） |
 
 四个包都不发布到 npm，通过 pnpm 工作区（`workspace:*`）被 `repos/teacher` 与 `repos/student` 引用；
 `pnpm-workspace.yaml` 中的 `packages/*` 是它们的工作区入口。
@@ -65,19 +65,22 @@ Hub 只负责接传输、持久化与凭证签发：
 | --- | --- |
 | 目标事件命名（`course:select`、`slide:set`、`submission:create`…） | 已在事件表中登记映射，服务端仍只发当前事件名；需要双发过渡窗口 |
 | `requestId` 幂等去重与命令回执 | 契约提供 `createCommandAck`，服务端尚未对所有命令回执 |
-| `classroomId` / `epoch`（授课租约） | 契约有字段，教室中继模式未实现，因此没有实际使用 |
-| `course-format` 在播放器与编辑器中的复用 | 教师服务已用；浏览器运行时仍走 Core 内的旧 `validateLumeManifest` |
+| `classroomId` / `epoch`（授课租约） | 契约有字段，教室中继已落地：Hub（`apps/classroom-hub` relay 模式）与教师端会话代理（`apps/teacher/session-agent`）在配对、租约获取/续期/释放、`classroom:command` 与提交回执路径上实际使用 `leaseId` + `epoch`。直接模式仍不使用 |
+| `course-format` 在播放器与编辑器中的复用 | 教师服务与教室 Hub 已用；浏览器运行时仍走 Core 内的旧 `validateLumeManifest` |
 | `native-contract` 的版本字段 | 契约要求消息带 `version`，两端 C++ 壳尚未发送；能力清单对照测试会暴露漂移 |
-| `teacher-platform` 的 UI 迁移 | 接口、WebView2/Electron 适配器与测试已就位；教师 UI 仍直接调用 `window.teacherHost`，按调用点迁移尚未进行 |
+| `teacher-platform` 的 UI 迁移 | 接口、WebView2/Electron 适配器与测试已就位；`apps/teacher/desktop` 的 preload 目前只**兼容**现有 `window.teacherHost`/`window.electronAPI` 调用点，教师 UI 尚未按调用点迁移到 `window.LumeSyncPlatform`，`ClassroomConnection` 抽象也尚未接入 |
 | `course-runtime` | 尚未创建 |
-| 中继的传输与持久化 | 契约层（配对/租约/状态机/队列）已完成并有测试；`apps/classroom-hub`（mDNS 广播、WSS 网关、课件上传、凭证签发）与教师端 session-agent 尚未实现 |
+| 中继的传输与持久化 | 契约层（配对/租约/状态机/队列）、`apps/classroom-hub`（mDNS 广播、WSS 网关、课件上传、凭证签发）与教师端会话代理（`apps/teacher/session-agent`）均已落地并有测试。仍缺：TLS/WSS（当前明文 WSS）、Hub 状态持久化（课堂、租约、暂存、提交队列、配对全在进程内存，重启不恢复）、固定机只读投影界面与固定机安装包 |
 
 ## 验证方式
 
 ```bash
 pnpm run test:contracts        # 三个契约包的用例
 pnpm run test:teacher-server   # 教师服务用例（含协议握手、引导回归与授权回归）
-pnpm run test                  # 以上两者
+pnpm run test:hub              # 教室 Hub（真实 Express + Socket.IO + course-format 课件）
+pnpm run test:session-agent    # 教师端会话代理（单元 + 驱动真实 Hub 的集成）
+pnpm run test:teacher-desktop  # Electron 桌面壳的页面来源与课件路径守卫
+pnpm run test                  # 以上全部，外加学生课堂 UI 构建产物
 ```
 
 契约包测试包括：ESM/CJS 导出一致性、事件表角色矩阵与当前处理器行为一致、

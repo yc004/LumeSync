@@ -1,12 +1,12 @@
 # 跨平台教师端与教室中继模式设计
 
-状态：目标架构设计，**契约层已落地、传输与桌面端尚未实现**。基于 2026-09-25 的源码评估。本文细化[三端目标架构](target-architecture.md)中的教师端；旧 AI Editor 与 VS Code 插件均不进入目标架构。现有教师端只提供 Windows C++20/Win32/WebView2 壳及 Windows 打包脚本，macOS 和中继模式属于新增能力。
+状态：目标架构设计，macOS Electron 教师端已有第一阶段直接授课预览，中继桌面接入尚未完成。基于 2026-09-25 的源码评估。本文细化[三端目标架构](target-architecture.md)中的教师端；旧 AI Editor 与 VS Code 插件均不进入目标架构。Windows 旧端仍为 C++20/Win32/WebView2；跨平台新端采用 Electron 复用现有 React 教师界面。
 
-> 已实现部分：[共享契约包](../reference/contracts.md) 的 `src/relay/` 提供验证码配对、授课租约（含 `epoch`）、固定机状态机、提交转发队列与课件暂存契约，并有自动化测试。尚未实现：`apps/classroom-hub`（mDNS 广播、WSS 网关、课件上传与凭证签发）、教师端 session-agent 与跨平台桌面壳。下文协议与流程描述的是目标行为。
+> 已实现部分：[共享契约包](../reference/contracts.md)、`apps/classroom-hub`、`apps/teacher/session-agent` 与 [Electron 教师端预览](../../apps/teacher/desktop/README.md)。预览在 macOS 上加载现有教师界面并经本机课堂协议实测；中继模式的发现、配对与租约尚未接入桌面壳。下文其余协议与流程描述的是目标行为。
 
 ## 1. 目标与边界
 
-教师端在 Windows 和 macOS 上使用同一套授课界面、课件格式与课堂协议，保留当前功能。教师可以用两种方式授课：
+教师端在 Windows 和 macOS 上复用同一套 React 界面、课件格式和课堂协议。Electron 提供跨平台桌面宿主；Windows 旧 WebView2 壳在过渡期继续使用。教师可以用两种方式授课：
 
 | 模式 | 教师设备 | 教室固定台式机 | 学生连接地址 | 课件与授课控制权 |
 | --- | --- | --- | --- | --- |
@@ -20,7 +20,7 @@
 ```mermaid
 flowchart LR
   subgraph BYOD[教师自带电脑：Windows / macOS]
-    D[跨平台桌面壳]
+    D[Windows / macOS Electron 桌面壳]
     UI[React 教师界面]
     LIB[本机课件库与格式校验]
     AGENT[教师会话代理<br/>主动连接中继]
@@ -66,8 +66,8 @@ flowchart LR
 
 ```text
 apps/teacher/
-  desktop/                # 建议 Electron：Windows/macOS 主进程与受限 preload
-  ui/                     # 现有 React/TSX 教师界面迁移，业务 UI 不依赖操作系统
+  desktop/                # Electron 主进程、受限 preload 与跨平台打包
+  ui/                     # 现有 React/TSX 教师界面迁移
   session-agent/          # 直接/中继模式的连接、上传、重连与命令客户端
 apps/classroom-hub/
   server/                 # Node.js + Express + Socket.IO；教室稳定入口
@@ -79,7 +79,7 @@ packages/
   teacher-platform/       # 文件选择、导入导出、日志、窗口等抽象接口
 ```
 
-**桌面容器建议 Electron。** 当前教师 UI 已是 React/TSX，课堂服务已是 Node.js；Electron 能在 Windows 和 macOS 复用这两层，避免再维护两套原生壳。Windows 旧 WebView2 壳可在过渡期保留，但新功能先写到 `teacher-platform` 接口中：`openCourse`、`saveExport`、`selectSubmissionDirectory`、`openLogs`、`setFullscreen`、窗口控制和本地受保护凭证存储。Electron 主进程实现该接口，页面通过 context isolation 下的窄 `preload` API 调用，禁止页面直接获得 Node.js 权限。macOS 的文件授权、应用签名和公证要进入发布验收。
+**新教师端使用 Electron。** 当前预览在 macOS 上直接加载现有 React 教师界面，主进程启动本机 Node.js 教师服务；受限 `preload` 向页面提供文件、窗口和本机会话接口。后续将 `session-agent` 接入桌面主进程，覆盖中继搜索、验证码配对、租约与提交回执。Windows 旧 WebView2 壳在功能迁移期间保留。`teacher-platform` 继续作为能力契约，后续把页面里直接调用的旧接口逐步迁移到该接口。macOS 文件授权、应用签名与公证纳入发布验收。
 
 教师 UI 的网络访问也必须经过 `ClassroomConnection` 抽象：直接模式指向本机 Hub，中继模式指向配对后的固定 Hub。现有 `fetch('/api/...')` 和 `window.io()` 默认同源的写法需要迁移为统一客户端，负责服务地址、身份凭证、协议版本、重连和错误处理；界面组件不自行拼接 Hub URL。这样桌面应用可以从本地打包资源加载 UI，同时连接远程教室。平台 API 保持与业务 UI 分离，将来增加 Linux 桌面包不应要求改写课堂业务层。
 
@@ -137,7 +137,7 @@ packages/
 | 教师应用 ↔ 教室 Hub | TLS 上的 Socket.IO（WSS） | 配对、租约续期、课堂命令、学生事件、状态快照和回执 | 教师应用主动发起连接；断线自动重连，不以 IP 推断 host 身份 |
 | 教师应用 → 教室 Hub | HTTPS，分块或可恢复上传 | 已校验的 `.lume` 文件、hash、大小、格式版本 | 上传完成并校验 hash 后才能发布课程；Hub 分发缓存，不修改课件 |
 | 学生端 ↔ 教室 Hub | HTTPS + Socket.IO（WSS） | 页面与课程资源、课堂事件、互动、设备命令 | 学生始终只连固定地址；直接模式改连教师电脑地址 |
-| 教师页面 ↔ 跨平台桌面主进程 | Electron `preload` IPC，类型化请求/响应 | 文件对话框、保存目录、日志与窗口动作 | 页面无 Node.js 全权限；仅桌面端特有操作走 IPC |
+| 教师 React 页面 ↔ Electron 主进程 | 受限 `preload` IPC，类型化请求/响应 | 文件、窗口、本机会话与设置 | 页面不直接获得 Node.js 权限；当前预览尚需逐项回归旧平台能力 |
 | 固定 Hub → 学生网卡 | UDP Wake-on-LAN | 标准魔术包 | 仅远程唤醒；关机/重启走已授权的实时通道 |
 
 课程资源采用**发布快照**：教师电脑计算包 hash `courseHash`，上传到 Hub；Hub 对学生发布 `{courseId, courseHash, runtimeVersion}`，学生按 hash 下载并缓存。教师电脑修改课件后生成新 hash，不能悄悄覆盖正在播放的版本。发布完成前，旧版本继续播放；缺少缓存或校验失败时拒绝切换并提示教师。
@@ -212,7 +212,7 @@ sequenceDiagram
 
 ## 9. 与现有架构的差距与实施顺序
 
-当前 `repos/teacher/native/shell`、`scripts/start-native.js` 和打包脚本绑定 Windows `.exe`、CMake/MSVC/PowerShell。教师 UI 通过 `window.teacherHost`/`window.electronAPI` 兼容对象调用原生能力；这提供迁移切入点，但不是已经存在的 Electron 端。教师服务的课程、布局、提交主要由本机文件路径和进程内变量管理，不能直接当作跨设备中继服务使用。当前 Socket host bootstrap 和 IP 回退授权还需要先收紧，详见[源码级评估](source-review.md)。
+当前 `repos/teacher/native/shell`、`scripts/start-native.js` 和 Windows 打包脚本仍绑定 `.exe`、CMake/MSVC/PowerShell。`apps/teacher/desktop` 已实现 Electron 源码预览，复用 `window.teacherHost`/`window.electronAPI` 的现有调用点；正式安装包和完整能力回归仍待完成。教师服务的课程、布局、提交主要由本机文件路径和进程内变量管理，不能直接当作跨设备中继服务使用。安全加固现状详见[迁移状态](../status/migration.md)。
 
 | 阶段 | 交付物 | 验收 |
 | --- | --- | --- |

@@ -1,0 +1,14 @@
+{
+  "name": "@lumesync/teacher-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LumeSync teacher desktop shell for macOS and Windows",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "42.4.0"
+  }
+}

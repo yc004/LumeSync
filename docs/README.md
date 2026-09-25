@@ -9,6 +9,9 @@
 | 架构 | [三端架构图解](architecture/three-end-architecture.md) | 教师端、学生端、编辑器的产品视角与交互 |
 | 架构 | [当前通信与运行机制](architecture/runtime-mechanisms.md) | 进程、协议、身份、状态和信任边界 |
 | 架构 | [课件渲染架构评估](architecture/course-rendering.md) | 播放链路、架构问题与分阶段改进建议 |
+| 架构 | [课件内容规范与插件机制](architecture/course-content-extensions.md) | 页面编码规则、组件库、插件扩展点、导入与版本锁定方案 |
+| 架构 | [新课件编辑器设计](architecture/editor-design.md) | 创作体验、文件生命周期、构建预览、组件扩展与教师端发布 |
+| 架构 | [编辑器 Agent 与模型 API](architecture/editor-agent.md) | 用户自带模型 API、受限创作工具、候选草稿审查和密钥边界 |
 | 架构 | [源码级架构评估](architecture/source-review.md) | 问题证据、目标边界与改造顺序 |
 | 架构 | [三端目标架构设计](architecture/target-architecture.md) | 语言、框架、通信协议、模块归属与详细图表（讨论稿） |
 | 架构 | [跨平台教师端与教室中继模式](architecture/teacher-cross-platform-relay.md) | Windows/macOS 教师端、固定机中继、功能归属与接入流程 |

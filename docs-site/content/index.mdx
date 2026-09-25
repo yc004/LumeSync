@@ -8,7 +8,7 @@ import Link from 'next/link'
 <div className="sc-hero">
   <div className="sc-kicker">LumeSync · 项目文档</div>
   <h1>课堂系统的现状与下一步设计</h1>
-  <p>从源码梳理教师端、学生端和课件运行时：HTTP API、Socket.IO 事件、WebView2 桥接、课件格式、配置、状态流转及安全边界。跨平台教师端、教室中继模式和新编辑器另列为目标设计。</p>
+  <p>从源码梳理教师端、学生端和课件运行时：HTTP API、Socket.IO 事件、WebView2 桥接、课件格式、配置、状态流转及安全边界。Electron 教师桌面壳、教室 Hub 与会话代理（含验证码配对与授课租约）已完成首轮落地；中继桌面接线、TLS 与新编辑器另列为目标设计。</p>
   <div className="sc-actions">
     <Link className="sc-button sc-button-primary" href="/getting-started/running">获取源码与运行现状</Link>
     <Link className="sc-button" href="/architecture/target-architecture">目标架构</Link>
@@ -43,9 +43,10 @@ import Link from 'next/link'
 | 项目 | 状态 |
 | --- | --- |
 | 现有教师端 | Windows C++/WebView2 壳、React 界面、Node.js/Express/Socket.IO 服务；源码已静态审查，Windows 构建未实测 |
-| 现有学生端 | Windows 壳和本地管理页；课堂页目前由教师仓库提供；学生端检出与根仓指针不一致 |
+| Electron 教师桌面壳 | `apps/teacher/desktop`：已在 macOS 上运行直接模式源码预览（加载现有 React 界面并自起本机教师服务）；中继接线、安装包与 Windows 实机未验证 |
+| 现有学生端 | Windows 壳和本地管理页；正式课堂页已归位到学生端仓库（`repos/student/ui/classroom`）为版本化产物，由教师服务分发；学生端检出与根仓指针不一致 |
 | 课件运行时 | Core 中存在 ZIP `.lume`、TSX 页面与旧格式兼容路径；Core 检出与教师端锁定指针不一致 |
-| Windows/macOS 教师端与教室中继 | **设计中，尚未实现**；包括局域网自动发现和固定机显示验证码的接入流程 |
+| 教室 Hub 与会话代理 | `apps/classroom-hub`（direct / relay 两种模式）与 `apps/teacher/session-agent` 已完成首轮落地并有自动化测试；**缺 TLS/WSS、Hub 持久化、固定机只读投影与跨机实测** |
 | 新编辑器 | **设计中，尚未实现**；旧 AI Editor 与 VS Code 插件均退出目标架构 |
 
 除本导航首页外，本站的当前说明页面均由根目录 [`docs/`](https://github.com/yc004/SyncClassroom/tree/main/docs) 同步生成。接口参考来自 2026-09-25 静态源码审查，学生端/Core 子模块检出与根仓锁定版本存在差异，端到端联调仍待进行。旧站点页面已[归档](https://github.com/yc004/SyncClassroom/tree/main/docs/archive/docs-site-pre-sync)，不作为当前规范。

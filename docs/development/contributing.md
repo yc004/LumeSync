@@ -25,16 +25,21 @@ node repos/student/ui/classroom/scripts/build.mjs   # 不经 pnpm 的直接调�
 
 ```bash
 git submodule status
-pnpm install --no-frozen-lockfile   # 工作区含 packages/* 与 repos/student/ui/*，需要重建链接
-pnpm run test                       # 契约包 + 学生课堂 UI + 教师服务
+pnpm install --no-frozen-lockfile   # 工作区含 packages/*、apps/* 与 repos/student/ui/*，需要重建链接
+pnpm run test                       # 契约包 + 学生课堂 UI + 教师服务 + 教室 Hub + 会话代理 + 教师桌面壳
+pnpm run test:hub                   # 教室 Hub（真实 Express + Socket.IO + course-format 课件）
+pnpm run test:session-agent         # 教师端会话代理（单元 + 驱动真实 Hub 的集成）
+pnpm run test:teacher-desktop       # Electron 桌面壳的页面来源与课件路径守卫
 pnpm run docs:sync
 pnpm run docs:check
 pnpm run docs:build
 ```
 
-`pnpm run test` 由三步组成：`pnpm run test:contracts`（`packages/` 下三个契约包）、`pnpm run test:student-ui`（学生课堂 UI 构建产物与页面契约，内含一次真实构建）与 `pnpm run test:teacher-server`（教师服务，含协议握手、课程目录、会话引导和学生 UI 分发回归）。契约包通过 `workspace:*` 被 `repos/teacher`、`repos/student` 引用，因此改动契约后必须在根目录重装链接。教师服务测试会在开始时重新构建学生课堂 UI（构建幂等），所以单独运行 `node --test server/tests/*.test.js` 也不依赖手工预构建，但服务本身不会在缺少产物时回退。
+`pnpm run test` 由六步组成，顺序串行执行：`pnpm run test:contracts`（`packages/` 下四个契约包）、`pnpm run test:student-ui`（学生课堂 UI 构建产物与页面契约，内含一次真实构建）、`pnpm run test:teacher-server`（教师服务，含协议握手、课程目录、会话引导和学生 UI 分发回归）、`pnpm run test:hub`（教室 Hub，direct 与 relay 两种模式）、`pnpm run test:session-agent`（教师端会话代理，含驱动真实 Hub 的集成用例）与 `pnpm run test:teacher-desktop`（Electron 桌面壳的守卫纯函数）。
 
-修改子模块后，应先在该子模块提交，再在根仓提交更新后的 gitlink。不要用 `repos:update` 当作可重复的安装步骤：它会移动到子模块远端分支，改变根仓原先锁定的组合。
+新增可测包时应加上 `test:<name>` 脚本并串进根 `test`，否则它不会被 CI 覆盖。契约包通过 `workspace:*` 被 `repos/teacher`、`repos/student` 引用，因此改动契约后必须在根目录重装链接。教师服务测试会在开始时重新构建学生课堂 UI（构建幂等），所以单独运行 `node --test server/tests/*.test.js` 也不依赖手工预构建，但服务本身不会在缺少产物时回退。
+
+`apps/classroom-hub` 与 `apps/teacher/*` 是根工作区包（不在子模块内），直接在本仓提交；只有 `repos/*` 的改动才需要先在子模块提交、再在根仓提交更新后的 gitlink。不要用 `repos:update` 当作可重复的安装步骤：它会移动到子模块远端分支，改变根仓原先锁定的组合。
 
 ## 共享契约
 
@@ -45,7 +50,11 @@ pnpm run docs:build
 | `packages/native-contract` | 修改原生桥动作或消息封装时。对照测试会读取两端 `native/shell/src/main.cpp`，清单与 C++ 分派表必须一起改 |
 | `packages/teacher-platform` | 新增/修改教师端平台能力（文件、导入导出、提交目录、日志、窗口、全屏、会话凭证）时。测试会校验接口对 `native-contract` 已实现动作的覆盖 |
 
-契约包与当前实现的关系、尚未落地的部分见[共享契约包](../reference/contracts.md)。打包后的教师页面通过服务端生成的 `/protocol-client.js` 读取协议版本，不要在页面里硬编码版本号；教师端的平台能力通过 `@lumesync/teacher-platform` 接口访问，不要再往 UI 里新增 `window.teacherHost` 的直接调用。
+契约包与当前实现的关系、尚未落地的部分见[共享契约包](../reference/contracts.md)。打包后的教师页面通过服务端生成的 `/protocol-client.js` 读取协议版本，不要在页面里硬编码版本号；教师端的平台能力通过 `@lumesync/teacher-platform` 接口访问，不要再往 UI 里新增 `window.teacherHost` 的直接调用。`apps/teacher/desktop` 目前用受限 preload 兼容现有 `window.teacherHost`/`window.electronAPI` 调用点，是过渡实现，不是新的接口约定。
+
+## 编辑器设计文档
+
+新课件内容规范与编辑器设计尚未实现，相关文档放在 `docs/architecture/`：`course-content-extensions.md`（内容规范与插件机制）、`editor-design.md`（编辑器设计）、`editor-agent.md`（编辑器 Agent 与模型 API）。它们与已有的 `course-rendering.md` 评估配套阅读；落地的结构变化要同步更新而非另开一份设计稿。三页都已登记在 `sync-content.mjs` 的 `sections` 中。
 
 ## 文档维护
 

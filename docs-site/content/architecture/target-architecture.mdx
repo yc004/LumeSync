@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 三端目标架构设计（讨论稿）
 
-日期：2026-09-25。本文是在[源码级评估](/architecture/source-review)基础上的**目标设计**，不是已实现功能说明，也不代表现在开始迁移或修复。旧 AI Editor 与 VS Code 插件均不纳入目标架构；新编辑器在格式和协议确定后独立设计。教师端新增 Windows/macOS 与固定机中继模式，详见[跨平台教师端专项设计](/architecture/teacher-cross-platform-relay)。学生端和 Core 当前检出与上级锁定提交不一致，因此现状细节仍需在可复现基线建立后做集成验证。
+日期：2026-09-25。本文是在[源码级评估](/architecture/source-review)基础上的**目标设计**，不是已实现功能说明。旧 AI Editor 与 VS Code 插件均不纳入目标架构；新编辑器方案见[专项设计](/architecture/editor-design)。教师端新增 Windows/macOS 与固定机中继模式，详见[跨平台教师端专项设计](/architecture/teacher-cross-platform-relay)。学生端和 Core 当前检出与上级锁定提交不一致，因此现状细节仍需在可复现基线建立后做集成验证。
 
 ## 1. 产品与部署边界
 
@@ -54,7 +54,7 @@ flowchart LR
 
 | 模块 | 当前源码实际使用 | 目标设计建议 |
 | --- | --- | --- |
-| 教师桌面壳 | C++20（以 CMake/MSVC 构建）、Win32、WebView2；WinHTTP 请求本机教师服务 | 建议迁移到 Windows/macOS 共用的 Electron 宿主；以受限 preload 接口提供窗口、文件和本地系统能力，旧 Windows 壳仅作过渡 |
+| 教师桌面壳 | Windows 旧端为 C++20、Win32、WebView2；macOS 已有 Electron 直接授课源码预览 | Windows/macOS 共用 Electron 宿主与现有 React 教师界面，旧 Windows 壳在过渡期保留 |
 | 教师页面 | TypeScript/TSX、React 18、ReactDOM；Babel Standalone 编译后输出浏览器脚本；部分页面引用 Tailwind 等静态库 | 继续用 TypeScript + React；改为构建期打包和类型检查，不在服务启动时临时编译 |
 | 课堂服务 | JavaScript/Node.js、Express 4、Socket.IO 4；文件系统保存课程、布局与提交 | 提炼为跨平台 Classroom Hub：直接模式在教师电脑，中继模式在教室固定机；业务层改为 TypeScript，持久化与临时转发队列分开 |
 | 学生桌面壳 | C++20（以 CMake/MSVC 构建）、Win32、WebView2；另有 Windows Guard Service；WinHTTP 从教师服务领取 viewer 会话 | 第一阶段保留；本地管理/离线页与课堂页均由学生端仓库构建；限制 WebView 来源及原生能力 |
@@ -63,7 +63,7 @@ flowchart LR
 | 现有 VS Code 插件（遗留） | TypeScript、VS Code Extension API、esbuild；复制旧服务/引擎代码，并依赖旧 AI Editor 构建产物 | 停止作为产品端维护；不迁移进目标架构，新编辑器不依赖它 |
 | 文档/下载站 | 根仓的 Next.js/Nextra 文档站及独立下载站 | 属于发布与文档系统，不进入课堂运行时依赖链 |
 
-表中目标技术是迁移建议，尚未决定具体 UI 打包器、数据库或新编辑器宿主。新编辑器可以是桌面或 Web 应用；应在课件数据模型与用户流程定稿后选择。
+表中目标技术是迁移建议；课堂服务数据库和具体 UI 打包器仍待实现时验证。[编辑器设计](/architecture/editor-design)建议第一版采用 Windows/macOS 本地优先桌面宿主，业务层保留以后增加 Web 形态的能力。
 
 ## 3. 当前实际通信协议
 
@@ -145,7 +145,7 @@ sequenceDiagram
 
 ### 4.3 WebView2 原生桥：系统能力
 
-教师端建议改用 Electron 的受限 preload IPC，学生端仍使用 WebView2 消息桥；两者分别暴露最小能力列表。消息建议统一为 `{version, requestId, action, payload}`，响应为 `{requestId, ok, result?, error?}`。Electron 主进程与学生壳均校验消息来源、窗口角色、action 白名单和参数 schema。课件 iframe/隔离 WebView 不能直接调用原生能力。直接模式的教师身份走仅本机进程可访问的通道；中继模式通过固定机配对和唯一授课租约取得控制权，不能由公开 HTTP 接口领取 host token。
+新教师端使用 Electron 的受限 `preload` IPC；Windows 旧教师端及学生端暂用 WebView2 消息桥。原生能力仅由各端受控接口提供，消息建议统一为 `{version, requestId, action, payload}`，响应为 `{requestId, ok, result?, error?}`。课件隔离播放器不能直接调用原生能力。直接模式的教师身份走仅本机进程可访问的通道；中继模式通过固定机配对和唯一授课租约取得控制权，不能由公开 HTTP 接口领取 host token。
 
 ### 4.4 传输与信任
 
@@ -175,7 +175,7 @@ course.lume  (ZIP)
 apps/
   teacher/
     desktop/              # Windows/macOS Electron 宿主
-    ui/                   # 教师 React UI
+    ui/                   # 共用 React 教师界面
     session-agent/        # 直接/中继连接、课件发布与重连
   classroom-hub/
     server/               # Express HTTP + Socket.IO，单一课堂状态入口
@@ -209,14 +209,14 @@ docs/                     # 当前架构、运维、开发和历史资料
 2. **封闭现有风险入口**：收紧 host bootstrap、HTTP/Socket 权限、原生桥来源与路径校验；保留旧协议兼容窗口，记录客户端版本。
 3. **抽出共享契约**：定义 `.lume` schema、课件读写库、课堂协议及 WebView2 消息 schema；用跨端契约测试验证教师/学生组合。
 4. **归位代码**：学生课堂 UI 回学生端；移除旧插件对工作区构建和发布的依赖；Core 只保留共享运行能力；课堂 Hub 成为唯一状态中心。教师桌面端通过跨平台会话代理接入本机或固定机 Hub；旧插件源码是否归档由后续仓库整理决定，不进入新架构。
-5. **重新设计编辑器**：先确定课件模型、资源管理、预览和导出流程，再决定桌面/Web 宿主；与播放器共用同一格式库和预览运行时。
+5. **实现新编辑器**：按[编辑器设计](/architecture/editor-design)落地课件模型、资源管理、隔离预览、可编辑源码与预编译产物；与课堂播放器共用格式库和运行时。
 
 验收重点是：同一课件在编辑器预览、教师播放、学生播放结果一致；学生断线重连能获得正确状态；未授权客户端不能控制课堂或调用原生系统能力；发布包可以从锁定版本在 CI 中重复构建。
 
 ## 8. 尚需决策的问题
 
-1. 新编辑器优先做 Windows 桌面应用，还是跨平台 Web/桌面双形态？决定 UI 宿主和本地文件访问方案，但不改变课件契约。
-2. 课件页面是否继续允许任意 TSX/JavaScript？若允许，必须先选定真正的隔离执行方案；若改为声明式组件模型，需评估旧课件迁移成本。
+1. 编辑器与课堂共用的隔离播放器如何处理摄像头、网页嵌入和旧 TSX 代码页？需以可运行原型验证。
+2. 声明式组件树与旧 TSX 页如何逐页迁移，哪些旧课必须保留在兼容运行时？需用现有课件样本评估。
 3. 教室是否必须完全离线运行？这决定证书分发、资源缓存和在线发布入口。
 4. 课堂状态在教师服务重启后恢复到什么程度？至少应明确课程、页码、提交与互动会话各自的持久化要求。
 

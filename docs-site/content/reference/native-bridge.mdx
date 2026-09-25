@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # Windows 原生壳与 WebView2 桥接 API
 
-状态：**当前源码实现**，依据两端 `native/shell/src/main.cpp` 与[共享契约](/reference/contracts) `packages/native-contract`，尚未在 Windows 实机联调。教师和学生原生壳均为 C++/WebView2；`window.electronAPI` 只是兼容别名，不表示使用 Electron。计划中的 Windows/macOS 教师端桥接接口尚未实现。
+状态：**当前源码实现**，依据两端 `native/shell/src/main.cpp` 与[共享契约](/reference/contracts) `packages/native-contract`，尚未在 Windows 实机联调。教师和学生原生壳均为 C++/WebView2；`window.electronAPI` 在 Windows 壳里只是兼容别名。本页描述的 C++/WebView2 消息通道是 Windows 壳的实现；**macOS/Windows 的 Electron 源码预览壳**（`apps/teacher/desktop`）另有一套受限 preload，直接暴露同一组 `window.teacherHost`/`window.electronAPI` 调用点，不走 WebMessage，见[Electron 教师桌面壳](#electron-教师桌面壳)。Electron 壳的完整平台能力（`window.LumeSyncPlatform` 迁移、中继模式接线）尚未实现。
 
 ## 消息封装
 
@@ -72,3 +72,19 @@ WebMessage 消息格式只封装了动作名称，没有 origin/能力声明。�
 | 教师壳 | 注入脚本暴露 `classStarted`、`classEnded`、`setFullscreen`，但 `HandleEvent` 没有对应分支 | 课堂开始/结束与全屏调用被静默丢弃 |
 
 教师壳缺口在能力清单中标记为 `implemented: false` 并附说明。学生壳 `maximizeWindow` 已接入 C++ 分派，仅在非授课状态切换窗口最大化；Windows 实机编译仍待验证。**消息版本字段尚未落地**：契约要求消息带 `version`，两端 C++ 壳目前不发送，原生壳仍只按 `action` 字符串分派、不校验消息来源。
+
+## Electron 教师桌面壳
+
+`apps/teacher/desktop` 是 macOS/Windows 上的 Electron 源码预览壳，**不走 WebMessage**：主进程 `main.cjs` 探测空闲端口、启动本机教师服务（`ELECTRON_RUN_AS_NODE`，带随机 host token）并等待 `/api/health`，再用 `BrowserWindow` 加载 `http://127.0.0.1:<port>`。`preload.cjs` 在 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true` 下只暴露两个对象：
+
+| 对象 | 内容 |
+| --- | --- |
+| `window.teacherHost` | `getSession()`、`bootstrapSession()`，经 IPC 转主进程 |
+| `window.electronAPI` | 窗口控制、课件导入导出、设置读写等既有调用点的兼容层；`setAdminPassword` 目前只有占位返回 |
+
+主进程注册的 `teacher:*` IPC 通道对每个调用做两道守卫（实现在 `src/guards.cjs`，可单测）：
+
+- `isTeacherPageUrl(url, teacherPageBase(port))`：调用方必须是本机教师页面（`http://127.0.0.1:<port>/` 前缀），`will-navigate` 与 `setWindowOpenHandler` 同样用它拦截外跳。
+- `safeCoursePath(coursesDir, relative)`：课件导入/导出路径必须落在课程目录内，拒绝绝对路径与 `..` 越界。
+
+守卫有自动化测试（`pnpm run test:teacher-desktop`，含前缀伪装 URL 与路径穿越用例）。**待接入**：`apps/teacher/session-agent` 的教室自发现、验证码配对、授课租约与中继提交；`teacher-platform` 的 `window.LumeSyncPlatform` 正式迁移。见[教师端目标设计](/architecture/teacher-cross-platform-relay)。

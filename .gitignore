@@ -42,5 +42,8 @@ public/lib/
 public/webfonts/
 public/weights/
 
+# pnpm 本地存储（包缓存不应提交）
+.pnpm-store/
+
 # Claude Code
 .claude/worktrees/

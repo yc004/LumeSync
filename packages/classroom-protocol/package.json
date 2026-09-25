@@ -1,0 +1,28 @@
+{
+  "name": "@lumesync/classroom-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LumeSync 课堂协议契约：版本协商、消息信封、角色矩阵、事件表与 HTTP 路由授权表",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

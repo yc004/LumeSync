@@ -1,9 +1,8 @@
 packages:
   - "."
+  - "packages/*"
   - "docs-site"
   - "website"
   - "repos/teacher"
   - "repos/teacher/core"
   - "repos/student"
-  - "repos/editor-plugin"
-  - "repos/ai-editor"

@@ -1,0 +1,37 @@
+{
+  "name": "@lumesync/course-format",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LumeSync 课件格式库：.lume manifest schema、ZIP 读写校验、内容 hash 与旧课件迁移",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    },
+    "./node": {
+      "types": "./node.d.ts",
+      "require": "./src/node.js",
+      "import": "./src/node.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "node.d.ts",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  }
+}

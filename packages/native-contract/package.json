@@ -1,0 +1,31 @@
+{
+  "name": "@lumesync/native-contract",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LumeSync 原生桥契约：消息封装、RPC 回执、按角色的动作能力清单与校验",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@lumesync/classroom-protocol": "workspace:*"
+  }
+}

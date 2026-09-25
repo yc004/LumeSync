@@ -1,193 +1,90 @@
-# SyncClassroom
+# LumeSync（萤火课堂）
 
-SyncClassroom 是 LumeSync/互动课堂的工作区根仓库，用来统一管理多个子项目、启动脚本、构建脚本和跨仓库文档。
+LumeSync 是面向局域网教室的互动课件工作区。教师端管理课程与课堂，学生端接收状态并参与互动；课件运行时负责播放 `.lume` 课件。本仓库组合子模块，提供统一脚本、共享契约包、文档站和下载站源码。新编辑器将在架构确定后独立设计。
 
-当前教师端和学生端都采用 **C++ 原生壳 + WebView2 + 本地 Node 服务/Web UI** 的形态；课件渲染能力由 `repos/core` 提供，端侧 UI 由各端本地管理。
+> **源码状态（2026-09-25）**：教师端和 VS Code 插件已检出到根仓锁定提交。学生端与教师端内的 Core 已取得当前远端源码，但根仓锁定的提交在可取得的远端历史中缺失，因而版本不匹配。旧 AI Editor 和 VS Code 插件均不纳入目标架构；AI Editor 未克隆，旧插件仅保留作现状审查。详见[子模块状态](docs/status/submodules.md)。共享契约包（`packages/`）已完成首轮落地并有自动化测试。三端集成尚未实测。
+
+## 功能
+
+| 模块 | 既有文档描述的用途 | 本次验证 |
+| --- | --- | --- |
+| 教师端 | 课程管理、课堂控制、HTTP/Socket 服务、提交收集 | 协议层与课程校验有自动化测试；桌面端未构建 |
+| 学生端 | 连接教师机、展示课件、互动和提交 | 源码已检出，版本不匹配 |
+| Core | `.lume` 渲染及通用运行时控制 | 源码位于 `repos/teacher/core`，版本不匹配 |
+| 共享契约包 | 课堂协议、课件格式与原生桥的单一契约来源 | 已落地，`pnpm run test:contracts` 覆盖 |
+| AI Editor | 旧编辑器，退出目标架构 | 按用户要求未克隆 |
+| VS Code 插件 | 旧 `.lume` 编辑和预览入口，退出目标架构 | 源码已检出，仅作现状审查 |
+| 文档站 | Nextra / Next.js 文档 | 本仓源码已静态审查 |
+| 下载站 | 页面与 GitHub Release webhook 缓存服务 | 本仓源码已静态审查 |
+
+目前没有端到端运行验证结果。[功能清单与限制](docs/reference/features.md) 说明每项能力的证据。
 
 ## 仓库结构
 
 ```text
-SyncClassroom/
-├─ repos/
-│  ├─ core/                 # 共享 core：课件渲染、运行时控制、服务能力
-│  ├─ teacher/              # 教师端：C++ WebView2 壳、本地服务、教师端 UI、课件资源
-│  ├─ student/              # 学生端：C++ WebView2 壳、守护/服务能力、学生端 UI
-│  ├─ editor-plugin/        # .lume 课件编辑/预览插件
-│  └─ ai-editor/            # AI 编辑器子项目
-├─ docs/                    # 根仓库文档
-├─ website/                 # 文档/站点相关内容
-├─ types/                   # 共享类型定义
-├─ submissions/             # 本地提交/收集产物目录
-├─ package.json             # 根工作区脚本入口
-├─ pnpm-workspace.yaml      # pnpm 工作区配置
-└─ pnpm-lock.yaml           # pnpm 锁文件
+.
+├── repos/
+│   ├── teacher/          # Git 子模块；含工作区包 teacher/core
+│   ├── student/          # Git 子模块
+│   ├── ai-editor/        # 历史子模块声明，未检出，不进入目标架构
+│   └── editor-plugin/    # 历史子模块声明，未检出，不进入目标架构
+├── packages/             # 共享契约包：classroom-protocol / course-format / native-contract
+├── docs/                 # 当前文档与历史资料
+├── docs-site/            # Nextra 文档站
+├── website/              # 下载站
+├── types/                # 课件 SDK 类型声明
+├── .github/workflows/     # CI 与发布
+├── package.json          # 根脚本
+└── pnpm-workspace.yaml   # 工作区包路径
 ```
 
-## Core 结构
+`.gitmodules` 声明四个子模块，但当前只检出 `teacher` 与 `student`。Core 的工作区路径为 `repos/teacher/core`，不是根仓的第五个子模块；旧文档中的 `repos/core` 已失效。
 
-```text
-repos/core/
-└─ packages/
-   ├─ engine/               # 课件渲染引擎源码
-   │  └─ src/               # SyncClassroom、课件组件、资源加载、相机管理等
-   ├─ render-engine/        # 渲染引擎路径/加载入口
-   ├─ runtime-control/      # 课堂同步、身份、运行时控制能力
-   └─ server/               # 独立 core server
-```
+## 快速开始
 
-约束：`core` 只负责课件渲染和共享运行时能力，不承载教师端/学生端完整外壳 UI。
-
-## 教师端结构
-
-```text
-repos/teacher/
-├─ native/                  # C++ WebView2 原生壳
-│  ├─ shell/                # 教师端窗口、WebView2、native RPC、窗口控制
-│  ├─ shared/               # C++ 共享配置、日志、URL、设置读写
-│  └─ installer/            # 安装包相关脚本/资源
-├─ server/                  # 教师端本地 Node/Express/socket.io 服务
-│  └─ src/                  # API、课程扫描、代理缓存、提交、构建辅助脚本
-├─ shared/
-│  ├─ teacher-shell/        # 教师端本地 UI 源码
-│  │  └─ src/
-│  │     ├─ app.tsx
-│  │     ├─ components/
-│  │     ├─ panels/
-│  │     └─ views/
-│  ├─ public/               # 教师端 WebView 静态根目录
-│  │  ├─ index.html         # 教师端入口页
-│  │  ├─ teacher-app.js     # 由 teacher-shell 构建生成的教师端 UI bundle
-│  │  ├─ render-engine.js   # 由 core engine 构建生成/引用的渲染 bundle
-│  │  ├─ student.html       # 学生 Web 入口
-│  │  ├─ student-app.js
-│  │  ├─ courses/           # 课件文件
-│  │  ├─ data/              # 课程目录、机房布局等本地数据
-│  │  ├─ lib/               # React/Babel/Tailwind/FontAwesome 等本地基础库
-│  │  ├─ weights/           # 本地模型权重
-│  │  └─ webfonts/          # 本地图标字体
-│  ├─ docs/
-│  ├─ protocol/
-│  ├─ assets/
-│  └─ build/
-├─ build/                   # CMake/MSBuild 输出
-├─ dist/                    # 打包输出，例如 dist/teacher-native
-└─ package.json
-```
-
-教师端 UI 源码在 `shared/teacher-shell/src`，构建后输出到 `shared/public/teacher-app.js`。不要把教师端 UI 写进 `repos/core`。
-
-教师端课件渲染依赖 `repos/core/packages/engine/src`。教师端本地服务通过 core 路径解析动态链接项目级 core；如果需要覆盖 core 路径，可使用 `LUMESYNC_CORE_DIR` 或 `LUMESYNC_ENGINE_DIR`。
-
-教师端窗口控制由 WebView 内 UI 触发，通过 native RPC 调用 C++ 壳实现最小化、最大化、关闭和拖动。教师端自身窗口固定从本机 `127.0.0.1:<port>` 加载 UI，`teacherIp` 只用于学生端发现/连接配置。
-
-## 学生端结构
-
-```text
-repos/student/
-├─ native/                  # C++ WebView2 原生壳与守护/服务能力
-│  ├─ shell/
-│  ├─ service/
-│  ├─ shared/
-│  └─ installer/
-├─ shared/
-│  ├─ assets/
-│  ├─ build/
-│  └─ protocol/
-├─ ui/                      # 学生端 Web UI 相关源码/构建入口
-├─ build/                   # CMake/MSBuild 输出
-├─ dist/                    # 打包输出，例如 dist/student-native
-└─ package.json
-```
-
-学生端 UI 由学生端本地管理，课堂内容渲染仍通过教师端提供的 core 渲染能力和课堂同步协议完成。
-
-## 常用命令
-
-根目录常用命令：
+前提：Git、Node.js、pnpm 10.33.0。Windows 桌面壳另需 C++/CMake/WebView2 环境；具体版本待子模块复核。
 
 ```bash
-pnpm run repos:init
-pnpm install
-pnpm run start:teacher
-pnpm run start:teacher-server
-pnpm run start:student
-pnpm run start:core
+git clone https://github.com/yc004/SyncClassroom.git
+cd SyncClassroom
+git submodule status
 ```
 
-构建教师端：
+当前有子模块锁定提交不可取得；以下初始化命令可能失败，应先阅读[子模块状态](docs/status/submodules.md)，不要将远端最新提交当成已验证组合：
 
 ```bash
-pnpm --dir repos/teacher run build
+git submodule update --init --recursive
 ```
 
-构建学生端：
+常用命令（需要相应子模块）：
 
 ```bash
-pnpm --dir repos/student run build
+pnpm run start:teacher-server  # 教师服务
+pnpm run start:teacher         # 教师桌面端
+pnpm run start:student         # 学生桌面端
+pnpm run start:core            # 独立 Core runtime
+pnpm run docs:dev              # 文档站
+pnpm run test                  # 契约包 + 教师服务测试
 ```
 
-构建教师端安装包：
+桌面端启动命令需要 Windows 构建产物。完整步骤见 [安装与运行](docs/getting-started/running.md)。
 
-```bash
-pnpm --dir repos/teacher run build:teacher-native-installer
-```
+## 架构与文档
 
-构建学生端安装包：
+当前教师机提供课程内容和课堂状态，学生端连接教师服务；Core 提供渲染和通用运行时能力。目标架构新增 Windows/macOS 教师端及教室固定机中继模式，均尚未实现。[三端架构图解](docs/architecture/three-end-architecture.md) 展示现状，[目标架构](docs/architecture/target-architecture.md) 说明设计。
 
-```bash
-pnpm --dir repos/student run build:student-native-installer
-```
+- [文档目录](docs/README.md)
+- [功能清单与限制](docs/reference/features.md)
+- [共享契约包](docs/reference/contracts.md)
+- [审查报告与待修问题](docs/status/audit.md)
+- [源码级架构评估与改进建议](docs/architecture/source-review.md)
+- [三端目标架构设计（语言、框架、通信协议与图表）](docs/architecture/target-architecture.md)
+- [跨平台教师端与教室中继模式设计](docs/architecture/teacher-cross-platform-relay.md)
+- [当前通信、身份与运行机制](docs/architecture/runtime-mechanisms.md)
+- [HTTP API](docs/reference/http-api.md) · [Socket.IO 事件](docs/reference/socket-events.md) · [WebView2 原生桥](docs/reference/native-bridge.md)
+- [课件格式与 SDK](docs/reference/course-format-sdk.md) · [配置与环境变量](docs/reference/configuration.md)
+- [文档站](docs-site/content/index.mdx)：从 `docs/` 当前文档同步生成；旧 API、Socket 与课件示例已归档
 
-## 运行与打包输出
+## 贡献与许可
 
-教师端打包输出：
-
-```text
-repos/teacher/dist/teacher-native/
-```
-
-学生端打包输出：
-
-```text
-repos/student/dist/student-native/
-```
-
-本地运行时数据和日志通常位于：
-
-```text
-C:\ProgramData\LumeSync Teacher\
-```
-
-## 开发约束
-
-- `repos/core`：只放课件渲染、运行时控制和共享能力。
-- `repos/teacher/shared/teacher-shell/src`：教师端本地 UI 源码。
-- `repos/student/ui` 和 `repos/student/shared`：学生端本地 UI 与共享资源。
-- 教师端/学生端不要复制一份新的 core；需要 core 能力时通过动态路径引用 `repos/core`。
-- `shared/public/teacher-app.js`、`shared/public/render-engine.js` 属于构建产物，优先修改对应源码目录。
-- 基础前端库优先使用 `shared/public/lib` 中的本地文件，避免教师端基础 UI 依赖公网 CDN。
-
-## 文档入口
-
-- [docs/README.md](docs/README.md)
-- [QUICKSTART-FIXED.md](QUICKSTART-FIXED.md)
-
-## 子模块提交流程
-
-业务代码通常在对应子模块中提交：
-
-```bash
-cd repos/teacher
-git add .
-git commit -m "feat: ..."
-git push
-```
-
-子模块提交后，回到根仓库更新子模块指针：
-
-```bash
-cd ../..
-git add repos
-git commit -m "chore: update submodule pointers"
-git push
-```
+业务代码在对应子模块维护，共享契约在 `packages/` 维护，根仓记录子模块提交指针；见 [开发指南](docs/development/contributing.md)。根仓未见 `LICENSE` 文件，使用与再分发条件需要维护者确认。

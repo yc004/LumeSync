@@ -87,7 +87,7 @@ await hub.stop();                          // 关闭发现 + Socket.IO + HTTP
 | 教师 → Hub | `classroom:command {type, leaseId, epoch, requestId, payload}` | 类型：`course:select` / `slide:set` / `settings:update` / `annotation:clear` / `course:end` |
 | Hub → 请求方 | ack `{requestId, ok, revision}` | 拒绝时带契约 `code`/`message`，并给该 socket 回一份权威 `classroom:snapshot` |
 | 学生 → Hub | `student:submit {submissionId, …}` | 入队；ack `{ok:true, status:'queued'}`（**不是最终成功**） |
-| Hub → 教师 | `submission:forwarded {submissionId, courseId, clientIp, clientId, fileName, content, sizeBytes, receivedAt, queueSize}` | 定向转发给教师房间（`direct` 模式同时发旧事件名 `student:submit`） |
+| Hub → 教师 | `submission:forwarded {submissionId, courseId, clientIp, clientId, fileName, content, sizeBytes, receivedAt, queueSize}` | 只发给当前有效租约持有者（`direct` 模式发给本机 host，并同时发旧事件名 `student:submit`）；获取或续期租约后重放待落盘项，重放载荷含 `replayed: true` |
 | 教师 → Hub | `submission:delivered {submissionId}`（兼容 `student:submit:ack`） | `markDelivered()` → 队列副本释放 |
 | Hub → 学生 | `student:submit:result {submissionId, success:true}` | **只有**教师确认落盘后才发；队列满时发 `{success:false, code:'queue_full'}` |
 | Hub → 全体 | `relay:status` | 状态机每次变化（空闲/正在连接/授课中/错误）广播 |

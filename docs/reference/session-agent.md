@@ -139,8 +139,7 @@ endSession               → teacher:lease.release → 固定机作废本次设�
    进入"需要重新配对"，而不是偷偷用旧凭证重试或无限重连。
 6. **课件先校验再上传**：本地用 course-format 校验包（ZIP 路径/大小/压缩比/manifest），上传后比对 Hub 计算的
    `courseHash`，不一致立即中止，绝不进入 `course:publish`。
-7. **提交要显式回执**：`submission:forwarded` 只代表"中继已接收"；教师确认落盘后 `ackSubmission()` 才释放队列副本，
-   学生才看到最终成功（去重按 `submissionId`，直接模式下 Hub 会同时发旧事件名）。
+7. **提交要显式回执**：`submission:forwarded` 只代表"中继已接收"；教师确认落盘并调用 `ackSubmission()` 后，学生才看到最终成功，Hub 才释放队列副本。断线重连后 Hub 会重放待落盘提交，代理会重新通知界面；同一连接内的重复事件仍按 `submissionId` 去重。直接模式下 Hub 会同时发旧事件名。
 8. **协议版本只在握手 `auth` 里**：`protocolVersion` 不能作为 socket.io 顶层选项，否则会撞上 node `ws` 的
    WebSocket 协议版本（默认 13），导致真实握手失败——只有连真实 Hub 才暴露得出来。
 

@@ -625,6 +625,26 @@ test('提交：submission:forwarded 与旧事件名按 submissionId 去重，ack
     assert.equal(error.code, ERROR_CODES.QUEUE_ITEM_UNKNOWN);
 });
 
+test('断线重连后同一待落盘提交可以重新通知教师界面', async () => {
+    const fakeHub = createFakeHub();
+    const { agent } = await pairAgent(fakeHub);
+    await agent.acquireLease();
+    const received = [];
+    agent.on('submission', (payload) => received.push(payload));
+
+    const payload = { submissionId: 'sub-replay', content: 'homework' };
+    fakeHub.broadcast('submission:forwarded', payload);
+    fakeHub.broadcast('submission:forwarded', payload);
+    assert.equal(received.length, 1, '同一连接内重复通知仍去重');
+
+    agent.__internals.dropConnection('transport close');
+    await fakeHub.clock.advance(100);
+    assert.equal(agent.getState().connected, true);
+    fakeHub.broadcast('submission:forwarded', { ...payload, replayed: true });
+    assert.equal(received.length, 2, '新连接应再次提醒尚未确认落盘的提交');
+    assert.equal(agent.getState().pendingSubmissions, 1);
+});
+
 test('学生事件：契约声明的事件被转发成 student-event，host 命令类事件不会被误订阅', async () => {
     const fakeHub = createFakeHub();
     const { agent } = await pairAgent(fakeHub);

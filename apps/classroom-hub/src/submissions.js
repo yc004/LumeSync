@@ -60,6 +60,13 @@ function createSubmissionForwarder({ queue, now = () => Date.now(), logger }) {
         return owner ? { ...owner } : null;
     }
 
+    function pending() {
+        return queue.list({ status: 'pending' }).map((item) => ({
+            ...item,
+            clientId: owners.get(String(item.submissionId))?.clientId || ''
+        }));
+    }
+
     function stats() {
         return { ...queue.stats(), trackedOwners: owners.size };
     }
@@ -70,7 +77,7 @@ function createSubmissionForwarder({ queue, now = () => Date.now(), logger }) {
         return removed;
     }
 
-    return { enqueue, markDelivered, ownerOf, stats, clear, UNKNOWN_ITEM: ERROR_CODES.QUEUE_ITEM_UNKNOWN };
+    return { enqueue, markDelivered, ownerOf, pending, stats, clear, UNKNOWN_ITEM: ERROR_CODES.QUEUE_ITEM_UNKNOWN };
 }
 
 module.exports = { createSubmissionForwarder, MAX_TRACKED_OWNERS };

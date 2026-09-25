@@ -24,7 +24,6 @@ const protocol = require('./protocol');
 const { createClassroomController } = require('./classroom-controller');
 const { getString, normalizeIp, timingSafeEqualString } = require('./utils');
 
-const HOSTS_ROOM = 'hosts';
 const VIEWERS_ROOM = 'viewers';
 
 // 这些 viewer 事件有专门的处理器，不走通用转发。
@@ -157,6 +156,26 @@ function setupSocketHandlers(io, ctx) {
     /** 学生在线统计：IP -> 连接数（与教师服务一致，同一 IP 只算一个学生）。 */
     const studentIps = new Map();
 
+    function isActiveHost(socket) {
+        if (!socket.data.lumesyncHost) return false;
+        if (config.mode === 'direct') return true;
+        return relay.authorizeStaging({ deviceKey: socket.data.lumesyncDeviceKey }).ok;
+    }
+
+    function emitToActiveHosts(event, payload) {
+        for (const peer of io.sockets.sockets.values()) {
+            if (isActiveHost(peer)) peer.emit(event, payload);
+        }
+    }
+
+    function replayPending(socket) {
+        if (!isActiveHost(socket)) return;
+        for (const item of submissions.pending()) {
+            socket.emit('submission:forwarded', { ...item, queueSize: submissions.stats().pendingCount, replayed: true });
+            if (config.mode === 'direct') socket.emit('student:submit', { ...item, replayed: true });
+        }
+    }
+
     function emitSnapshot() {
         const snapshot = classroom.snapshot();
         io.emit(protocol.SNAPSHOT_EVENT, snapshot);
@@ -166,7 +185,7 @@ function setupSocketHandlers(io, ctx) {
     function broadcastEvents(events) {
         for (const item of events) {
             if (item.audience === 'viewers') io.to(VIEWERS_ROOM).emit(item.event, item.payload);
-            else if (item.audience === 'hosts') io.to(HOSTS_ROOM).emit(item.event, item.payload);
+            else if (item.audience === 'hosts') emitToActiveHosts(item.event, item.payload);
             else io.emit(item.event, item.payload);
         }
     }
@@ -209,6 +228,8 @@ function setupSocketHandlers(io, ctx) {
 
         const { role, clientIp, clientId } = identity;
         const deviceKey = role === ROLE_HOST && !identity.pairingOnly ? identity.clientId : '';
+        socket.data.lumesyncHost = role === ROLE_HOST && !identity.pairingOnly;
+        socket.data.lumesyncDeviceKey = deviceKey;
         logger.info(`[conn] role=${role} clientId=${clientId} ip=${clientIp} protocol=${negotiation.protocolVersion}${identity.pairingOnly ? ' (pairing-only)' : ''}${negotiation.legacy ? ' (legacy)' : ''}`);
 
         // 配对处理器：配对候选连接与已配对连接都要注册（后者用于重新配对/换机）。
@@ -343,9 +364,8 @@ function setupSocketHandlers(io, ctx) {
         });
 
         if (role === ROLE_HOST) {
-            socket.join(HOSTS_ROOM);
             socket.join(`host:${deviceKey || clientIp}`);
-            socket.emit('student-status', { count: studentIps.size, action: 'init' });
+            if (config.mode === 'direct') socket.emit('student-status', { count: studentIps.size, action: 'init' });
         } else {
             socket.join(VIEWERS_ROOM);
             socket.join(`viewer-ip:${clientIp}`);
@@ -353,11 +373,12 @@ function setupSocketHandlers(io, ctx) {
             const previous = studentIps.get(clientIp) || 0;
             studentIps.set(clientIp, previous + 1);
             if (previous === 0) {
-                io.to(HOSTS_ROOM).emit('student-status', { count: studentIps.size, action: 'join', ip: clientIp });
+                emitToActiveHosts('student-status', { count: studentIps.size, action: 'join', ip: clientIp });
             }
         }
 
         sendSessionAccepted();
+        if (role === ROLE_HOST && config.mode === 'direct') replayPending(socket);
 
         // ---------------------------------------------------------------
         // 中继：配对（与配对候选连接共用同一套处理器）
@@ -387,6 +408,8 @@ function setupSocketHandlers(io, ctx) {
             };
             socket.emit('teacher:lease.granted', granted);
             callAck(ack, granted);
+            socket.emit('student-status', { count: studentIps.size, action: 'init' });
+            replayPending(socket);
             logger.info(`[relay] lease.granted epoch=${granted.epoch} reused=${granted.reused}`);
         });
 
@@ -412,6 +435,7 @@ function setupSocketHandlers(io, ctx) {
             // 契约未声明 lease.renewed：带 ack 的客户端从 ack 拿结果，否则回 lease.granted。
             if (typeof ack === 'function') callAck(ack, renewed);
             else socket.emit('teacher:lease.granted', renewed);
+            replayPending(socket);
         });
 
         on(socket, 'teacher:lease.release', (payload = {}, ack) => {
@@ -593,7 +617,7 @@ function setupSocketHandlers(io, ctx) {
         }
 
         on(socket, 'get-student-count', () => {
-            if (role !== ROLE_HOST) return;
+            if (!isActiveHost(socket)) return;
             socket.emit('student-status', { count: studentIps.size, action: 'init' });
         });
 
@@ -650,10 +674,10 @@ function setupSocketHandlers(io, ctx) {
                 receivedAt: result.item.receivedAt,
                 queueSize: submissions.stats().pendingCount
             };
-            io.to(HOSTS_ROOM).emit('submission:forwarded', forwarded);
+            emitToActiveHosts('submission:forwarded', forwarded);
             if (config.mode === 'direct') {
                 // 兼容仍在使用旧事件名的教师页面；教师侧以 submissionId 去重。
-                io.to(HOSTS_ROOM).emit('student:submit', forwarded);
+                emitToActiveHosts('student:submit', forwarded);
             }
             const accepted = {
                 submissionId: result.item.submissionId,
@@ -669,6 +693,13 @@ function setupSocketHandlers(io, ctx) {
         // 教师电脑确认落盘：只有这一步之后才给学生最终成功。
         const handleDelivered = (payload = {}, ack) => {
             const submissionId = getString(payload.submissionId);
+            if (config.mode === 'relay') {
+                const authorized = relay.authorizeStaging({ deviceKey });
+                if (!authorized.ok) {
+                    callAck(ack, { submissionId, ok: false, code: authorized.code, message: authorized.message });
+                    return;
+                }
+            }
             const result = submissions.markDelivered(submissionId, { deliveredAt: payload.deliveredAt });
             if (!result.ok) {
                 callAck(ack, { submissionId, ok: false, code: result.code, message: result.message });
@@ -685,7 +716,7 @@ function setupSocketHandlers(io, ctx) {
             } else {
                 logger.warn(`[submission] delivered id=${submissionId} 但没有归属连接，未回执学生`);
             }
-            io.to(HOSTS_ROOM).emit('submission:delivered:ack', {
+            emitToActiveHosts('submission:delivered:ack', {
                 submissionId,
                 pendingCount: submissions.stats().pendingCount
             });
@@ -717,7 +748,7 @@ function setupSocketHandlers(io, ctx) {
                     clientId,
                     receivedAt: Date.now()
                 };
-                io.to(HOSTS_ROOM).emit(event, forwarded);
+                emitToActiveHosts(event, forwarded);
                 callAck(ack, { ok: true, forwarded: true, event });
             });
         }
@@ -727,7 +758,7 @@ function setupSocketHandlers(io, ctx) {
             const count = studentIps.get(clientIp) || 0;
             if (count <= 1) {
                 studentIps.delete(clientIp);
-                io.to(HOSTS_ROOM).emit('student-status', { count: studentIps.size, action: 'leave', ip: clientIp });
+                emitToActiveHosts('student-status', { count: studentIps.size, action: 'leave', ip: clientIp });
             } else {
                 studentIps.set(clientIp, count - 1);
             }

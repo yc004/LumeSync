@@ -595,6 +595,7 @@ function createSessionAgent(options = {}) {
     function closeSocket() {
         const current = socket;
         socket = null; // 先清空：disconnect 回调据此判断这是主动关闭
+        seenSubmissionIds.clear(); // 新连接需重新通知尚未确认落盘的提交
         if (!current) return;
         try {
             current.close();
@@ -620,6 +621,7 @@ function createSessionAgent(options = {}) {
     function onSocketDisconnect(reason) {
         const description = transport.describeDisconnectReason(reason);
         serverInfo = null;
+        seenSubmissionIds.clear();
         if (state.closed) return;
         setStatus('disconnected', { reason: description, leaseKept: !!lease, leaseExpiresAt: lease ? lease.expiresAt : null });
         if (mode === 'relay' && !state.pairingOnly) {

@@ -161,6 +161,14 @@ test('教师离线时提交仍留在队列（不虚报成功），重新上线�
 
     const reconnected = await connectHost(hub, paired.verified.deviceToken, 'device-submit-5');
     t.after(() => reconnected.client.close());
+    const renewed = await reconnected.client.emitWithAck('teacher:lease.renew', {
+        leaseId: lease.leaseId,
+        epoch: lease.epoch
+    });
+    assert.equal(renewed.ok, true);
+    const replayed = await reconnected.client.waitFor('submission:forwarded');
+    assert.equal(replayed.submissionId, 'sub-offline');
+    assert.equal(replayed.replayed, true);
     const list = hub.relay.getQueue().list({ status: 'pending' });
     assert.equal(list.length, 1);
     assert.equal(list[0].submissionId, 'sub-offline');
@@ -170,6 +178,39 @@ test('教师离线时提交仍留在队列（不虚报成功），重新上线�
     assert.equal(delivered.ok, true);
     const result = await student.waitFor('student:submit:result');
     assert.equal(result.success, true);
+});
+
+test('已配对但未持有租约的教师不能接收学生提交或确认落盘', async (t) => {
+    const hub = await startTestHub({ mode: 'relay' });
+    t.after(() => hub.stop());
+
+    const paired = await pairTeacher(hub, { deviceKey: 'device-no-lease' });
+    const { client: host } = await connectHost(hub, paired.verified.deviceToken, 'device-no-lease');
+    t.after(() => host.close());
+    const student = connect(hub.port, viewerAuth(await bootstrapViewer(hub, 'student-no-lease')));
+    t.after(() => student.close());
+    await student.waitForAccepted();
+
+    const queued = await student.emitWithAck('student:submit', { submissionId: 'sub-no-lease', content: 'private' });
+    assert.equal(queued.ok, true);
+    assert.equal(host.seen('submission:forwarded'), false);
+    const alert = await student.emitWithAck('student-alert', { type: 'fullscreen-exit' });
+    assert.equal(alert.ok, true);
+    assert.equal(host.seen('student-alert'), false, '普通学生事件也不能发给无租约连接');
+
+    const rejected = await host.emitWithAck('submission:delivered', { submissionId: 'sub-no-lease' });
+    assert.equal(rejected.ok, false);
+    assert.equal(rejected.code, ERROR_CODES.LEASE_EXPIRED);
+    assert.equal(hub.submissions.stats().pendingCount, 1);
+
+    const lease = await host.emitWithAck('teacher:lease.acquire', {});
+    assert.equal(lease.ok, true);
+    const replayed = await host.waitFor('submission:forwarded');
+    assert.equal(replayed.submissionId, 'sub-no-lease');
+    assert.equal(replayed.replayed, true);
+    await student.emitWithAck('student-alert', { type: 'tab-hidden' });
+    const forwardedAlert = await host.waitFor('student-alert');
+    assert.equal(forwardedAlert.type, 'tab-hidden');
 });
 
 test('直接模式：兼容旧事件名 student:submit / student:submit:ack', async (t) => {

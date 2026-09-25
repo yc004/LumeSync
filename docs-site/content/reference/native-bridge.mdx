@@ -65,11 +65,10 @@ WebMessage 消息格式只封装了动作名称，没有 origin/能力声明。�
 
 两端桥的类型与动作清单现在由[共享契约](/reference/contracts) `packages/native-contract` 单点维护：消息封装 `{kind, id, action, payload, version}`、回执 `{kind:'rpc-result', id, ok, payload, error}`、RPC 超时 10 秒、payload 上限，以及按角色的动作表（`kind`、`transport`、`implemented`、`nativeDispatch`、`risk`）。
 
-`repos/teacher/shared/protocol/teacher-host.ts`、`repos/student/shared/protocol/student-host.ts` 与 `repos/student/ui/student-host/src/types.d.ts` 现在只从这里再导出类型。契约测试会读取两端 `native/shell/src/main.cpp` 的动作分派并与清单对照，已发现两处原生壳缺陷：
+`repos/teacher/shared/protocol/teacher-host.ts`、`repos/student/shared/protocol/student-host.ts` 与 `repos/student/ui/student-host/src/types.d.ts` 现在只从这里再导出类型。契约测试会读取两端 `native/shell/src/main.cpp` 的动作分派并与清单对照；目前仍有一处已知缺口：
 
 | 端 | 问题 | 影响 |
 | --- | --- | --- |
 | 教师壳 | 注入脚本暴露 `classStarted`、`classEnded`、`setFullscreen`，但 `HandleEvent` 没有对应分支 | 课堂开始/结束与全屏调用被静默丢弃 |
-| 学生壳 | 注入脚本暴露 `maximizeWindow`，但 `HandleEvent` 没有对应分支 | 调用无效 |
 
-两处已在能力清单中标记为 `implemented: false` 并附说明；修复原生壳后需要同时更新清单，否则对照测试会失败。**消息版本字段尚未落地**：契约要求消息带 `version`，两端 C++ 壳目前不发送，原生壳仍只按 `action` 字符串分派、不校验消息来源。
+教师壳缺口在能力清单中标记为 `implemented: false` 并附说明。学生壳 `maximizeWindow` 已接入 C++ 分派，仅在非授课状态切换窗口最大化；Windows 实机编译仍待验证。**消息版本字段尚未落地**：契约要求消息带 `version`，两端 C++ 壳目前不发送，原生壳仍只按 `action` 字符串分派、不校验消息来源。

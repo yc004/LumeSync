@@ -53,6 +53,39 @@
 
 随机密钥在进程重启后改变；如果需要复现会话，应显式持久化或注入相同材料。host bootstrap 现在只接受带本机凭证的 loopback 请求，viewer 分支签发短期凭证；不要把凭证提交到 Git。
 
+## 教室 Hub（`apps/classroom-hub`）
+
+两种模式由 `LUMESYNC_HUB_MODE` 选择：`direct`（默认，教师电脑，host token 直连）与 `relay`（教室固定机，验证码配对 + 唯一授课租约）。
+完整接口与事件见[教室 Hub](classroom-hub.md)；容量与有效期的默认值一律取自共享契约的常量。
+
+| 变量 | 默认或作用 |
+| --- | --- |
+| `LUMESYNC_HUB_MODE` | `direct`（默认）或 `relay`；其他值直接抛错 |
+| `PORT` | `3000`；HTTP 与 Socket.IO 共用（`0` = 系统分配，测试用） |
+| `LUMESYNC_HUB_HOST` | `0.0.0.0` |
+| `LUMESYNC_HUB_CLASSROOM_ID` | 稳定设备 ID，默认 `classroom-<主机名>`（转成 DNS-SD 安全字符）；写入发现 TXT |
+| `LUMESYNC_HUB_CLASSROOM_NAME` | 教室显示名，默认主机名 |
+| `LUMESYNC_HOST_TOKEN` | 管理/host 凭证；与教师服务同名。中继模式下只在本机回环请求上作为管理凭证（屏幕内容、host 引导、本机上传） |
+| `LUMESYNC_HUB_TOKEN_SECRET` | 设备凭证与 viewer 凭证的 HMAC 密钥，未设置时进程随机 |
+| `LUMESYNC_VIEWER_TOKEN_TTL_SEC` | viewer 凭证有效期，默认 `14400` 秒 |
+| `LUMESYNC_HUB_DEVICE_TOKEN_TTL_SEC` | 配对签发的设备凭证有效期，默认 `28800` 秒 |
+| `LUMESYNC_HUB_CAN_DISPLAY_CODE` | `1`（默认）；`0` 表示固定机没有可用屏幕：中继进入 `error`，屏幕接口返回 `relay_no_screen`，绝不降级为无验证码连接 |
+| `LUMESYNC_HUB_DISCOVERY` | relay 模式默认 `1`、direct 模式默认 `0`；是否发布 mDNS |
+| `LUMESYNC_HUB_DISCOVERY_SERVICE_TYPE` | `_lumesync-relay._tcp.local` |
+| `LUMESYNC_HUB_LEASE_TTL_MS` | 授课租约 TTL，默认契约的 `60000`；过期后课堂进入等待教师 |
+| `LUMESYNC_HUB_SWEEP_INTERVAL_MS` | 过期清理周期，默认 `1000`（`0` = 关闭定时器） |
+| `LUMESYNC_HUB_STAGE_MAX_BYTES` | 课件上传与暂存上限，默认契约的 512MiB；超过时 HTTP 返回 413 `stage_capacity_exceeded` |
+| `LUMESYNC_HUB_STAGE_MAX_VERSIONS` | 暂存版本数上限，默认契约的 `20` |
+| `LUMESYNC_HUB_STAGE_TTL_MS` | 暂存过期，默认契约的 24 小时（正在播放的版本不清理） |
+| `LUMESYNC_HUB_QUEUE_CAPACITY` | 提交转发队列容量，默认契约的 `200`；满时明确返回 `queue_full` |
+| `LUMESYNC_HUB_QUEUE_TTL_MS` | 队列条目过期，默认契约的 24 小时 |
+| `LUMESYNC_HUB_JSON_LIMIT` | JSON 请求体上限，默认 `2mb` |
+| `LUMESYNC_HUB_SOCKET_MAX_BYTES` | Socket.IO 单包上限，默认 `2097152`；契约允许截图 dataUrl 到 1.4MB，Socket.IO 默认的 1MB 会在传输层直接断连 |
+| `LUMESYNC_PROTOCOL_ALLOW_UNDECLARED` | 与教师服务同名同义：是否放行契约未声明的事件，默认关闭 |
+| `LUMESYNC_HUB_LOG_LEVEL` | `silent` / `error` / `warn` / `info`（默认）/ `debug` |
+
+验证码有效期（3 分钟）与尝试次数（5 次）固定由契约决定，不提供环境变量覆盖。Hub 当前不写任何文件：课堂状态、租约、暂存课件与提交队列都在进程内存，重启即丢失（见[教室 Hub §5](classroom-hub.md)）。Hub 打开 `PORT` 端口的入站监听；`relay` 模式还需要 UDP 5353 组播可用，组播不可用时发现会记录明确错误，教师端改用手动地址。
+
 ## 本地壳与下载站
 
 教师 Windows 壳保存教师 IP/端口、密码哈希、窗口/课堂设置，负责启动 Node 子进程并注入会话环境变量。学生 Windows 壳保存教师 IP/端口、clientId、viewer 会话、开机自启/守护/全屏配置；守护服务在相应开关启用时周期拉起学生壳。两端均有管理密码哈希，属于本机配置，**不等同于服务端 HTTP 授权**。

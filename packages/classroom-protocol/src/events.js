@@ -13,6 +13,7 @@
 // revision，requestId 由支持回执的事件自行回填。
 
 const { ROLE_HOST, ROLE_VIEWER } = require('./roles');
+const { RELAY_INBOUND_EVENTS, RELAY_OUTBOUND_EVENTS } = require('./relay/events');
 
 const anyObject = { type: 'object' };
 const slideIndexField = { type: 'integer', min: 0, coerce: true, max: 100000 };
@@ -422,6 +423,13 @@ const INBOUND_EVENTS = {
     }
 };
 
+// 中继事件（Hub 专用）合并进同一张表并带 scope 标记：
+// 直接模式的教师服务只接受 scope=classroom 的事件，Hub 同时接受两类。
+for (const name of Object.keys(INBOUND_EVENTS)) {
+    if (INBOUND_EVENTS[name].scope === undefined) INBOUND_EVENTS[name].scope = 'classroom';
+}
+Object.assign(INBOUND_EVENTS, RELAY_INBOUND_EVENTS);
+
 /**
  * 出站事件（服务端 -> 客户端）。audience 说明当前实现的广播范围，
  * 供教师/学生页面生成类型，也标明需要收敛的范围。
@@ -468,6 +476,11 @@ const OUTBOUND_EVENTS = {
     'annotation-loaded': { audience: 'socket', since: 0, status: 'legacy' },
     'set-admin-password': { audience: 'viewers', since: 0 }
 };
+
+for (const name of Object.keys(OUTBOUND_EVENTS)) {
+    if (OUTBOUND_EVENTS[name].scope === undefined) OUTBOUND_EVENTS[name].scope = 'classroom';
+}
+Object.assign(OUTBOUND_EVENTS, RELAY_OUTBOUND_EVENTS);
 
 /** 目标架构的命名映射（当前名 -> 计划名），用于未来双发过渡。 */
 const PLANNED_EVENT_NAMES = Object.fromEntries(

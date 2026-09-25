@@ -1,6 +1,8 @@
 # 跨平台教师端与教室中继模式设计
 
-状态：目标架构设计，尚未实现。基于 2026-09-25 的源码评估。本文细化[三端目标架构](target-architecture.md)中的教师端；旧 AI Editor 与 VS Code 插件均不进入目标架构。现有教师端只提供 Windows C++20/Win32/WebView2 壳及 Windows 打包脚本，macOS 和中继模式属于新增能力。
+状态：目标架构设计，**契约层已落地、传输与桌面端尚未实现**。基于 2026-09-25 的源码评估。本文细化[三端目标架构](target-architecture.md)中的教师端；旧 AI Editor 与 VS Code 插件均不进入目标架构。现有教师端只提供 Windows C++20/Win32/WebView2 壳及 Windows 打包脚本，macOS 和中继模式属于新增能力。
+
+> 已实现部分：[共享契约包](../reference/contracts.md) 的 `src/relay/` 提供验证码配对、授课租约（含 `epoch`）、固定机状态机、提交转发队列与课件暂存契约，并有自动化测试。尚未实现：`apps/classroom-hub`（mDNS 广播、WSS 网关、课件上传与凭证签发）、教师端 session-agent 与跨平台桌面壳。下文协议与流程描述的是目标行为。
 
 ## 1. 目标与边界
 

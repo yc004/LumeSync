@@ -48,6 +48,8 @@ export function httpStatusForError(code: string, fallback?: number): number;
 // ---------------------------------------------------------------- events
 export interface InboundEventSpec {
     roles: EventRoleRequirement[];
+    /** classroom = 直接模式课堂事件；relay = 教室 Hub 的中继事件。 */
+    scope?: 'classroom' | 'relay';
     status: 'current' | 'legacy' | 'planned';
     since: number;
     plannedName?: string;
@@ -147,12 +149,14 @@ export interface AuthorizationFailure {
 export type AuthorizationResult =
     | { ok: true; value: unknown; entry: InboundEventSpec }
     | AuthorizationFailure;
-export function authorizeEvent(role: string, name: string, payload: unknown): AuthorizationResult;
+export function authorizeEvent(role: string, name: string, payload: unknown, options?: { scopes?: string[] }): AuthorizationResult;
 export function createInboundGuard(options: {
     role: string;
     onViolation?: (info: { event: string; role: string; code: string; message: string }) => void;
     ignore?: string[];
     allowUndeclared?: boolean;
+    /** 允许的事件范围：直接模式用 ['classroom']，教室 Hub 用 ['classroom','relay']。 */
+    scopes?: string[];
 }): (packet: unknown, next: (err?: Error) => void) => void;
 export function authorizeHello(
     role: string,
@@ -164,3 +168,196 @@ export const MAX_STRING_LENGTH: number;
 export function validate<T = unknown>(value: unknown, schema: unknown, path?: string): ValidationResult<T>;
 export function check(value: unknown, schema: unknown, path?: string): boolean;
 export function formatErrors(errors: ValidationIssue[]): string;
+
+// ---------------------------------------------------------------- 教室中继（relay）
+export const PAIRING_CODE_DIGITS: number;
+export const PAIRING_TTL_MS: number;
+export const PAIRING_MAX_ATTEMPTS: number;
+export function generatePairingCode(): string;
+export function isWellFormedCode(value: unknown): boolean;
+export function randomIntBelow(maxExclusive: number): number;
+
+export interface PairingRequest {
+    classroomId: string;
+    requestId: string;
+    deviceKey: string;
+    deviceName: string;
+    code: string;
+    createdAt: number;
+    expiresAt: number;
+    attemptsLeft: number;
+    verified: boolean;
+    status: 'pending' | 'verified' | 'expired' | 'locked';
+    verifiedAt?: number;
+}
+/** 对外描述：不含验证码，可安全写日志、回执与发现报文。 */
+export type PublicPairingRequest = Omit<PairingRequest, 'code' | 'deviceKey' | 'classroomId' | 'verified'>;
+export function createPairingRequest(input: {
+    classroomId: string;
+    requestId: string;
+    deviceKey: string;
+    deviceName?: string;
+    now?: number;
+}): PairingRequest;
+export function isExpired(request: PairingRequest | null, now?: number): boolean;
+export function verifyPairingCode(
+    request: PairingRequest | null,
+    submittedCode: unknown,
+    now?: number
+): { ok: boolean; code: string | null; message: string; request?: PairingRequest };
+export function createPairingProof(input: {
+    code: string;
+    classroomId: string;
+    requestId: string;
+    deviceKey: string;
+    nonce: string;
+}): Promise<string>;
+export function verifyPairingProof(input: {
+    request: PairingRequest | null;
+    proof: string;
+    nonce: string;
+}): Promise<{ ok: boolean; code: string | null; message: string }>;
+export function describePairingRequestForScreen(request: PairingRequest | null): Record<string, unknown> | null;
+export function describePairingRequestPublic(request: PairingRequest | null): Record<string, unknown> | null;
+
+export const LEASE_TTL_MS: number;
+export const LEASE_RENEW_WINDOW_MS: number;
+export interface TeachingLease {
+    classroomId: string;
+    leaseId: string;
+    sessionId: string;
+    deviceKey: string;
+    deviceName: string;
+    epoch: number;
+    grantedAt: number;
+    expiresAt: number;
+    renewals: number;
+}
+export interface LeaseRegistry {
+    acquire(input: { classroomId: string; sessionId: string; deviceKey: string; deviceName?: string }):
+        { ok: boolean; code: string | null; lease?: TeachingLease; message?: string };
+    renew(input: { classroomId: string; leaseId: string; epoch: number }):
+        { ok: boolean; code: string | null; lease?: TeachingLease; message?: string };
+    release(input: { classroomId: string; leaseId: string; epoch: number }):
+        { ok: boolean; code: string | null; released?: boolean; epoch?: number; message?: string };
+    revoke(input: { classroomId: string; reason?: string }):
+        { ok: boolean; code: string | null; revoked?: boolean; epoch?: number; reason?: string };
+    authorizeCommand(input: { classroomId: string; leaseId: string; epoch: number }):
+        { ok: boolean; code: string | null; lease?: TeachingLease; message?: string };
+    describe(classroomId: string): { state: 'idle' | 'teaching' | 'awaiting-teacher'; lease: TeachingLease | null; remainingMs?: number; renewSoon?: boolean };
+    snapshot(classroomId: string): TeachingLease | null;
+    reap(classroomId: string): (TeachingLease & { expired: true }) | null;
+    size(): number;
+}
+export function createLeaseRegistry(options?: { leaseTtlMs?: number; now?: () => number }): LeaseRegistry;
+
+export const RELAY_STATES: {
+    DISABLED: 'disabled';
+    IDLE: 'idle';
+    PAIRING: 'pairing';
+    PAIRED: 'paired';
+    TEACHING: 'teaching';
+    ERROR: 'error';
+};
+export type RelayStateName = 'disabled' | 'idle' | 'pairing' | 'paired' | 'teaching' | 'error';
+export const DISCOVERY_LABELS: Record<RelayStateName, string | null>;
+export const DNS_SD_SERVICE_TYPE: string;
+export interface RelayStateMachine {
+    enable(): { ok: boolean; code: string | null; state?: RelayStateName; message?: string };
+    disable(): { ok: boolean; code: string | null; state: RelayStateName };
+    fail(reason: string): { ok: boolean; code: string | null; state: RelayStateName; errorReason: string };
+    clearError(): { ok: boolean; code: string | null; state?: RelayStateName };
+    requestPairing(input: { requestId: string; deviceKey: string; deviceName?: string }):
+        { ok: boolean; code: string | null; message?: string; screen?: Record<string, unknown> | null; request?: Record<string, unknown> | null };
+    submitCode(input: { requestId: string; code: string }):
+        { ok: boolean; code: string | null; message: string; request?: Record<string, unknown> };
+    completePairing(input: { leaseGranted: boolean }):
+        { ok: boolean; code: string | null; state?: RelayStateName; message?: string; request?: Record<string, unknown> | null };
+    cancelPairing(): { ok: boolean; code: string | null; state: RelayStateName };
+    releaseTeaching(): { ok: boolean; code: string | null; state: RelayStateName };
+    isFree(): boolean;
+    snapshot(): Record<string, unknown>;
+    discoveryTxt(input: { protocolVersion: number }): Record<string, string> | null;
+    screenPayload(): Record<string, unknown>;
+    getState(): RelayStateName;
+}
+export function createRelayState(input: {
+    classroomId: string;
+    name: string;
+    port: number;
+    canDisplayCode?: boolean;
+    now?: () => number;
+}): RelayStateMachine;
+
+export const SUBMISSION_QUEUE_CAPACITY: number;
+export const SUBMISSION_QUEUE_TTL_MS: number;
+export const COURSE_STAGE_MAX_BYTES: number;
+export const COURSE_STAGE_MAX_VERSIONS: number;
+export const COURSE_STAGE_TTL_MS: number;
+export interface QueuedSubmission {
+    submissionId: string;
+    courseId: string;
+    clientIp: string;
+    fileName: string;
+    mergeFile: boolean;
+    content: unknown;
+    sizeBytes: number;
+    receivedAt: number;
+    status: 'pending' | 'delivered';
+    deliveredAt: number | null;
+}
+export interface SubmissionQueue {
+    enqueue(submission: Partial<QueuedSubmission> & { submissionId: string }):
+        { ok: boolean; code: string | null; duplicate?: boolean; item?: QueuedSubmission; message?: string; capacity?: number; size?: number };
+    markDelivered(submissionId: string, options?: { deliveredAt?: number }):
+        { ok: boolean; code: string | null; item?: QueuedSubmission; message?: string };
+    list(filter?: { courseId?: string; status?: string }): QueuedSubmission[];
+    stats(): { size: number; capacity: number; pendingCount: number; pendingBytes: number; ttlMs: number };
+    purgeExpired(): Array<QueuedSubmission & { reason: string }>;
+    get(submissionId: string): QueuedSubmission | null;
+}
+export function createSubmissionQueue(options?: { capacity?: number; ttlMs?: number; now?: () => number }): SubmissionQueue;
+
+export interface StagedCourseVersion {
+    courseId: string;
+    courseHash: string;
+    sizeBytes: number;
+    manifest: unknown;
+    storedAt: number;
+}
+export interface CourseStage {
+    stage(input: { courseId: string; courseHash: string; sizeBytes?: number; manifest?: unknown }):
+        { ok: boolean; code: string | null; duplicate?: boolean; version?: StagedCourseVersion; message?: string };
+    publish(input: { courseId: string; courseHash: string }):
+        { ok: boolean; code: string | null; courseId?: string; courseHash?: string; previousCourseHash?: string | null; message?: string };
+    has(courseHash: string): boolean;
+    currentVersion(courseId: string): StagedCourseVersion | null;
+    release(courseHash: string): { ok: boolean; code: string | null; version?: StagedCourseVersion; message?: string };
+    clear(options?: { keepCurrent?: boolean }): Array<StagedCourseVersion & { courseHash: string }>;
+    purgeExpired(): Array<StagedCourseVersion & { courseHash: string; reason: string }>;
+    stats(): { versions: number; maxVersions: number; bytes: number; maxBytes: number; published: number; ttlMs: number };
+    list(): StagedCourseVersion[];
+}
+export function createCourseStage(options?: {
+    maxBytes?: number;
+    maxVersions?: number;
+    ttlMs?: number;
+    now?: () => number;
+}): CourseStage;
+export function estimateBytes(value: unknown): number;
+
+export interface RelayEventSpec {
+    roles: EventRoleRequirement[];
+    scope: 'relay';
+    status: 'planned' | 'current';
+    since: number;
+    payload: unknown | null;
+    note?: string;
+}
+export const RELAY_INBOUND_EVENTS: Record<string, RelayEventSpec>;
+export const RELAY_OUTBOUND_EVENTS: Record<string, { audience: string; since: number; note?: string; envelope?: string[] }>;
+export const RELAY_EVENT_NAMES: Set<string>;
+export const CLASSROOM_COMMAND_TYPES: string[];
+export const DISCOVERY_TXT_FIELDS: Record<string, string>;
+export const DISCOVERY_FORBIDDEN_FIELDS: string[];
+export const DEFAULT_SCOPES: string[];

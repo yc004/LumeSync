@@ -26,7 +26,7 @@
 | `repos/teacher/server/src/courses.js` | `.lume` 校验改为 `course-format` 的同步校验器；损坏课件进入目录结果的 `invalid` |
 | `repos/teacher/server/src/teacher-shell-build.js` | 生成 `/protocol-client.js`，把协议版本与事件清单注入页面 |
 | `repos/teacher/shared/teacher-shell/src/{api-fetch.ts,app.tsx}` | 凭证包装器装到 `window.fetch`；握手带上 `protocolVersion`，处理 `session:accepted` / `protocol-rejected` |
-| `repos/teacher/shared/public/student-app.js` | 同上（学生课堂页仍由教师仓库托管，见迁移状态）；并按 `revision` 消费 `classroom:snapshot`：课程或页码与服务端不一致时以服务端为准，过期快照丢弃 |
+| `repos/student/ui/classroom/src/classroom-app.js` | 同上（学生课堂页已归位到学生端仓库，教师服务只分发版本化产物，见[迁移状态](../status/migration.md)）；并按 `revision` 消费 `classroom:snapshot`：课程或页码与服务端不一致时以服务端为准，过期快照丢弃 |
 | `repos/teacher/shared/protocol/teacher-host.ts`、`repos/student/shared/protocol/student-host.ts`、`repos/student/ui/student-host/src/types.d.ts` | 只再从 `native-contract` 导出类型，不再各自定义 |
 | `repos/teacher/scripts/legacy-lume-migrator.js` | 旧迁移脚本变为 `course-format` 的兼容层 |
 
@@ -41,6 +41,23 @@
    内联脚本与课件运行时拿到的仍是原生 `fetch`；构建产物过期时页面会在"路由要求凭证"下静默失败。
    现在同时设置 `window.__LumeSyncApiFetch` 与 `window.fetch`。
 
+## 教室中继契约（`src/relay/`）
+
+[跨平台教师端与中继模式](../architecture/teacher-cross-platform-relay.md)要求的能力已先行固化为纯逻辑契约，
+Hub 只负责接传输、持久化与凭证签发：
+
+| 模块 | 内容 |
+| --- | --- |
+| `src/relay/pairing.js` | 8 位数字验证码（CSPRNG、拒绝采样）、3 分钟有效期、每次请求 5 次尝试、绑定教室+请求+设备公钥；`createPairingProof` / `verifyPairingProof` 用验证码做 HMAC 握手证明（必须在 TLS 之上）；对外描述与屏幕描述严格分离，验证码不会进日志或发现报文 |
+| `src/relay/lease.js` | 单教室单租约、`acquire/renew/release/revoke`、`epoch` 在交接后继续递增、超时进入 `awaiting-teacher`；`authorizeCommand` 校验每条命令的 `leaseId + epoch` |
+| `src/relay/state.js` | 固定机状态机 `disabled → idle → pairing → paired/teaching`、`error`；发现 TXT 只含教室名、设备 ID、协议版本、端口与空闲/占用，没有屏幕时明确拒绝开启而非无验证码降级 |
+| `src/relay/queue.js` | 提交转发队列（容量满时返回 `queue_full` 而不是静默丢弃；`submission:delivered` 之后才释放副本）与课件暂存缓存（按 `courseHash`、发布新版本时旧版本继续保留、当前版本不因过期被清理） |
+| `src/relay/events.js` | `teacher:pair.*`、`teacher:lease.*`、`course:stage/publish`、`classroom:command`、`submission:delivered` 及对应出站事件的 schema 与角色要求 |
+
+事件表带 `scope`：`classroom` 为直接模式事件，`relay` 为固定机 Hub 事件。
+`createInboundGuard({ scopes })` 与 `authorizeEvent(..., { scopes })` 让直接模式的教师服务只接受
+`classroom` 事件，Hub 才接受两类——避免出现「声明了但没有处理器」的静默路径。
+
 ## 尚未完成
 
 | 项目 | 现状 |
@@ -51,6 +68,7 @@
 | `course-format` 在播放器与编辑器中的复用 | 教师服务已用；浏览器运行时仍走 Core 内的旧 `validateLumeManifest` |
 | `native-contract` 的版本字段 | 契约要求消息带 `version`，两端 C++ 壳尚未发送；能力清单对照测试会暴露漂移 |
 | `course-runtime`、`teacher-platform` | 尚未创建 |
+| 中继的传输与持久化 | 契约层（配对/租约/状态机/队列）已完成并有测试；`apps/classroom-hub`（mDNS 广播、WSS 网关、课件上传、凭证签发）与教师端 session-agent 尚未实现 |
 
 ## 验证方式
 

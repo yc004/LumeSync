@@ -14,6 +14,7 @@ const routes = require('./src/routes');
 const envelope = require('./src/envelope');
 const guard = require('./src/guard');
 const validate = require('./src/validate');
+const relay = require('./src/relay');
 
 module.exports = {
     ...version,
@@ -23,5 +24,6 @@ module.exports = {
     ...routes,
     ...envelope,
     ...guard,
-    ...validate
+    ...validate,
+    ...relay
 };

@@ -9,12 +9,24 @@ const { roleAllows } = require('./roles');
 const { validate, formatErrors } = require('./validate');
 const { ERROR_CODES } = require('./errors');
 
+const DEFAULT_SCOPES = ['classroom'];
+
+function scopeAllowed(entry, scopes) {
+    const allowed = Array.isArray(scopes) && scopes.length > 0 ? scopes : DEFAULT_SCOPES;
+    return allowed.includes(entry.scope || 'classroom');
+}
+
 /**
+ * @param {string} role 连接角色
+ * @param {string} name 事件名
+ * @param {unknown} payload 第一个事件参数（与处理器读取的一致）
+ * @param {{scopes?: string[]}} [options] 允许的事件范围；直接模式用 ['classroom']，
+ *   教室 Hub 用 ['classroom','relay']。范围外的事件按未声明处理，避免出现"声明了但没有处理器"的静默路径。
  * @returns {{ok: true, value: any, entry: object} | {ok: false, code: string, message: string, entry: object|null}}
  */
-function authorizeEvent(role, name, payload) {
+function authorizeEvent(role, name, payload, options = {}) {
     const entry = getInboundEvent(name);
-    if (!entry) {
+    if (!entry || !scopeAllowed(entry, options.scopes)) {
         return {
             ok: false,
             code: ERROR_CODES.EVENT_UNKNOWN,
@@ -59,7 +71,7 @@ function isAckFunction(value) {
  * @param {string[]} [options.ignore] 跳过校验的事件名（例如 Socket.IO 保留事件）
  * @param {boolean} [options.allowUndeclared] 未声明事件是否放行（默认 false）
  */
-function createInboundGuard({ role, onViolation, ignore = [], allowUndeclared = false } = {}) {
+function createInboundGuard({ role, onViolation, ignore = [], allowUndeclared = false, scopes = DEFAULT_SCOPES } = {}) {
     const ignored = new Set(ignore);
     return function inboundGuard(packet, next) {
         const name = Array.isArray(packet) ? packet[0] : packet;
@@ -69,7 +81,7 @@ function createInboundGuard({ role, onViolation, ignore = [], allowUndeclared = 
         // 处理器只读第一个参数，这里必须用同一个参数做校验，否则多参数 emit 会被误判。
         const payload = args[0];
 
-        const result = authorizeEvent(role, name, payload);
+        const result = authorizeEvent(role, name, payload, { scopes });
         if (result.ok) return next();
         if (result.code === ERROR_CODES.EVENT_UNKNOWN && allowUndeclared) return next();
 
@@ -113,4 +125,4 @@ function authorizeHello(role, hello = {}) {
     };
 }
 
-module.exports = { authorizeEvent, createInboundGuard, authorizeHello };
+module.exports = { DEFAULT_SCOPES, authorizeEvent, createInboundGuard, authorizeHello };

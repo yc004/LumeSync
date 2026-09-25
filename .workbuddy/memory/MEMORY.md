@@ -23,6 +23,23 @@
   relay 模式启动时会 `publish`（缺了会进 error 状态）。
 - 沙箱会挡住 `pnpm install`（写 pnpm store 被拒）；`node_modules` 已在仓库里，跑测试不需要重装。
 
+## 课件渲染与教师壳（两层结构，易错）
+
+- 课件舞台是**两层**的：渲染引擎（`repos/teacher/core/src/browser/engine/runtime/sync-classroom.tsx`）
+  画舞台，`repos/teacher/shared/teacher-shell/src/app.tsx` 的 `.teacher-course-stage` 系列样式再包一层。
+  **改舞台外观必须同时看这两处**，否则壳里的圆角/边框/阴影会把引擎的改动完全抵消。
+- 舞台布局：`data-lumesync-stage-root` 固定 `1280×720`，用 uniform `scale(min(w/1280, h/720))` 等比铺满。
+  可用区正好 16:9 就是满屏，其余比例只留一侧底色（底色 = 引擎舞台根的 `bg-slate-900`）。
+  不要加回上下限：>1 铺不满、<1 会溢出被 `overflow-hidden` 裁掉。
+- `uiScale`（「课件页面缩放」）有效上限是 **1**，滑块区间 80%–100%；
+  `renderScale`（「课件内容缩放」）是 0.6–1.2。两者别混。
+- 学生端 `repos/student/ui/classroom` 直接 `<script src="/render-engine.js">` 复用教师服务分发的引擎包，
+  **自身没有包裹层**——引擎一改两个端点同时生效，不需要重建学生 UI。
+- `repos/teacher/shared/public/{protocol-client,teacher-app,render-engine}.js` 是**纳入版本控制**的构建产物
+  （`.gitignore` 只忽略 `dist/`、`build/`、`.next/`）。改 `core/src` 或 `shared/teacher-shell/src` 之后必须跑
+  `cd repos/teacher && node server/src/teacher-shell-build.js` 重建并一起提交；无源码改动时重建无 diff（幂等）。
+- 批注 canvas 找舞台根只认 `data-lumesync-stage-root`，别再按 class 名匹配——类名随样式调整即失效。
+
 ## 教室 Hub / 中继语义（易错点）
 
 - relay 模式：host 带**有效设备凭证**才算 host；无凭证 = pairing-only（只 `session:accepted`、无快照、
@@ -47,5 +64,13 @@
   视口看起来"没生效"。
 - agent-browser 的浏览器会话有时会被重启，之前 open 的页面与 viewport 一起丢失；
   断言前先确认 `document.querySelector(...)` 不是 null，别把会话丢失误判成页面 bug。
+- **`set viewport` 之后的 `reload` 会毁掉查询参数里的身份**：教师壳在拿到凭证后立刻
+  `history.replaceState` 抹掉 `?role=&token=`，重载就是无凭证加载 → 被拒成
+  `Valid viewer session required`。正确顺序是 `open about:blank` → `set viewport` → `open <带凭证的 URL>`，
+  不要 reload。
+- 教师控制台里选课要点**两次**且中间要等一帧：先在左侧 `nav` 切到「课件库」（默认停在「首页」），
+  再点课程卡片，React 重渲染后「开始授课」按钮才从 disabled 变可用。
+- 教师服务用 `... | head -20` 起后台任务，日志写满后管道关闭会 SIGPIPE **杀掉服务**，
+  后续渲染验证会看到 `NO_STAGE`。改用 `> /tmp/xxx.log 2>&1` 重定向。
 - `body{overflow:hidden}` 会让溢出**被截断**而不是滚动，`scrollWidth > innerWidth` 仍能测出来；
   大字号的响应式尺寸要同时受 `vh` 和 `vw` 限制。

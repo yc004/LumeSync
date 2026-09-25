@@ -43,8 +43,9 @@ pnpm run docs:build
 | `packages/classroom-protocol` | 新增/修改事件、角色、HTTP 路由授权或协议版本时。改事件表后要同步 `docs/reference/socket-events.md` |
 | `packages/course-format` | 修改 `.lume` manifest 字段、ZIP 限制或迁移规则时。改后要同步 `docs/reference/course-format-sdk.md` |
 | `packages/native-contract` | 修改原生桥动作或消息封装时。对照测试会读取两端 `native/shell/src/main.cpp`，清单与 C++ 分派表必须一起改 |
+| `packages/teacher-platform` | 新增/修改教师端平台能力（文件、导入导出、提交目录、日志、窗口、全屏、会话凭证）时。测试会校验接口对 `native-contract` 已实现动作的覆盖 |
 
-契约包与当前实现的关系、尚未落地的部分见[共享契约包](../reference/contracts.md)。打包后的教师页面通过服务端生成的 `/protocol-client.js` 读取协议版本，不要在页面里硬编码版本号。
+契约包与当前实现的关系、尚未落地的部分见[共享契约包](../reference/contracts.md)。打包后的教师页面通过服务端生成的 `/protocol-client.js` 读取协议版本，不要在页面里硬编码版本号；教师端的平台能力通过 `@lumesync/teacher-platform` 接口访问，不要再往 UI 里新增 `window.teacherHost` 的直接调用。
 
 ## 文档维护
 

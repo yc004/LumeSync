@@ -200,6 +200,10 @@ export function createPairingRequest(input: {
     now?: number;
 }): PairingRequest;
 export function isExpired(request: PairingRequest | null, now?: number): boolean;
+/** 记一次失败尝试（验证码错误或握手证明失败），次数用尽后 status 变为 locked。 */
+export function recordFailedAttempt(request: PairingRequest | null): PairingRequest | null;
+/** 校验握手证明通过后标记请求已验证（中继模式无需再提交验证码）。 */
+export function markPairingVerified(request: PairingRequest | null, options?: { now?: number }): PairingRequest | null;
 export function verifyPairingCode(
     request: PairingRequest | null,
     submittedCode: unknown,
@@ -271,6 +275,12 @@ export interface RelayStateMachine {
         { ok: boolean; code: string | null; message?: string; screen?: Record<string, unknown> | null; request?: Record<string, unknown> | null };
     submitCode(input: { requestId: string; code: string }):
         { ok: boolean; code: string | null; message: string; request?: Record<string, unknown> };
+    /** 中继模式：握手证明通过后标记已验证（不经过验证码提交）。 */
+    markVerified(input: { requestId: string }):
+        { ok: boolean; code: string | null; message?: string; request?: Record<string, unknown> };
+    /** 中继模式：握手证明失败时记一次失败，用尽后请求作废并回到空闲。 */
+    recordFailure(input: { requestId: string }):
+        { ok: false; code: string; message: string; attemptsLeft?: number };
     completePairing(input: { leaseGranted: boolean }):
         { ok: boolean; code: string | null; state?: RelayStateName; message?: string; request?: Record<string, unknown> | null };
     cancelPairing(): { ok: boolean; code: string | null; state: RelayStateName };

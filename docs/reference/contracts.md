@@ -8,11 +8,12 @@
 
 | 包 | 职责 | 主要消费方 |
 | --- | --- | --- |
-| [`@lumesync/classroom-protocol`](../../packages/classroom-protocol/README.md) | 协议版本与协商、角色矩阵、入站/出站事件表、HTTP 路由授权表、消息信封、课堂快照、入站守卫 | 教师服务、教师页面、学生页面、未来的教室 Hub |
-| [`@lumesync/course-format`](../../packages/course-format/README.md) | `.lume` manifest schema 与校验、ZIP 读写与安全限制、内容 hash、旧脚本课件迁移 | 教师服务（课程扫描、导入）、编辑器与播放器（后续接入） |
+| [`@lumesync/classroom-protocol`](../../packages/classroom-protocol/README.md) | 协议版本与协商、角色矩阵、入站/出站事件表、HTTP 路由授权表、消息信封、课堂快照、入站守卫；教室中继的配对/租约/状态机/队列契约；短期会话凭证签发与校验 | 教师服务、教室 Hub、教师页面、学生页面 |
+| [`@lumesync/course-format`](../../packages/course-format/README.md) | `.lume` manifest schema 与校验、ZIP 读写与安全限制、内容 hash、旧脚本课件迁移 | 教师服务（课程扫描、导入）、教室 Hub（课件暂存校验）、编辑器与播放器（后续接入） |
 | [`@lumesync/native-contract`](../../packages/native-contract/README.md) | 原生桥消息封装与回执、按角色的动作能力清单、教师/学生桥类型 | 两端页面、C++ 原生壳（对照校验）、未来的 Electron preload |
+| [`@lumesync/teacher-platform`](../../packages/teacher-platform/README.md) | 教师端平台能力接口（文件、导入导出、提交目录、日志、窗口、全屏、受保护会话凭证）与 WebView2 / Electron 适配器 | 教师 React UI、现有 Windows 壳、未来的 Electron 宿主 |
 
-三个包都不发布到 npm，通过 pnpm 工作区（`workspace:*`）被 `repos/teacher` 与 `repos/student` 引用；
+四个包都不发布到 npm，通过 pnpm 工作区（`workspace:*`）被 `repos/teacher` 与 `repos/student` 引用；
 `pnpm-workspace.yaml` 中的 `packages/*` 是它们的工作区入口。
 
 ## 已经接入的位置
@@ -67,7 +68,8 @@ Hub 只负责接传输、持久化与凭证签发：
 | `classroomId` / `epoch`（授课租约） | 契约有字段，教室中继模式未实现，因此没有实际使用 |
 | `course-format` 在播放器与编辑器中的复用 | 教师服务已用；浏览器运行时仍走 Core 内的旧 `validateLumeManifest` |
 | `native-contract` 的版本字段 | 契约要求消息带 `version`，两端 C++ 壳尚未发送；能力清单对照测试会暴露漂移 |
-| `course-runtime`、`teacher-platform` | 尚未创建 |
+| `teacher-platform` 的 UI 迁移 | 接口、WebView2/Electron 适配器与测试已就位；教师 UI 仍直接调用 `window.teacherHost`，按调用点迁移尚未进行 |
+| `course-runtime` | 尚未创建 |
 | 中继的传输与持久化 | 契约层（配对/租约/状态机/队列）已完成并有测试；`apps/classroom-hub`（mDNS 广播、WSS 网关、课件上传、凭证签发）与教师端 session-agent 尚未实现 |
 
 ## 验证方式

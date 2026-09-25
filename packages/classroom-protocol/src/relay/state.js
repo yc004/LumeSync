@@ -11,6 +11,8 @@ const { ERROR_CODES } = require('../errors');
 const {
     createPairingRequest,
     verifyPairingCode,
+    recordFailedAttempt,
+    markPairingVerified,
     isExpired,
     describePairingRequestForScreen,
     describePairingRequestPublic
@@ -118,6 +120,46 @@ function createRelayState({ classroomId, name, port, canDisplayCode = true, now 
         };
     }
 
+    /**
+     * 中继模式专用的两条路径。
+     *
+     * 教师电脑提交的是「用验证码算出的握手证明」而不是验证码本身，
+     * 因此 Hub 校验证明后要用 markVerified 推进状态、用 recordFailure 记一次失败，
+     * 两者都不能绕开契约的计数与失效规则（失败次数不因重连重置）。
+     */
+    function markVerified({ requestId }) {
+        if (!pairing || pairing.requestId !== String(requestId || '')) {
+            return { ok: false, code: ERROR_CODES.PAIRING_REQUEST_UNKNOWN, message: '没有对应的配对请求' };
+        }
+        if (isExpired(pairing, now())) {
+            pairing = { ...pairing, status: 'expired' };
+            state = RELAY_STATES.IDLE;
+            pairing = null;
+            return { ok: false, code: ERROR_CODES.PAIRING_CODE_EXPIRED, message: '验证码已过期，请重新发起配对请求' };
+        }
+        pairing = markPairingVerified(pairing, { now: now() });
+        return { ok: true, code: null, request: describePairingRequestPublic(pairing) };
+    }
+
+    function recordFailure({ requestId }) {
+        if (!pairing || pairing.requestId !== String(requestId || '')) {
+            return { ok: false, code: ERROR_CODES.PAIRING_REQUEST_UNKNOWN, message: '没有对应的配对请求' };
+        }
+        pairing = recordFailedAttempt(pairing);
+        const locked = pairing.status === 'locked';
+        if (locked) {
+            // 次数用尽后立即作废，必须重新发起请求
+            pairing = null;
+            state = RELAY_STATES.IDLE;
+        }
+        return {
+            ok: false,
+            code: locked ? ERROR_CODES.PAIRING_ATTEMPTS_EXCEEDED : ERROR_CODES.PAIRING_PROOF_INVALID,
+            message: locked ? '尝试次数已用尽，请重新发起配对请求' : '配对证明校验失败',
+            attemptsLeft: locked ? 0 : pairing.attemptsLeft
+        };
+    }
+
     /** 教师电脑提交验证码。失败次数记在会话状态上，重连不会重置。 */
     function submitCode({ requestId, code }) {
         if (!pairing || pairing.requestId !== String(requestId || '')) {
@@ -215,6 +257,8 @@ function createRelayState({ classroomId, name, port, canDisplayCode = true, now 
         clearError,
         requestPairing,
         submitCode,
+        markVerified,
+        recordFailure,
         completePairing,
         cancelPairing,
         releaseTeaching,

@@ -81,6 +81,30 @@ function isExpired(request, now = Date.now()) {
 }
 
 /**
+ * 记录一次失败尝试（验证码错误，或握手证明校验失败）。
+ * 失败计数保存在请求状态上，重新建连接不会重置。
+ */
+function recordFailedAttempt(request) {
+    if (!request) return null;
+    const attemptsLeft = Math.max(0, (Number(request.attemptsLeft) || 0) - 1);
+    return {
+        ...request,
+        attemptsLeft,
+        status: attemptsLeft > 0 ? 'pending' : 'locked'
+    };
+}
+
+/**
+ * 标记请求已完成验证。
+ * 中继模式下教师电脑提交的是握手证明而不是验证码，Hub 校验证明通过后
+ * 用这个函数推进状态，不需要把验证码再"提交"一次。
+ */
+function markPairingVerified(request, { now = Date.now() } = {}) {
+    if (!request) return null;
+    return { ...request, attemptsLeft: 0, verified: true, status: 'verified', verifiedAt: now };
+}
+
+/**
  * 校验一次输入。返回值里带更新后的状态（纯函数，调用方负责保存）。
  * 失败原因区分「请求不存在 / 过期 / 次数用尽 / 验证码错误」，便于固定机与教师端给出可用反馈。
  */
@@ -114,17 +138,17 @@ function verifyPairingCode(request, submittedCode, now = Date.now()) {
             ok: false,
             code: ERROR_CODES.PAIRING_CODE_INVALID,
             message: `验证码必须是 ${PAIRING_CODE_DIGITS} 位数字`,
-            request: { ...request, attemptsLeft: request.attemptsLeft - 1 }
+            request: recordFailedAttempt(request)
         };
     }
 
     if (submitted !== request.code) {
-        const attemptsLeft = request.attemptsLeft - 1;
+        const failed = recordFailedAttempt(request);
         return {
             ok: false,
-            code: attemptsLeft > 0 ? ERROR_CODES.PAIRING_CODE_INVALID : ERROR_CODES.PAIRING_ATTEMPTS_EXCEEDED,
-            message: attemptsLeft > 0 ? `验证码不正确，剩余 ${attemptsLeft} 次` : '尝试次数已用尽，请重新发起配对请求',
-            request: { ...request, attemptsLeft, status: attemptsLeft > 0 ? 'pending' : 'locked' }
+            code: failed.attemptsLeft > 0 ? ERROR_CODES.PAIRING_CODE_INVALID : ERROR_CODES.PAIRING_ATTEMPTS_EXCEEDED,
+            message: failed.attemptsLeft > 0 ? `验证码不正确，剩余 ${failed.attemptsLeft} 次` : '尝试次数已用尽，请重新发起配对请求',
+            request: failed
         };
     }
 
@@ -133,7 +157,7 @@ function verifyPairingCode(request, submittedCode, now = Date.now()) {
         code: null,
         message: 'ok',
         // 成功即失效：attemptsLeft 归零并标记 verified，复用同一请求不再可能
-        request: { ...request, attemptsLeft: 0, verified: true, status: 'verified', verifiedAt: now }
+        request: markPairingVerified(request, { now })
     };
 }
 
@@ -227,6 +251,8 @@ module.exports = {
     createPairingRequest,
     isExpired,
     verifyPairingCode,
+    recordFailedAttempt,
+    markPairingVerified,
     createPairingProof,
     verifyPairingProof,
     describePairingRequestForScreen,

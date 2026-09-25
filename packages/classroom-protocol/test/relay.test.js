@@ -241,6 +241,42 @@ test('中继事件只对允许 scope 的连接开放', () => {
     assert.equal(error.data.code, ERROR_CODES.EVENT_UNKNOWN);
 });
 
+test('中继路径的 markVerified / recordFailure 与验证码路径共用同一套失效规则', () => {
+    const relay = createRelayState({ classroomId: 'room-1', name: '三年级一班', port: 3000, now: () => T0 });
+    relay.enable();
+
+    const first = relay.requestPairing({ requestId: 'r1', deviceKey: 'k'.repeat(12) });
+    assert.equal(first.ok, true);
+
+    // 证明校验失败：算一次失败
+    const failed = relay.recordFailure({ requestId: 'r1' });
+    assert.equal(failed.code, ERROR_CODES.PAIRING_PROOF_INVALID);
+    assert.equal(failed.attemptsLeft, PAIRING_MAX_ATTEMPTS - 1);
+    assert.equal(relay.getState(), RELAY_STATES.PAIRING, '还有剩余次数时保持验证中');
+
+    // 证明校验成功：标记已验证，不再需要把验证码再提交一次
+    assert.equal(relay.markVerified({ requestId: 'r1' }).ok, true);
+    assert.equal(relay.completePairing({ leaseGranted: true }).state, RELAY_STATES.TEACHING);
+
+    // 次数用尽：请求作废并回到空闲
+    relay.releaseTeaching();
+    relay.requestPairing({ requestId: 'r2', deviceKey: 'k2'.repeat(6) });
+    let last = null;
+    for (let attempt = 1; attempt <= PAIRING_MAX_ATTEMPTS; attempt += 1) {
+        last = relay.recordFailure({ requestId: 'r2' });
+    }
+    assert.equal(last.code, ERROR_CODES.PAIRING_ATTEMPTS_EXCEEDED);
+    assert.equal(relay.getState(), RELAY_STATES.IDLE);
+    assert.equal(relay.submitCode({ requestId: 'r2', code: '00000000' }).code, ERROR_CODES.PAIRING_REQUEST_UNKNOWN);
+});
+
+test('对未知请求调用 markVerified / recordFailure 会被拒绝', () => {
+    const relay = createRelayState({ classroomId: 'room-1', name: '教室', port: 3000, now: () => T0 });
+    relay.enable();
+    assert.equal(relay.markVerified({ requestId: 'nope' }).code, ERROR_CODES.PAIRING_REQUEST_UNKNOWN);
+    assert.equal(relay.recordFailure({ requestId: 'nope' }).code, ERROR_CODES.PAIRING_REQUEST_UNKNOWN);
+});
+
 test('发现服务类型与设计文档一致', () => {
     assert.equal(DNS_SD_SERVICE_TYPE, '_lumesync-relay._tcp.local');
 });

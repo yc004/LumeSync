@@ -1,0 +1,31 @@
+{
+  "name": "@lumesync/teacher-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LumeSync 教师端平台能力接口：文件、日志、窗口、全屏与受保护会话凭证的窄接口与适配器",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@lumesync/native-contract": "workspace:*"
+  }
+}

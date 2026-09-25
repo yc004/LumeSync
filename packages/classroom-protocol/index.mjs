@@ -65,6 +65,8 @@ export const {
     createPairingRequest,
     isExpired,
     verifyPairingCode,
+    recordFailedAttempt,
+    markPairingVerified,
     createPairingProof,
     verifyPairingProof,
     describePairingRequestForScreen,
@@ -95,6 +97,14 @@ export const {
     CLASSROOM_COMMAND_TYPES,
     DISCOVERY_TXT_FIELDS,
     DISCOVERY_FORBIDDEN_FIELDS,
+    // tokens
+    TOKEN_VERSION,
+    DEFAULT_TTL_SEC,
+    MAX_TTL_SEC,
+    createSessionToken,
+    verifySessionToken,
+    base64UrlEncode,
+    base64UrlDecode,
     // guard scopes
     DEFAULT_SCOPES,
     // validation primitives

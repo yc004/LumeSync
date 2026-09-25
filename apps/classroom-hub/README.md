@@ -40,12 +40,26 @@ const relays = await browseClassroomRelays({
 发现传输是可注入的 `{publish, unpublish, browse, destroy}`：测试用假传输，生产用 `createBonjourTransport()`（bonjour-service）。
 组播不可用时发布失败只记录到 `/api/hub/status` 的 `discovery.lastError` 并继续服务，手动输入地址是文档化的降级入口。
 
+## 固定机只读投影界面
+
+`relay` 模式的固定机上，教师要在公开屏幕读到本次配对码，用的是包内的静态页面 [`projector/index.html`](projector/index.html)（服务在 `GET /projector`，**只在本机可加载**，局域网来源 403）。中继模式启动时 Hub 会把完整地址打印到控制台：
+
+```text
+[hub] 固定机投影界面（只在本机可打开）：http://127.0.0.1:3000/projector#token=<本机管理凭证>
+```
+
+- 页面自包含（内联 CSS/JS、零外链），因为教室通常没有外网；深色高对比、字号随屏幕自适应。
+- 凭证走 **URL 片段**（不进服务端日志、Referer 与抓包），页面读到后存进 `sessionStorage` 并立刻用 `history.replaceState` 清掉地址栏；页面源码不含验证码与凭证。
+- 只读：只 GET `/api/hub/status` 与 `/api/hub/screen`，不发写请求、不接受输入。展示教室名、状态、配对码与倒计时/剩余次数/请求设备、授课设备与租约剩余、待落盘提交、暂存占用、发现广播状态。
+- 要常驻全屏需固定机自己配置（无自启、无看门狗），详见[教室 Hub §2.1](../../docs/reference/classroom-hub.md)。
+
 ## 文件
 
 | 文件 | 说明 |
 | --- | --- |
 | `src/hub.js` | 组装：配置、课堂状态、中继域、发现、Express、Socket.IO、生命周期与清理定时器 |
-| `src/routes.js` | HTTP：健康检查、协议描述、会话引导、Hub 状态、屏幕（含验证码）、课件暂存、缓存清理 |
+| `src/routes.js` | HTTP：健康检查、协议描述、会话引导、Hub 状态、屏幕（含验证码）、课件暂存、缓存清理、投影界面 |
+| `projector/index.html` | 固定机只读投影界面（自包含静态页，仅本机可加载） |
 | `src/socket.js` | 握手、配对/租约/命令/发布/提交处理器、学生事件通用转发 |
 | `src/relay.js` | 中继域：配对绑定、设备凭证、租约联动、暂存归属、命令幂等 |
 | `src/classroom.js` | 课堂状态（课程/页码/设置/`revision`/`sessionId`）与契约快照 |

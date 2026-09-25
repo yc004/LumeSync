@@ -2,7 +2,7 @@
 
 LumeSync 是面向局域网教室的互动课件工作区。教师端管理课程与课堂，学生端接收状态并参与互动；课件运行时负责播放 `.lume` 课件。本仓库组合子模块，提供统一脚本、共享契约包、文档站和下载站源码。新编辑器将在架构确定后独立设计。
 
-> **源码状态（2026-09-25）**：教师端和 VS Code 插件已检出到根仓锁定提交。学生端与教师端内的 Core 已取得当前远端源码，但根仓锁定的提交在可取得的远端历史中缺失，因而版本不匹配。旧 AI Editor 和 VS Code 插件均不纳入目标架构；AI Editor 未克隆，旧插件仅保留作现状审查。详见[子模块状态](docs/status/submodules.md)。共享契约包（`packages/`）已完成首轮落地并有自动化测试；教室 Hub（`apps/classroom-hub`）已完成首轮落地，支持直接模式与教室中继模式（验证码配对、唯一授课租约、课件暂存、提交转发、mDNS 自发现），但**没有 TLS、没有持久化**；教师端会话代理（`apps/teacher/session-agent`）已完成首轮落地。Electron 教师桌面壳已在 macOS 上运行源码预览，复用现有 React 教师界面；中继模式尚未接入桌面壳，固定机只读投影与跨机实测未完成。
+> **源码状态（2026-09-25）**：教师端和 VS Code 插件已检出到根仓锁定提交。学生端与教师端内的 Core 已取得当前远端源码，但根仓锁定的提交在可取得的远端历史中缺失，因而版本不匹配。旧 AI Editor 和 VS Code 插件均不纳入目标架构；AI Editor 未克隆，旧插件仅保留作现状审查。详见[子模块状态](docs/status/submodules.md)。共享契约包（`packages/`）已完成首轮落地并有自动化测试；教室 Hub（`apps/classroom-hub`）已完成首轮落地，支持直接模式与教室中继模式（验证码配对、唯一授课租约、课件暂存、提交转发、mDNS 自发现），并带固定机只读投影界面（`GET /projector`，本机可开、显示配对码），但**没有 TLS、没有持久化**；教师端会话代理（`apps/teacher/session-agent`）已完成首轮落地。Electron 教师桌面壳已在 macOS 上运行源码预览，复用现有 React 教师界面；中继模式尚未接入桌面壳，跨机实测未完成。
 
 ## 功能
 
@@ -12,7 +12,7 @@ LumeSync 是面向局域网教室的互动课件工作区。教师端管理课�
 | 学生端 | 连接教师机、展示课件、互动和提交；正式课堂 UI 归本仓 `repos/student/ui/classroom`（`@lumesync/student-ui`），构建成版本化产物由教师服务分发 | 源码已检出，版本不匹配；课堂 UI 构建与教师侧分发有自动化测试，两机实测未做 |
 | Core | `.lume` 渲染及通用运行时控制 | 源码位于 `repos/teacher/core`，版本不匹配 |
 | 共享契约包 | 课堂协议、课件格式与原生桥的单一契约来源 | 已落地，`pnpm run test:contracts` 覆盖 |
-| 教室 Hub | 课堂状态单一写入者与实时网关；直接模式在教师电脑，中继模式在教室固定机 | 已落地（HTTP + Socket.IO + mDNS 发现），`pnpm run test:hub` 覆盖；无 TLS、无持久化 |
+| 教室 Hub | 课堂状态单一写入者与实时网关；直接模式在教师电脑，中继模式在教室固定机 | 已落地（HTTP + Socket.IO + mDNS 发现 + 固定机只读投影界面），`pnpm run test:hub` 覆盖；无 TLS、无持久化 |
 | 教师端会话代理 | 教师端课堂客户端：搜索、验证码配对、授课租约、课件上传、命令与提交回执（[参考](docs/reference/session-agent.md)） | 已落地（`apps/teacher/session-agent`），`pnpm run test:session-agent` 覆盖（40 单元 + 4 集成，集成驱动真实 Hub）；中继模式未接入桌面壳 |
 | Electron 教师桌面壳 | macOS/Windows 源码预览：复用现有 React 教师界面并自起本机教师服务（[参考](docs/reference/native-bridge.md#electron-教师桌面壳)） | 已在 macOS 实测直接模式选课、翻页与结束课程；`pnpm run test:teacher-desktop` 覆盖来源与路径守卫；安装包、签名与 Windows 实机未验证 |
 | AI Editor | 旧编辑器，退出目标架构 | 按用户要求未克隆 |
@@ -32,7 +32,7 @@ LumeSync 是面向局域网教室的互动课件工作区。教师端管理课�
 │   ├── ai-editor/        # 历史子模块声明，未检出，不进入目标架构
 │   └── editor-plugin/    # 历史子模块声明，未检出，不进入目标架构
 ├── apps/
-│   ├── classroom-hub/    # 教室 Hub（`@lumesync/classroom-hub`）：direct / relay 两种模式的课堂服务
+│   ├── classroom-hub/    # 教室 Hub（`@lumesync/classroom-hub`）：direct / relay 两种模式的课堂服务；projector/ 是固定机只读投影界面
 │   └── teacher/          # 教师端领域应用：session-agent（课堂客户端）与 desktop（Electron 源码预览壳）
 ├── packages/             # 共享契约包：classroom-protocol / course-format / native-contract
 ├── docs/                 # 当前文档与历史资料

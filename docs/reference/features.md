@@ -13,6 +13,7 @@
 | 教师/学生 Windows 桌面壳 | 两端 `native/shell`、CMake/打包脚本 | 源码已审查；Windows 实际构建未运行 |
 | Electron 教师桌面壳（macOS/Windows 源码预览） | `apps/teacher/desktop/{main.cjs,preload.cjs,src/guards.cjs}` | macOS 上已运行**直接模式**源码预览：加载现有 React 教师界面、启动本机教师服务、经受限 preload 暴露原生能力；页面来源与课件路径守卫有自动化测试（`pnpm run test:teacher-desktop`）。中继模式接线、安装包/签名与 Windows 实机未验证 |
 | 教室 Hub 与教师端会话代理 | `apps/classroom-hub`、`apps/teacher/session-agent` | 都有自动化测试并驱动真实 Hub（`pnpm run test:hub`、`pnpm run test:session-agent`）；TLS、跨机实测与桌面壳接线未完成 |
+| 固定机只读投影界面 | `apps/classroom-hub/projector/index.html`、`GET /projector` | 已落地：本机可打开、非本机 403、页面无外链；在 1440/1024/390 三档视口做过真实渲染验证（无横向溢出、控制台零报错）。仍需人工开成全屏，无常驻与自启 |
 | 文档站与下载站 | `docs-site/`、`website/` | 源码已审查；下载站和 CI 有已知缺陷 |
 
 ## 目标设计的落地进度

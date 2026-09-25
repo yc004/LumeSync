@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>LumeSync 教室固定机</title>
+<style>
+    /* 固定机投影界面：只读、深色、大字，禁止选中与外链，局域网内生落地可用。 */
+    :root {
+        --bg: #0b1220;
+        --panel: #131c2e;
+        --panel-2: #1b2740;
+        --line: #2a3a58;
+        --text: #eef3fb;
+        --muted: #93a4c0;
+        --accent: #6ee7ff;
+        --code: #ffd76e;
+        --ok: #4ade80;
+        --warn: #fbbf24;
+        --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        user-select: none;
+    }
+    .stage {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2.2vh;
+        padding: 4vh 4vw;
+        text-align: center;
+        min-height: 0;
+    }
+    .classroom {
+        display: flex;
+        align-items: baseline;
+        gap: 1.2rem;
+    }
+    .classroom-name {
+        font-size: clamp(1.6rem, 4.2vh, 3rem);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+    }
+    .classroom-id {
+        font-size: clamp(0.8rem, 1.8vh, 1.1rem);
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.45rem 1.1rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--panel);
+        font-size: clamp(0.9rem, 2.1vh, 1.35rem);
+        font-weight: 600;
+    }
+    .dot {
+        width: 0.72em;
+        height: 0.72em;
+        border-radius: 50%;
+        background: var(--muted);
+    }
+    .s-idle .dot { background: var(--accent); }
+    .s-pairing .dot { background: var(--warn); animation: pulse 1.4s ease-in-out infinite; }
+    .s-teaching .dot { background: var(--ok); }
+    .s-error .dot { background: var(--bad); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    .code-label {
+        font-size: clamp(0.95rem, 2.2vh, 1.4rem);
+        color: var(--muted);
+        letter-spacing: 0.42em;
+        text-indent: 0.42em;
+    }
+    .code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        /* 20vh 是投影屏上的理想字号；再加一个按宽度的上限：
+           8 位数字 + 字距 + 中间两个空格的实际宽度约为字号的 3.11 倍，
+           机身宽度减去 4vw×2 内边距后是 92vw，故字号不能超过 92vw/3.11 ≈ 29vw。
+           没有这一项时窄屏上的验证码会被 body 的 overflow:hidden 直接截断（不是滚动）。 */
+        font-size: clamp(2.5rem, min(20vh, 29vw), 15rem);
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: 0.14em;
+        text-indent: 0.14em;
+        color: var(--code);
+        text-shadow: 0 0 4rem rgba(255, 215, 110, 0.22);
+    }
+    .code-meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.9rem 2.4rem;
+        font-size: clamp(1rem, 2.4vh, 1.6rem);
+        color: var(--text);
+    }
+    .code-meta .muted { color: var(--muted); }
+    .hint {
+        font-size: clamp(1rem, 2.6vh, 1.8rem);
+        color: var(--accent);
+        letter-spacing: 0.08em;
+    }
+    .headline {
+        font-size: clamp(1.8rem, 6.5vh, 4.4rem);
+        font-weight: 700;
+        line-height: 1.25;
+    }
+    .subline {
+        font-size: clamp(1rem, 2.6vh, 1.7rem);
+        color: var(--muted);
+        max-width: 46ch;
+        line-height: 1.6;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .kv {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-radius: 0.9rem;
+        overflow: hidden;
+        width: min(74rem, 100%);
+    }
+    .kv div {
+        background: var(--panel);
+        padding: 0.95rem 1.3rem;
+        text-align: left;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+    }
+    .kv .term { color: var(--muted); font-size: clamp(0.8rem, 1.7vh, 1.05rem); }
+    .kv .value { font-size: clamp(0.9rem, 2vh, 1.25rem); font-weight: 600; }    footer {
+        border-top: 1px solid var(--line);
+        background: var(--panel-2);
+        padding: 0.7rem 1.4rem;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.4rem 1.6rem;
+        font-size: clamp(0.72rem, 1.6vh, 0.95rem);
+        color: var(--muted);
+    }
+    footer .mono { color: var(--text); }
+    .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main class="stage" id="stage"></main>
+<footer>
+    <span>LumeSync 固定机 · 模式 <span class="mono" id="foot-mode">—</span> · 端口 <span class="mono" id="foot-port">—</span></span>
+    <span>本页面仅在本机可打开，只读展示，不接收任何输入</span>
+</footer>
+
+<script>
+(function () {
+    'use strict';
+
+    // 管理凭证从 URL 片段读取（片段不会进入服务端日志、Referer 与历史记录），
+    // 存到 sessionStorage 后立刻从地址栏抹掉，标签页关闭即失效。
+    var TOKEN_KEY = 'lumesync.projector.token';
+    var SCREEN_POLL_MS = 1000;
+    var STATUS_POLL_MS = 2000;
+
+    function readToken() {
+        var fragment = String(location.hash || '').replace(/^#/, '');
+        var fromFragment = '';
+        if (fragment) {
+            var params = new URLSearchParams(fragment);
+            fromFragment = params.get('token') || '';
+        }
+        if (fromFragment) {
+            try { sessionStorage.setItem(TOKEN_KEY, fromFragment); } catch (_) { /* 隐私模式下忽略 */ }
+            try { history.replaceState(null, '', location.pathname + location.search); } catch (_) { /* 忽略 */ }
+            return fromFragment;
+        }
+        try { return sessionStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return ''; }
+    }
+
+    var token = readToken();
+    var lastScreen = null;
+    var lastStatus = null;
+    var lastError = null;
+    var missingCredential = false;
+
+    function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined && text !== null) node.textContent = String(text);
+        return node;
+    }
+
+    function formatCode(code) {
+        var digits = String(code || '').replace(/\D/g, '');
+        if (digits.length === 0) return '';
+        var half = Math.ceil(digits.length / 2);
+        return digits.slice(0, half) + '  ' + digits.slice(half);
+    }
+
+    function formatRemaining(ms) {
+        if (typeof ms !== 'number' || !isFinite(ms)) return '—';
+        var total = Math.max(0, Math.floor(ms / 1000));
+        var minutes = Math.floor(total / 60);
+        var seconds = total % 60;
+        return minutes + ':' + String(seconds).padStart(2, '0');
+    }
+
+    function formatBytes(bytes) {
+        var value = Number(bytes) || 0;
+        if (value < 1024) return value + ' B';
+        if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KB';
+        if (value < 1024 * 1024 * 1024) return (value / 1024 / 1024).toFixed(1) + ' MB';
+        return (value / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+    }
+
+    var STATE_TEXT = {
+        disabled: '中继已关闭',
+        idle: '等待教师连接',
+        pairing: '配对中',
+        paired: '已授权，等待开始授课',
+        teaching: '授课中',
+        error: '需要处理'
+    };
+
+    function stateClass(state) {
+        if (state === 'teaching' || state === 'paired') return 's-teaching';
+        if (state === 'pairing') return 's-pairing';
+        if (state === 'error' || state === 'disabled') return 's-error';
+        return 's-idle';
+    }
+
+    function buildHeader() {
+        var name = (lastStatus && lastStatus.classroomName) ||
+            (lastScreen && lastScreen.name) || '教室固定机';
+        var id = (lastStatus && lastStatus.classroomId) || (lastScreen && lastScreen.classroomId) || '';
+        var state = (lastScreen && lastScreen.state) ||
+            (lastStatus && lastStatus.relay && lastStatus.relay.state) || 'idle';
+
+        var wrap = el('div', 'classroom');
+        wrap.appendChild(el('div', 'classroom-name', name));
+        if (id) wrap.appendChild(el('div', 'classroom-id', id));
+
+        var badge = el('div', 'badge ' + stateClass(state));
+        badge.appendChild(el('span', 'dot'));
+        // 徽章说人话（"配对中"），机读的状态名留给下方事实区：
+        // 状态机的 discoveryLabel 是给发现报文的措辞（"正在连接"），放在徽章上会误导操作者。
+        badge.appendChild(el('span', null, STATE_TEXT[state] || state));
+        return [wrap, badge];
+    }
+
+    function buildPairing() {
+        var pairing = lastScreen.pairing;
+        var nodes = [];
+        nodes.push(el('div', 'code-label', '配 对 码'));
+        nodes.push(el('div', 'code', formatCode(pairing.code)));
+
+        var meta = el('div', 'code-meta');
+        var remaining = el('span');
+        remaining.appendChild(el('span', 'muted', '剩余 '));
+        remaining.appendChild(el('span', 'mono', formatRemaining(pairing.expiresAt - Date.now())));
+        meta.appendChild(remaining);
+        var attempts = el('span');
+        attempts.appendChild(el('span', 'muted', '还可尝试 '));
+        attempts.appendChild(el('span', 'mono', String(pairing.attemptsLeft)));
+        attempts.appendChild(el('span', 'muted', ' 次'));
+        meta.appendChild(attempts);
+        nodes.push(meta);
+
+        nodes.push(el('div', 'hint', '请在教师电脑上输入该验证码'));
+        if (pairing.deviceName) {
+            var device = el('div', 'subline');
+            device.appendChild(el('span', 'muted', '请求设备：'));
+            device.appendChild(el('span', 'mono', pairing.deviceName));
+            nodes.push(device);
+        }
+        return nodes;
+    }
+
+    function buildTeaching() {
+        var lease = (lastStatus && lastStatus.lease) || {};
+        var holder = lease.lease || null;
+        var nodes = [];
+        nodes.push(el('div', 'headline', '授课进行中'));
+        if (holder && holder.deviceName) {
+            var line = el('div', 'subline');
+            line.appendChild(document.createTextNode('授课设备：'));
+            line.appendChild(el('span', 'mono', holder.deviceName));
+            nodes.push(line);
+        }
+        if (holder && lastStatus.lease.remainingMs !== null && lastStatus.lease.remainingMs !== undefined) {
+            var ttl = el('div', 'subline');
+            ttl.appendChild(document.createTextNode('租约剩余 '));
+            ttl.appendChild(el('span', 'mono', formatRemaining(lastStatus.lease.remainingMs)));
+            nodes.push(ttl);
+        }
+        return nodes;
+    }
+
+    function buildIdle() {
+        var nodes = [];
+        nodes.push(el('div', 'headline', '等待教师发起配对'));
+        nodes.push(el('div', 'subline', '教师在自带电脑上搜索本教室后，这里会显示 8 位配对码。本页面只读，无需操作。'));
+        var seen = (lastStatus && lastStatus.pairedDevices) || 0;
+        if (seen > 0) {
+            nodes.push(el('div', 'subline', '已授权设备 ' + seen + ' 台（每次授课需重新用验证码授权）'));
+        }
+        return nodes;
+    }
+
+    function buildProblem(title, detail) {
+        var nodes = [];
+        nodes.push(el('div', 'headline', title));
+        if (detail) nodes.push(el('div', 'subline', detail));
+        return nodes;
+    }
+
+    function buildFacts() {
+        var status = lastStatus || {};
+        var relay = status.relay || {};
+        var queue = status.queue || {};
+        var stage = status.stage || {};
+        var discovery = status.discovery || {};
+
+        var grid = el('div', 'kv');
+        function add(term, value, mono) {
+            var box = el('div');
+            box.appendChild(el('span', 'term', term));
+            box.appendChild(el('span', 'value' + (mono ? ' mono' : ''), value));
+            grid.appendChild(box);
+        }
+        add('状态机', String(relay.state || '—'), true);
+        add('当前课件', String(status.courseId || '未选择'), true);
+        add('页码 / 修订', String(status.slideIndex === undefined || status.slideIndex === null ? '—' : status.slideIndex) +
+            ' / ' + String(status.revision === undefined || status.revision === null ? '—' : status.revision));
+        add('待落盘提交', String(queue.pendingCount === undefined ? '—' : queue.pendingCount) + ' 份');
+        add('暂存课件', String(stage.versions === undefined ? '—' : stage.versions) + ' 个版本 / ' +
+            formatBytes(stage.retainedBytes === undefined ? 0 : stage.retainedBytes));
+        var discoveryText = '未发布';
+        if (discovery.published) {
+            discoveryText = '已发布（' + ((discovery.txt && discovery.txt.label) || relay.label || '—') + '）';
+        } else if (discovery.lastError) {
+            discoveryText = '不可用：' + discovery.lastError;
+        } else if (discovery.enabled === false) {
+            discoveryText = '未启用';
+        }
+        add('发现广播', discoveryText);
+        return grid;
+    }
+
+    function render() {
+        var stage = document.getElementById('stage');
+        stage.className = 'stage ' + stateClass((lastScreen && lastScreen.state) || 'idle');
+        while (stage.firstChild) stage.removeChild(stage.firstChild);
+
+        var header = buildHeader();
+        stage.appendChild(header[0]);
+        stage.appendChild(header[1]);
+
+        if (missingCredential) {
+            buildProblem('缺少固定机凭证', '本页面需要启动 Hub 时打印的完整地址（带 #token=…）。请在固定机上查看 Hub 控制台输出，或用带管理凭证的终端重新打开本页面。')
+                .forEach(function (node) { stage.appendChild(node); });
+        } else if (!lastStatus && !lastScreen) {
+            buildProblem('无法连接固定机服务', '正在重试。请确认教室 Hub 进程仍在运行。')
+                .forEach(function (node) { stage.appendChild(node); });
+        } else if (lastScreen && lastScreen.state === 'disabled') {
+            buildProblem('中继桥未开启', '当前 Hub 运行在直接模式或中继已关闭，本固定机没有可显示的配对码。')
+                .forEach(function (node) { stage.appendChild(node); });
+        } else if (lastScreen && lastScreen.state === 'error') {
+            var reason = lastScreen.errorReason || '';
+            var title = reason === 'relay_no_screen' ? '固定机没有可用屏幕' : '中继不可用';
+            var detail = reason === 'relay_no_screen'
+                ? '按设计不允许「无屏幕时降级成无验证码连接」。请改用有屏幕的固定机，或先解除 LUMESYNC_HUB_CAN_DISPLAY_CODE=0。'
+                : '原因代码：' + reason;
+            buildProblem(title, detail).forEach(function (node) { stage.appendChild(node); });
+        } else if (lastScreen && lastScreen.state === 'pairing' && lastScreen.pairing) {
+            if (lastScreen.pairing.status === 'verified') {
+                buildProblem('配对已通过', '正在等待教师电脑取得授课授权…')
+                    .forEach(function (node) { stage.appendChild(node); });
+            } else {
+                buildPairing().forEach(function (node) { stage.appendChild(node); });
+            }
+        } else if (lastScreen && (lastScreen.state === 'teaching' || lastScreen.state === 'paired')) {
+            buildTeaching().forEach(function (node) { stage.appendChild(node); });
+        } else {
+            buildIdle().forEach(function (node) { stage.appendChild(node); });
+        }
+
+        if (lastStatus) stage.appendChild(buildFacts());
+
+        document.getElementById('foot-mode').textContent = (lastStatus && lastStatus.mode) || '—';
+        document.getElementById('foot-port').textContent = String(location.port || '—');
+    }
+
+    function request(path, options) {
+        return fetch(path, Object.assign({ cache: 'no-store' }, options || {}));
+    }
+
+    async function pollScreen() {
+        if (!token) {
+            missingCredential = true;
+            lastScreen = null;
+            return;
+        }
+        try {
+            var response = await request('/api/hub/screen', { headers: { 'X-LumeSync-Host-Token': token } });
+            if (response.status === 401 || response.status === 403) {
+                missingCredential = true;
+                lastScreen = null;
+                lastError = 'unauthorized';
+                return;
+            }
+            missingCredential = false;
+            var body = await response.json();
+            if (response.ok && body && body.ok) {
+                lastScreen = body;
+                lastError = null;
+            } else if (body && body.code === 'relay_disabled') {
+                lastScreen = { state: 'disabled', errorReason: body.code };
+                lastError = null;
+            } else if (body && body.code === 'relay_no_screen') {
+                lastScreen = { state: 'error', errorReason: body.code };
+                lastError = null;
+            } else {
+                lastError = (body && body.code) || ('http_' + response.status);
+                lastScreen = null;
+            }
+        } catch (_) {
+            lastError = 'unreachable';
+            lastScreen = null;
+        }
+    }
+
+    async function pollStatus() {
+        try {
+            var response = await request('/api/hub/status');
+            if (!response.ok) return;
+            var body = await response.json();
+            if (body && body.ok) {
+                lastStatus = body;
+                lastError = null;
+            }
+        } catch (_) {
+            if (lastError !== 'unauthorized') lastError = 'unreachable';
+        }
+    }
+
+    async function tick() {
+        await pollScreen();
+        if (!lastStatus) await pollStatus();
+        render();
+    }
+
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
+    tick();
+    setInterval(tick, SCREEN_POLL_MS);
+    setInterval(async function () { await pollStatus(); render(); }, STATUS_POLL_MS);
+}());
+</script>
+</body>
+</html>

@@ -1,10 +1,14 @@
-// HTTP 面：健康检查、协议描述、会话引导、Hub 状态、屏幕（含验证码）、课件暂存、缓存清理。
+// HTTP 面：健康检查、协议描述、会话引导、Hub 状态、屏幕（含验证码）、课件暂存、缓存清理、
+// 固定机只读投影界面。
 //
 // 约定：
 //   - 任何响应体都是 `{ok:true|false, ...}`，错误带契约错误码；
 //   - 404/500 不回显路由、路径或堆栈等内部信息；
-//   - 验证码只在 GET /api/hub/screen（本机 + 管理凭证）出现，其他任何接口都不含。
+//   - 验证码只在 GET /api/hub/screen（本机 + 管理凭证）出现，其他任何接口都不含；
+//   - GET /projector 只服务固定机本机：页面自己不含验证码与凭证，凭证由操作者用带 #token= 的
+//     地址带入（见 hub.projectorUrl()），因此把它暴露到局域网没有意义，直接拒绝。
 
+const path = require('node:path');
 const express = require('express');
 const {
     ERROR_CODES,
@@ -271,6 +275,23 @@ function createApp(ctx) {
             bytesFreed: cleared.bytesFreed,
             stage: relay.stageStats(),
             pendingSubmissions: queue.pendingCount
+        });
+    });
+
+    // 固定机只读投影界面：只允许本机加载。页面本身不含验证码、不含管理凭证，
+    // 凭证由操作者用带 #token= 的地址带入，再由页面自己去读 /api/hub/screen。
+    app.get(['/projector', '/projector/'], (req, res, next) => {
+        if (!ctx.isLoopback(req)) {
+            res.status(httpStatusForError(ERROR_CODES.HOST_AUTHORIZATION_REQUIRED, 403)).json({
+                ok: false,
+                code: ERROR_CODES.HOST_AUTHORIZATION_REQUIRED,
+                message: '固定机投影界面只允许在固定机本机打开'
+            });
+            return;
+        }
+        res.set('Cache-Control', 'no-store');
+        res.sendFile(path.join(__dirname, '..', 'projector', 'index.html'), (error) => {
+            if (error) next(error);
         });
     });
 

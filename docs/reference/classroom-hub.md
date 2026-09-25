@@ -1,6 +1,6 @@
 # 教室 Hub（apps/classroom-hub）
 
-状态：**已落地首轮**（传输与状态中心），TLS、固定机只读投影与打包仍未实现；教师端客户端见[教师端会话代理](session-agent.md)。
+状态：**已落地首轮**（传输与状态中心 + 固定机只读投影界面），TLS 与打包仍未实现；教师端客户端见[教师端会话代理](session-agent.md)。
 对应设计：[跨平台教师端与教室中继模式](../architecture/teacher-cross-platform-relay.md) §4–§8、
 [三端目标架构](../architecture/target-architecture.md) §4/§6。
 契约来源：[共享契约包](contracts.md)（`@lumesync/classroom-protocol` 的 `src/relay/*`、`@lumesync/course-format`）。
@@ -27,7 +27,7 @@ await hub.stop();                          // 关闭发现 + Socket.IO + HTTP
 - `createHub(options)` 只组装不监听；`startHub(options)` = `createHub` + `start`。
 - `hub.start(port)` 监听后才把真实端口交给发现层（`relay.setPort`），因此 `PORT=0` 与显式端口都能得到正确的 TXT 端口。
 - `hub.sweep()` 由 `LUMESYNC_HUB_SWEEP_INTERVAL_MS`（默认 1000ms）周期性调用：租约过期 → 等待教师；配对过期 → 回到等待连接。
-- 直接运行：`node apps/classroom-hub/index.js` 或 `pnpm run start:hub`。
+- 直接运行：`node apps/classroom-hub/index.js` 或 `pnpm run start:hub`。中继模式启动后会在控制台打印固定机投影界面的完整地址（带管理凭证，见 §2.1）。
 
 ## 2. HTTP 接口
 
@@ -41,6 +41,7 @@ await hub.stop();                          // 关闭发现 + Socket.IO + HTTP
 | POST | `/api/session/bootstrap` | public | viewer：签发短期凭证；host：仅 `direct` 模式且仅本机 + `X-LumeSync-Host-Token`。不支持的角色 400，未授权 host 403 |
 | GET | `/api/hub/status` | public | 模式、状态机（`state`/`discoveryLabel`）、公开配对信息（**无验证码**）、租约、队列、暂存、发现状态 |
 | GET | `/api/hub/screen` | 本机 + `X-LumeSync-Host-Token` | 固定机屏幕内容，**含本次请求的验证码**；无可用屏幕时 409 `relay_no_screen` |
+| GET | `/projector` | 仅本机（回环） | 固定机只读投影界面的静态页面，见 §2.1；非本机 403，响应 `Cache-Control: no-store` |
 | PUT | `/api/courses/stage/:courseId?courseHash=sha256:…` | host（设备凭证或本机管理凭证） | 原始字节流（如 `application/zip`），按大小上限接收；course-format 校验 + 真实内容 hash 比对后暂存 |
 | DELETE | `/api/hub/cache` | host | 教师离开前清理：释放**非当前播放**的暂存版本，返回 `{released, releasedCount, bytesFreed, stage, pendingSubmissions}` |
 
@@ -50,6 +51,19 @@ await hub.stop();                          // 关闭发现 + Socket.IO + HTTP
 - `/api/hub/status` 的 `lease` 是**脱敏投影**：给出 `state`、`epoch`、`deviceName`、`grantedAt`、`expiresAt`、`remainingMs`、`renewSoon`，但**不给出** `leaseId`/`deviceKey`/`sessionId`（这些是凭证字段，不应出现在公开读取接口）。
 - 暂存接口先校验包（ZIP 路径/大小/压缩比/manifest），再用 `computeCourseHash` 算出真实内容 hash：与查询参数不一致 → 400 `course_hash_mismatch`；包不合法 → 400 `request_invalid` + `reason`（course-format 的 code，如 `package_not_a_zip`、`manifest_missing`）+ 前 10 条 `errors`。
 - 请求体超过 `LUMESYNC_HUB_STAGE_MAX_BYTES` → 413 `stage_capacity_exceeded`；非法 JSON → 400 `request_invalid`；其余异常一律 500 `internal_error`（不回显 message）。
+
+### 2.1 固定机只读投影界面
+
+`apps/classroom-hub/projector/index.html` 是固定机的常驻界面：教室里的教师要在**公开屏幕上**读到本次配对码，这个页面就是那条通路。
+
+- **自包含**：内联 CSS/JS，零外部引用（无 CDN、无字体下载），因为教室通常没有外网；深色高对比、字号随 `min(20vh, 29vw)` 自适应（纯 20vh 在窄屏会被 `overflow:hidden` 截断，不是滚动）。
+- **打开方式**：中继模式启动时 Hub 在控制台打印完整地址，例如 `http://127.0.0.1:3000/projector#token=<管理凭证>`。管理凭证在未显式配置 `LUMESYNC_HOST_TOKEN` 时是进程随机的，所以固定机的控制台是它在运维上的**唯一出口**——这是本页唯一需要人工搬运的凭证。
+- **凭证处理**：页面从 URL **片段**读取凭证（片段不进服务端日志、Referer 与局域网抓包），存进 `sessionStorage` 后立刻用 `history.replaceState` 把地址栏还原，标签页关闭即失效；页面源码本身**不含验证码也不含凭证**，测试会断言这两点。
+- **只读**：只发两个 GET（`/api/hub/status`、`/api/hub/screen`），不发任何写请求、不接受输入。屏幕内容每 1 秒刷新，状态每 2 秒刷新，标签页重新可见时立即刷新。
+- **展示**：教室名与 `classroomId`、状态徽章（空闲 / 配对中 / 授课中 / 需要处理）、配对码（大字号）、剩余时间、剩余尝试次数、请求设备名；授课中显示授课设备与租约剩余；事实区列出状态机原值、当前课件、页码/修订、待落盘提交数、暂存版本数与其内存占用、发现广播状态；页脚为模式与端口。
+- **异常态都有可读文案**：`relay_disabled`（直接模式或中继已关闭）、`relay_no_screen`（无屏幕，按设计不降级）、缺凭证或凭证错误、Hub 进程不可达。
+
+`hub.projectorUrl()` 返回带凭证片段的地址（启动横幅用的就是它），`hub.projectorUrl({ withToken: false })` 返回不带凭证的地址。
 
 ## 3. Socket.IO 接口
 
@@ -195,14 +209,14 @@ node --test apps/classroom-hub/test/*.test.js   # 或 pnpm run test:hub
 ```
 
 用例启动真实 Hub（端口 0）+ 真实 Socket.IO 客户端 + 真实 fetch，只有两处注入：**发现传输**（假传输，绝不起组播）与**时钟**（租约/验证码过期用例）。
-覆盖：两种模式的握手与快照、配对快乐路径与攻击面（错误验证码计数、5 次锁定、重放、nonce 不匹配、过期、旧验证码换设备）、租约单持有者/续租/过期 epoch/释放/TTL 交接、命令幂等与越权不改状态、真实 `.lume` 的暂存/发布/清理、提交入队→转发→落盘→最终成功与队列满、通用转发清单与其契约一致性、发现的发布/取消发布/失败降级与搜索助手合并，以及**畸形 payload 冲击每条事件通道**（单个坏消息不能让 Hub 进程退出，也不会改变任何课堂状态）。
+覆盖：两种模式的握手与快照、配对快乐路径与攻击面（错误验证码计数、5 次锁定、重放、nonce 不匹配、过期、旧验证码换设备）、租约单持有者/续租/过期 epoch/释放/TTL 交接、命令幂等与越权不改状态、真实 `.lume` 的暂存/发布/清理、提交入队→转发→落盘→最终成功与队列满、通用转发清单与其契约一致性、发现的发布/取消发布/失败降级与搜索助手合并、**固定机投影界面**（本机可开且不含验证码与凭证、非本机 403、无外部资源引用、直接模式仍给可读页面、凭证只在片段里、同前缀路径仍走 404），以及**畸形 payload 冲击每条事件通道**（单个坏消息不能让 Hub 进程退出，也不会改变任何课堂状态）。
 
 ## 8. 已知限制与差距
 
 1. **没有 TLS/WSS**：中继模式下教师电脑与学生都在明文 HTTP/Socket.IO 上连接；设计 §8 要求"局域网也用 TLS"，证书分发方式未定。因此设备凭证与验证码握手目前**只在可信局域网**内安全。
 2. **没有持久化**（见 §5）。
 3. **教师端桌面壳未接入**：客户端已落地（[教师端会话代理](session-agent.md)：`apps/teacher/session-agent`，含真实 Hub 的集成测试），但桌面壳仍是 Windows C++/WebView2，尚未把该客户端接进教师 UI；固定机侧也没有常驻的"中继桥"进程管理界面。
-4. **没有只读投影界面**（`apps/classroom-hub/projector` 未创建）；固定机屏幕目前通过 `GET /api/hub/screen` 由外部页面轮询。
+4. **投影界面是浏览器页面，不是常驻 kiosk 进程**：`apps/classroom-hub/projector/index.html` 已落地（见 §2.1），但固定机仍需自己把它开成全屏、随系统自启；没有安装包、没有看门狗，页面崩了或被关掉不会自动恢复。另外页面与 Hub 是**同源**关系，因此必须通过 Hub 打开（用 `file://` 打开会被同源策略挡住，读不到屏幕接口）。
 5. **没有打包/安装**：固定机安装、升级、日志与备份未做。
 6. **配对请求没有全局限速**：契约保证"每次请求 5 次尝试"，但没有限制"每秒能新建多少请求"。局域网内可被反复新建请求骚扰（每次都会在固定机屏幕上弹验证码），需要 IP/设备级限速。
 7. **公开状态接口脱敏**：`/api/hub/status` 不返回 `leaseId`/`deviceKey`/`sessionId`（与设计文档"返回 `describe()`"相比是收紧，避免把凭证字段公开）。

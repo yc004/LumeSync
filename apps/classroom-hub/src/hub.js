@@ -124,6 +124,12 @@ function createHub(options = {}) {
                     if (typeof sweeper.unref === 'function') sweeper.unref();
                 }
                 logger.info(`[hub] LumeSync Hub 已启动 mode=${config.mode} 端口=${actualPort} 教室=${config.classroomId}`);
+                if (config.mode === HUB_MODES.RELAY) {
+                    // 投影界面需要固定机管理凭证，而凭证在未显式配置时是进程随机的：
+                    // 这台机器的控制台就是它在运维上的唯一出口（页面把片段读进 sessionStorage 后
+                    // 立刻从地址栏抹掉）。页面本身只在本机可加载，凭证不会过网。
+                    logger.info(`[hub] 固定机投影界面（只在本机可打开）：${hub.projectorUrl()}`);
+                }
                 resolve(hub);
             });
         });
@@ -183,6 +189,18 @@ function createHub(options = {}) {
             const address = server.address();
             const actualPort = address && typeof address === 'object' ? address.port : config.port;
             return `http://127.0.0.1:${actualPort}`;
+        },
+        /**
+         * 固定机只读投影界面的本机地址，带管理凭证片段。
+         *
+         * 用 URL 片段（`#token=…`）而不是查询串：片段不会进服务端日志、Referer 与局域网抓包，
+         * 页面读到后立刻存进 sessionStorage 并把地址栏还原。不要把这个地址写进文档或日志以外的位置。
+         */
+        projectorUrl({ withToken = true } = {}) {
+            const address = server.address();
+            const actualPort = address && typeof address === 'object' ? address.port : config.port;
+            const base = `http://127.0.0.1:${actualPort}/projector`;
+            return withToken ? `${base}#token=${config.hostToken}` : base;
         },
         getStudentCount: socketRuntime.getStudentCount,
         viewerForwardEvents: socketRuntime.viewerForwardEvents

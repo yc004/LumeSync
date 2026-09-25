@@ -2,7 +2,7 @@
 
 状态：目标架构设计，macOS Electron 教师端已有第一阶段直接授课预览，中继桌面接入尚未完成。基于 2026-09-25 的源码评估。本文细化[三端目标架构](target-architecture.md)中的教师端；旧 AI Editor 与 VS Code 插件均不进入目标架构。Windows 旧端仍为 C++20/Win32/WebView2；跨平台新端采用 Electron 复用现有 React 教师界面。
 
-> 已实现部分：[共享契约包](../reference/contracts.md)、`apps/classroom-hub`、`apps/teacher/session-agent` 与 [Electron 教师端预览](../../apps/teacher/desktop/README.md)。预览在 macOS 上加载现有教师界面并经本机课堂协议实测；中继模式的发现、配对与租约尚未接入桌面壳。下文其余协议与流程描述的是目标行为。
+> 已实现部分：[共享契约包](../reference/contracts.md)、`apps/classroom-hub`（含固定机只读投影界面 `GET /projector`，见[教室 Hub §2.1](../reference/classroom-hub.md)）、`apps/teacher/session-agent` 与 [Electron 教师端预览](../../apps/teacher/desktop/README.md)。预览在 macOS 上加载现有教师界面并经本机课堂协议实测；中继模式的发现、配对与租约尚未接入桌面壳，固定机侧仍需人工把投影界面开成全屏。下文其余协议与流程描述的是目标行为。
 
 ## 1. 目标与边界
 

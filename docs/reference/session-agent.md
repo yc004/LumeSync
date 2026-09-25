@@ -1,0 +1,173 @@
+# 教师端会话代理（apps/teacher/session-agent）
+
+状态：**已落地首轮**（客户端覆盖 direct / relay 两种模式，含真实 Hub 的端到端测试）。
+桌面壳、TLS/WSS 与打包仍未实现。
+对应设计：[跨平台教师端与教室中继模式](../architecture/teacher-cross-platform-relay.md) §3/§4/§6/§7、
+[三端目标架构](../architecture/target-architecture.md) §4/§6。
+对端：[教室 Hub](classroom-hub.md)。契约来源：[共享契约包](contracts.md)。
+迁移进度：[目标架构迁移状态](../status/migration.md)。
+
+`@lumesync/teacher-session-agent` 是教师桌面应用（Windows/macOS）与教师 UI 共用的课堂客户端。
+一个客户端覆盖两种模式，业务 UI 不直接拼 Hub URL、不自己维护重连、不接触 socket.io 对象：
+
+| 模式 | 连接方式 | 课堂命令 | 关键差异 |
+| --- | --- | --- | --- |
+| `direct` | 本机 Hub + `hostToken` | 契约里已声明的旧事件名（`select-course` / `sync-slide` / `update-settings` / `end-course`） | 直接模式的 Hub 不授租约（`teacher:lease.acquire` → `relay_disabled`），因此不能用 `classroom:command` |
+| `relay` | 教室固定机；`discover()` 搜索或手动地址 → 验证码配对 → 带设备凭证重连 | `classroom:command`（每条带 `leaseId` + `epoch` + `requestId`） | 每次授课都要一次验证码授权；租约释放即作废设备凭证 |
+
+## 1. 公开 API
+
+```js
+const { createSessionAgent } = require('@lumesync/teacher-session-agent');
+const agent = createSessionAgent(options);
+```
+
+创建时**不做任何 I/O**：连接由 `connect()`（或直接模式下的第一条命令）发起。
+
+`createSessionAgent(options)` 的关键参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `mode` | `direct`（默认）或 `relay`；其它值立刻抛 `agent_invalid_option` |
+| `deviceKey` | 教师设备身份，必填；`relay` 模式要求 ≥ 8 字符（契约 `teacher:pair.request` 的 schema，会绑定设备凭证） |
+| `deviceName` | 固定机屏幕上显示的设备名 |
+| `hubUrl` | `direct` 模式的 Hub 地址，默认 `http://127.0.0.1:3000` |
+| `hostToken` | `direct` 模式的 host 凭证，必填 |
+| `address` `port` `secure` | `relay` 模式的默认地址；`secure` 用 https/wss 组装 URL（留给 TLS 落地后使用） |
+| `classroomsDir` | 教室登记表目录；不传则只在内存里记 |
+| `logger` | `{info, warn, error, debug}`；不传则静默 |
+| `now` `random` `scheduler` | 时钟、随机数、定时器注入（测试用） |
+| `discoveryTransport` `socketFactory` `httpRequest` | mDNS 传输、socket 工厂、HTTP 注入（测试用；默认分别用 bonjour-service、socket.io-client、fetch） |
+| `reconnect` `renew` | 退避与续租参数覆盖 |
+| `connectTimeoutMs` `requestTimeoutMs` `discoveryTimeoutMs` `leaseTtlMs` | 超时与兜底 TTL |
+
+实例方法：
+
+| 方法 | 模式 | 说明 |
+| --- | --- | --- |
+| `discover({timeoutMs})` | relay | 搜索教室；返回合并登记表后的列表（失败时给 `error` 事件，`throwOnFailure:true` 才抛） |
+| `listKnownClassrooms()` | 两者 | 只读登记表（不触发合并/写入） |
+| `connect(target)` | 两者 | `direct` 用 `hubUrl`；`relay` 用 `{classroomId, address, port}` 或 `hubUrl` |
+| `requestPairing()` | relay | 建配对请求；同一教室未过期的请求会被复用（不重复让固定机弹新码） |
+| `submitPairingCode(code)` | relay | 用教师输入验证码算 HMAC 证明并换取设备凭证，随后自动带凭证重连 |
+| `acquireLease()` `renewLease()` `releaseLease()` | relay | 授课租约；续租由代理自动调度（TTL 一半处，带抖动） |
+| `publishCourse({courseId, filePath})` | relay | 读 `.lume` → 校验 → 算 hash → HTTP 上传 → `course:stage` → `course:publish` |
+| `sendCommand(type, payload)` | 两者 | 类型化命令：`course:select` / `slide:set` / `settings:update` / `annotation:clear` / `course:end` |
+| `selectCourse()` `setSlide()` `updateSettings()` `endCourse()` | 两者 | 上一条的便捷封装 |
+| `ackSubmission(id, {deliveredAt})` | 两者 | 教师确认落盘；**只有这一步之后学生才拿到最终成功** |
+| `getPendingSubmissions()` | 两者 | 待落盘提交列表 |
+| `endSession()` | 两者 | 释放租约、关闭连接、清除凭证、销毁发现传输 |
+| `getState()` | 两者 | 只读快照（不含验证码） |
+| `on(event, handler)` / `off()` | 两者 | 见第 3 节 |
+
+## 2. 与 Hub 的接线顺序
+
+```
+connect（无凭证）        → session:accepted(pairingOnly=true)，不进教师房间、无快照
+requestPairing           → teacher:pair.request  → chat: challenge(nonce, expiresAt)，不含验证码
+（教师从固定机屏幕读码）  → GET /api/hub/screen（仅本机 + X-LumeSync-Host-Token）
+submitPairingCode        → teacher:pair.verify（HMAC 证明）→ accepted(deviceToken) → 断开并带凭证重连
+acquireLease             → teacher:lease.acquire → leaseId + epoch
+publishCourse            → PUT /api/courses/stage/<courseId>?courseHash=…（Bearer 设备凭证）
+                         → course:stage → course:publish
+sendCommand              → classroom:command（leaseId + epoch + requestId）→ ack 带 revision
+学生提交                  → submission:forwarded → ackSubmission → submission:delivered
+endSession               → teacher:lease.release → 固定机作废本次设备凭证
+```
+
+## 3. 业务事件
+
+代理只向上层发这 9 个事件（socket 原始事件与 ack 结构不外泄）：
+
+| 事件 | 触发 | payload 要点 |
+| --- | --- | --- |
+| `snapshot` | 权威课堂快照（握手或广播） | `sessionId` `revision` `courseId` `slideIndex` `hostSettings` `snapshot` `receivedAt` |
+| `status` | 生命周期与连接状态 | `status`（`connecting` / `connected` / `connect-failed` / `disconnected` / `reconnecting` / `session-reset` / `lease-expired` / `pairing-required` / `relay-status` / `submission-delivered` / `released` / `closed`）与上下文（`attempt` `delayMs` `leaseExpiresAt` …） |
+| `lease` | 租约变化 | `kind`：`granted` / `renewed` / `expired` / `revoked` / `released` / `epoch-changed`，附 `epoch` `expiresAt` `reason` |
+| `pairing` | 配对流程 | `kind`：`challenged` / `accepted` / `reconnected` / `rejected` / `credential-cleared` / `credential-expired` |
+| `submission` | 学生提交被转发 | `submissionId` `courseId` `clientIp` `clientId` `fileName` `content` `sizeBytes` `queueSize` `pendingCount` |
+| `student-event` | 契约声明且非专门处理的学生事件 | `type`（事件名）`payload` `receivedAt` |
+| `course-published` | `course:published` 广播 | `courseId` `courseHash` `previousCourseHash` `requestId` `revision` |
+| `discovery` | `discover()` 结束 | `classrooms` `liveCount` `rejectedCount` `failed` |
+| `error` | 任何类型化错误 | `SessionAgentError`（见第 4 节） |
+
+`error` 事件的监听器不会因为没有监听者而让宿主进程崩溃（代理不用 `node:events`，`error` 不是保留事件）；
+监听器自身抛异常只记日志，不影响课堂流程。
+
+## 4. 错误码
+
+错误对象固定为 `{code, message, attemptsLeft?, details?}`（`SessionAgentError`，`toJSON()` 不含凭证）。
+
+契约错误码**原样保留**（配对 `pairing_code_invalid` / `pairing_attempts_exceeded` / `pairing_code_expired`、
+租约 `lease_expired` / `lease_epoch_stale` / `lease_not_held`、`relay_busy`、`course_hash_mismatch`、
+`stage_capacity_exceeded`、`queue_item_unknown` …）。
+
+契约未声明的客户端本地情况用 `agent_` 前缀，避免与契约码混淆：
+
+| 错误码 | 含义 |
+| --- | --- |
+| `agent_not_connected` | 需要连接的操作在未连接时被调用 |
+| `agent_connect_failed` `agent_connect_timeout` | 连接失败 / 握手超时 |
+| `agent_identity_rejected` | 带凭证但被 Hub 拒绝（已撤销/交接/换密钥） |
+| `agent_protocol_rejected` | 协议版本不兼容 |
+| `agent_classroom_mismatch` | 连上的教室与请求的教室不一致 |
+| `agent_request_timeout` | 带 ack 的事件在 `requestTimeoutMs` 内没有回执 |
+| `agent_no_pairing_request` `agent_not_paired` `agent_invalid_pairing_code` | 配对前置条件不满足 |
+| `agent_discovery_failed` | mDNS 传输不可用或浏览失败（可手动输入地址） |
+| `agent_upload_failed` `agent_course_file_unreadable` | 课件上传失败 / 本地课件读取失败 |
+| `agent_mode_unsupported` | 该入口只在另一种模式可用（如直接模式的 `annotation:clear`） |
+| `agent_closed` `agent_invalid_option` `agent_socket_error` | 会话已结束 / 参数不合法 / 其它 socket 异常 |
+
+## 5. 发现与本机登记表
+
+- 固定机在「中继桥模式开启」时发布 `_lumesync-relay._tcp`；教师端按**协议主版本**过滤、合并多网卡重复结果、
+  丢弃 TXT 校验不通过的记录。发现结果只用于"定位设备"，**不是身份或授权依据**（授权只由验证码完成）。
+- TXT 只含教室名、稳定设备 ID、协议主版本、端口与空闲/占用状态；契约禁止字段（`code` `token` `sessionId` 等）出现即丢弃。
+- 组播常被校园网隔离，因此 `classroomsDir/classrooms.json` 记住搜到过的教室（教室 ID、名称、地址、端口、协议版本、
+  状态、最近可见时间），`discover()` 把实时结果与登记表合并（这次没搜到的以 `online:false` 保留，供手动连接）。
+  登记表**不保存**验证码、设备凭证或租约；损坏时按空表继续，写入是"临时文件 + rename"的原子替换。
+
+## 6. 安全与可靠性约束
+
+1. **验证码不出本进程**：代理永不获取、回显、记录验证码；它只在本地参与 HMAC 证明计算，日志与 `getState()` 都不含验证码。
+2. **凭证与租约只在内存**：设备凭证、租约、配对 `nonce` 不写磁盘；`endSession()` / 释放租约后立即清除。
+3. **revision 防护**：同一 `sessionId` 下 `revision` 更小的快照被丢弃；`sessionId` 变化（Hub 重启，内存态丢失）
+   会接受新会话并广播 `session-reset`，同时放弃本地失效租约。
+4. **断线保留租约到 TTL**：断线不假装续租成功，退避重连（指数 + 抖动，成功后退避重置）后拉快照并续租；
+   若 Hub 已不再持有该租约，控制权交回课堂。**租约过期不自动重新获取**（设计 §7：必须重新走一次验证码授权）。
+5. **撤销/交接不静默降级**：带凭证被拒时（`identity-rejected`）清除凭证、广播 `pairing:credential-cleared`、
+   进入"需要重新配对"，而不是偷偷用旧凭证重试或无限重连。
+6. **课件先校验再上传**：本地用 course-format 校验包（ZIP 路径/大小/压缩比/manifest），上传后比对 Hub 计算的
+   `courseHash`，不一致立即中止，绝不进入 `course:publish`。
+7. **提交要显式回执**：`submission:forwarded` 只代表"中继已接收"；教师确认落盘后 `ackSubmission()` 才释放队列副本，
+   学生才看到最终成功（去重按 `submissionId`，直接模式下 Hub 会同时发旧事件名）。
+8. **协议版本只在握手 `auth` 里**：`protocolVersion` 不能作为 socket.io 顶层选项，否则会撞上 node `ws` 的
+   WebSocket 协议版本（默认 13），导致真实握手失败——只有连真实 Hub 才暴露得出来。
+
+## 7. 测试
+
+```bash
+node --test apps/teacher/session-agent/test/*.test.js   # 或在根目录：pnpm run test:session-agent
+```
+
+| 文件 | 覆盖 |
+| --- | --- |
+| `unit-agent.test.js` | 配对证明与 `attemptsLeft`/锁定、本地拒绝非法验证码（不消耗固定机次数）、租约续期与 epoch 变化、断线退避重连（含离线跨 TTL 与凭证撤销）、快照 revision 防护、`publishCourse` 三种中止路径、提交去重与落盘回执、学生事件转发、监听器异常隔离、错误归一 |
+| `unit-discovery.test.js` | 发现记录过滤与合并、TXT 校验、协议主版本不兼容、mDNS 失败降级为手动地址、登记表损坏与原子写入 |
+| `unit-pure.test.js` | 退避与续租延迟纯函数、学生事件清单与 Hub 转发清单同源、命令校验、本地状态更新、错误归一、工厂参数校验、URL 组装 |
+| `integration-agent.test.js` | **真实 Hub**（真实 Express + Socket.IO + course-format + 真实 HTTP 引导凭证），只有发现传输是注入的：中继闭环（发现 → 配对 → 租约 → 上传发布 → 命令广播 → 提交落盘 → 结束会话）、配对候选连接的权限边界、错误验证码计数、直接模式命令映射 |
+
+单元测试全部用假 socket / 假 Hub / 假时钟，不碰网络；集成测试只有发现传输与时钟是注入的。
+
+## 8. 已知限制与差距
+
+1. **桌面壳未接入**：`direct` 模式的 `hostToken` 与 `relay` 模式的 UI 流程尚未接到 Windows/macOS 桌面壳；
+   教师端平台能力接口（`packages/teacher-platform`）与原生桥的能力清单仍需与 shell 对齐。
+2. **没有 TLS/WSS**：`secure` 选项已留出，但 Hub 目前只有明文 HTTP/Socket.IO，因此设备凭证与验证码握手
+   只在可信局域网内安全；证书分发方式未定。
+3. **发现侧限速缺失**：`discover()` 只做浏览，配对请求的全局限速在 Hub 侧也尚未实现。
+4. **无持久化**：租约、设备凭证、配对状态都不落盘（设计如此，但意味着进程重启后必须重新配对）。
+5. **Hub 只读投影未实现**：固定机屏幕内容目前由外部页面轮询 `GET /api/hub/screen`，代理不负责渲染。
+6. **注释与投票不在代理职责内**：`annotation:clear` 可下发，但命中注释读取/保存与投票聚合仍由 Hub 侧缺口决定
+   （见[教室 Hub](classroom-hub.md) 的已知限制）。
+7. **两机实测未做**：集成测试在单机回环上驱动真实 Hub；跨机（教师笔记本 ↔ 固定机）与真实 mDNS 组播未验证。

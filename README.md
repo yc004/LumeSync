@@ -2,7 +2,7 @@
 
 LumeSync 是面向局域网教室的互动课件工作区。教师端管理课程与课堂，学生端接收状态并参与互动；课件运行时负责播放 `.lume` 课件。本仓库组合子模块，提供统一脚本、共享契约包、文档站和下载站源码。新编辑器将在架构确定后独立设计。
 
-> **源码状态（2026-09-25）**：教师端和 VS Code 插件已检出到根仓锁定提交。学生端与教师端内的 Core 已取得当前远端源码，但根仓锁定的提交在可取得的远端历史中缺失，因而版本不匹配。旧 AI Editor 和 VS Code 插件均不纳入目标架构；AI Editor 未克隆，旧插件仅保留作现状审查。详见[子模块状态](docs/status/submodules.md)。共享契约包（`packages/`）已完成首轮落地并有自动化测试；教室 Hub（`apps/classroom-hub`）已完成首轮落地，支持直接模式与教室中继模式（验证码配对、唯一授课租约、课件暂存、提交转发、mDNS 自发现），但**没有 TLS、没有持久化**，教师端桌面壳与只读投影仍未实现。三端集成尚未实测。
+> **源码状态（2026-09-25）**：教师端和 VS Code 插件已检出到根仓锁定提交。学生端与教师端内的 Core 已取得当前远端源码，但根仓锁定的提交在可取得的远端历史中缺失，因而版本不匹配。旧 AI Editor 和 VS Code 插件均不纳入目标架构；AI Editor 未克隆，旧插件仅保留作现状审查。详见[子模块状态](docs/status/submodules.md)。共享契约包（`packages/`）已完成首轮落地并有自动化测试；教室 Hub（`apps/classroom-hub`）已完成首轮落地，支持直接模式与教室中继模式（验证码配对、唯一授课租约、课件暂存、提交转发、mDNS 自发现），但**没有 TLS、没有持久化**；教师端会话代理（`apps/teacher/session-agent`）已完成首轮落地，覆盖直接模式与中继模式，并有驱动真实 Hub 的集成测试。**教师端桌面壳与固定机只读投影仍未实现**，跨机实测未做。
 
 ## 功能
 
@@ -12,7 +12,8 @@ LumeSync 是面向局域网教室的互动课件工作区。教师端管理课�
 | 学生端 | 连接教师机、展示课件、互动和提交；正式课堂 UI 归本仓 `repos/student/ui/classroom`（`@lumesync/student-ui`），构建成版本化产物由教师服务分发 | 源码已检出，版本不匹配；课堂 UI 构建与教师侧分发有自动化测试，两机实测未做 |
 | Core | `.lume` 渲染及通用运行时控制 | 源码位于 `repos/teacher/core`，版本不匹配 |
 | 共享契约包 | 课堂协议、课件格式与原生桥的单一契约来源 | 已落地，`pnpm run test:contracts` 覆盖 |
-| 教室 Hub | 课堂状态单一写入者与实时网关；直接模式在教师电脑，中继模式在教室固定机 | 已落地（HTTP + Socket.IO + mDNS 发现），`pnpm run test:hub` 覆盖；无 TLS、无持久化、无教师端 session-agent |
+| 教室 Hub | 课堂状态单一写入者与实时网关；直接模式在教师电脑，中继模式在教室固定机 | 已落地（HTTP + Socket.IO + mDNS 发现），`pnpm run test:hub` 覆盖；无 TLS、无持久化 |
+| 教师端会话代理 | 教师端课堂客户端：搜索、验证码配对、授课租约、课件上传、命令与提交回执（[参考](docs/reference/session-agent.md)） | 已落地（`apps/teacher/session-agent`），`pnpm run test:session-agent` 覆盖（39 单元 + 4 集成，集成驱动真实 Hub）；桌面壳未接入 |
 | AI Editor | 旧编辑器，退出目标架构 | 按用户要求未克隆 |
 | VS Code 插件 | 旧 `.lume` 编辑和预览入口，退出目标架构 | 源码已检出，仅作现状审查 |
 | 文档站 | Nextra / Next.js 文档 | 本仓源码已静态审查 |
@@ -30,7 +31,8 @@ LumeSync 是面向局域网教室的互动课件工作区。教师端管理课�
 │   ├── ai-editor/        # 历史子模块声明，未检出，不进入目标架构
 │   └── editor-plugin/    # 历史子模块声明，未检出，不进入目标架构
 ├── apps/
-│   └── classroom-hub/    # 教室 Hub（`@lumesync/classroom-hub`）：direct / relay 两种模式的课堂服务
+│   ├── classroom-hub/    # 教室 Hub（`@lumesync/classroom-hub`）：direct / relay 两种模式的课堂服务
+│   └── teacher/          # 教师端领域应用；session-agent（`@lumesync/teacher-session-agent`）是课堂客户端
 ├── packages/             # 共享契约包：classroom-protocol / course-format / native-contract
 ├── docs/                 # 当前文档与历史资料
 ├── docs-site/            # Nextra 文档站
@@ -70,7 +72,8 @@ pnpm run start:core            # 独立 Core runtime
 pnpm run build:student-ui      # 学生课堂 UI 构建产物（教师服务分发；缺产物时 /student.html 返回 503）
 pnpm run docs:dev              # 文档站
 pnpm run test:hub              # 教室 Hub 测试（真实 Express + Socket.IO + course-format 课件）
-pnpm run test                  # 契约包 + 学生课堂 UI + 教师服务 + 教室 Hub 测试
+pnpm run test:session-agent    # 教师端会话代理测试（单元 + 真实 Hub 集成）
+pnpm run test                  # 契约包 + 学生课堂 UI + 教师服务 + 教室 Hub + 会话代理测试
 ```
 
 桌面端启动命令需要 Windows 构建产物。完整步骤见 [安装与运行](docs/getting-started/running.md)。
@@ -89,6 +92,7 @@ pnpm run test                  # 契约包 + 学生课堂 UI + 教师服务 + �
 - [当前通信、身份与运行机制](docs/architecture/runtime-mechanisms.md)
 - [HTTP API](docs/reference/http-api.md) · [Socket.IO 事件](docs/reference/socket-events.md) · [WebView2 原生桥](docs/reference/native-bridge.md)
 - [教室 Hub（直接模式 / 教室中继模式）](docs/reference/classroom-hub.md)
+- [教师端会话代理](docs/reference/session-agent.md)
 - [课件格式与 SDK](docs/reference/course-format-sdk.md) · [配置与环境变量](docs/reference/configuration.md)
 - [文档站](docs-site/content/index.mdx)：从 `docs/` 当前文档同步生成；旧 API、Socket 与课件示例已归档
 

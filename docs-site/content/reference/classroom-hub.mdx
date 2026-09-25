@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 教室 Hub（apps/classroom-hub）
 
-状态：**已落地首轮**（传输与状态中心），TLS、教师端 session-agent、只读投影与打包仍未实现。
+状态：**已落地首轮**（传输与状态中心），TLS、固定机只读投影与打包仍未实现；教师端客户端见[教师端会话代理](/reference/session-agent)。
 对应设计：[跨平台教师端与教室中继模式](/architecture/teacher-cross-platform-relay) §4–§8、
 [三端目标架构](/architecture/target-architecture) §4/§6。
 契约来源：[共享契约包](/reference/contracts)（`@lumesync/classroom-protocol` 的 `src/relay/*`、`@lumesync/course-format`）。
@@ -206,7 +206,7 @@ node --test apps/classroom-hub/test/*.test.js   # 或 pnpm run test:hub
 
 1. **没有 TLS/WSS**：中继模式下教师电脑与学生都在明文 HTTP/Socket.IO 上连接；设计 §8 要求"局域网也用 TLS"，证书分发方式未定。因此设备凭证与验证码握手目前**只在可信局域网**内安全。
 2. **没有持久化**（见 §5）。
-3. **教师端 session-agent 未实现**：`browseClassroomRelays` / `createRelayBrowser` 已就绪（按协议主版本过滤、合并多网卡重复结果），但还没有客户端使用它；教师桌面壳仍是 Windows C++/WebView2。
+3. **教师端桌面壳未接入**：客户端已落地（[教师端会话代理](/reference/session-agent)：`apps/teacher/session-agent`，含真实 Hub 的集成测试），但桌面壳仍是 Windows C++/WebView2，尚未把该客户端接进教师 UI；固定机侧也没有常驻的"中继桥"进程管理界面。
 4. **没有只读投影界面**（`apps/classroom-hub/projector` 未创建）；固定机屏幕目前通过 `GET /api/hub/screen` 由外部页面轮询。
 5. **没有打包/安装**：固定机安装、升级、日志与备份未做。
 6. **配对请求没有全局限速**：契约保证"每次请求 5 次尝试"，但没有限制"每秒能新建多少请求"。局域网内可被反复新建请求骚扰（每次都会在固定机屏幕上弹验证码），需要 IP/设备级限速。

@@ -3,6 +3,7 @@ export default {
   "features": "功能清单、证据与限制",
   "contracts": "共享契约包",
   "classroom-hub": "教室 Hub 与中继模式",
+  "session-agent": "教师端会话代理",
   "http-api": "HTTP API 与静态资源",
   "socket-events": "Socket.IO 课堂事件",
   "native-bridge": "WebView2 原生桥接",

@@ -14,6 +14,8 @@
 | 架构 | [跨平台教师端与教室中继模式](architecture/teacher-cross-platform-relay.md) | Windows/macOS 教师端、固定机中继、功能归属与接入流程 |
 | 参考 | [功能清单与限制](reference/features.md) | 能力、证据和限制 |
 | 参考 | [共享契约包](reference/contracts.md) | `packages/` 下的协议、课件格式与原生桥契约及其接入点 |
+| 参考 | [教室 Hub（直接模式 / 教室中继模式）](reference/classroom-hub.md) | Hub 的路由、事件、环境变量、持久化与限制 |
+| 参考 | [教师端会话代理](reference/session-agent.md) | 教师端客户端的公开 API、事件、错误码与安全约束 |
 | 参考 | [HTTP API 与静态资源](reference/http-api.md) | 教师服务、Core 和下载站的路由、请求与副作用 |
 | 参考 | [Socket.IO 课堂事件](reference/socket-events.md) | 连接身份、全部业务事件与消息流 |
 | 参考 | [WebView2 原生桥接](reference/native-bridge.md) | 两端页面与 C++ 壳之间的 RPC 和事件 |

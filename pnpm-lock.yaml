@@ -34,6 +34,25 @@ importers:
         specifier: ^4.8.3
         version: 4.8.3
 
+  apps/teacher/session-agent:
+    dependencies:
+      '@lumesync/classroom-protocol':
+        specifier: workspace:*
+        version: link:../../../packages/classroom-protocol
+      '@lumesync/course-format':
+        specifier: workspace:*
+        version: link:../../../packages/course-format
+      bonjour-service:
+        specifier: ^1.3.0
+        version: 1.4.4
+      socket.io-client:
+        specifier: ^4.8.3
+        version: 4.8.3
+    devDependencies:
+      '@lumesync/classroom-hub':
+        specifier: workspace:*
+        version: link:../../classroom-hub
+
   docs-site:
     dependencies:
       next:

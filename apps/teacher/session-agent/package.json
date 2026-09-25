@@ -1,0 +1,27 @@
+{
+  "name": "@lumesync/teacher-session-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LumeSync 教师端会话代理：直接模式与教室中继模式共用的搜索、验证码配对、授课租约、课件上传、命令与提交回执客户端",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "./index.js",
+  "files": [
+    "index.js",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@lumesync/classroom-protocol": "workspace:*",
+    "@lumesync/course-format": "workspace:*",
+    "bonjour-service": "^1.3.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@lumesync/classroom-hub": "workspace:*"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

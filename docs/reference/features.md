@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 教师端课程扫描、文件夹、导入导出、选课和翻页 | `repos/teacher/server/src/routes.js`、`socket.js`、`shared/teacher-shell/src` | 课程扫描与 `.lume` 校验已有自动化测试；端到端连课未做 |
 | 教室座位布局、在线状态和异常日志 | 教师 UI、`server/src/routes.js` 与 `socket.js` | 入口已定位；数据一致性与重启恢复未验证 |
-| 学生课堂页面、课件展示、提交与互动 | `repos/teacher/shared/public/student.html`、`student-app.js`；学生壳在 `repos/student/native/shell` | 页面实际归教师仓库；两机实测未完成 |
+| 学生课堂页面、课件展示、提交与互动 | `repos/student/ui/classroom/src/{index.html,classroom-app.js}`（工作区包 `@lumesync/student-ui`，产物 `dist/<version>/`）；教师服务按 `GET /student.html`、`/classroom/<version>/*` 分发，见 `repos/teacher/server/src/student-ui.js`；学生壳在 `repos/student/native/shell` | 页面已归学生仓库并有自动化测试（构建确定性、manifest 哈希、分发、缺产物 503）；两机实测未完成 |
 | 批注、投票、截图监看和电源控制 | 教师 UI、`server/src/socket.js`、学生壳 | 事件与 UI 入口已定位；鉴权与原生桥存在已知风险 |
 | ZIP `.lume` 包与 TSX 页面播放 | `repos/teacher/core/src/browser/engine/runtime/app.tsx`；格式校验见 `packages/course-format` | 服务端校验已测试；播放路径的格式兼容与不可信课件隔离未验证 |
 | 课堂会话与协议版本握手 | `repos/teacher/server/src/protocol.js`、`packages/classroom-protocol` | 已有自动化测试（版本协商、越权拒绝、快照 revision、引导回归） |

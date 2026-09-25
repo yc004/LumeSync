@@ -6,3 +6,4 @@ packages:
   - "repos/teacher"
   - "repos/teacher/core"
   - "repos/student"
+  - "repos/student/ui/*"

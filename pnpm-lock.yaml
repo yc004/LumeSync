@@ -70,6 +70,10 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
+  repos/student/ui/classroom: {}
+
+  repos/student/ui/student-host: {}
+
   repos/teacher:
     dependencies:
       '@lumesync/classroom-protocol':
@@ -81,6 +85,9 @@ importers:
       '@lumesync/native-contract':
         specifier: workspace:*
         version: link:../../packages/native-contract
+      '@lumesync/student-ui':
+        specifier: workspace:*
+        version: link:../student/ui/classroom
       archiver:
         specifier: ^6.0.1
         version: 6.0.2

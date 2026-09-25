@@ -73,7 +73,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 教师壳 → 教师服务 | 本机 HTTP `POST /api/session/bootstrap`，返回 host token；页面通过 HTTP 加载 | `repos/teacher/native/shell/src/main.cpp`、`repos/teacher/server/index.js` | host token 发放未核实本机进程身份 |
 | 学生壳 → 教师服务 | 局域网 HTTP `POST /api/session/bootstrap`，获取 viewer token；WebView2 导航教师机 `http://IP:port` | `repos/student/native/shell/src/main.cpp` | 凭证和页面当前经明文 HTTP 传输 |
-| 教师/学生页面 ↔ 教师服务 | Socket.IO（HTTP 长轮询/WebSocket 由 Socket.IO 协商），JSON 事件；如 `select-course`、`course-changed`、`sync-slide`、`student:submit`、`student:screenshot` | `repos/teacher/server/src/socket.js`、`repos/teacher/shared/teacher-shell/src/app.tsx`、`repos/teacher/shared/public/student-app.js` | 部分事件授权不一致，身份、事件 schema 与重连语义不统一 |
+| 教师/学生页面 ↔ 教师服务 | Socket.IO（HTTP 长轮询/WebSocket 由 Socket.IO 协商），JSON 事件；如 `select-course`、`course-changed`、`sync-slide`、`student:submit`、`student:screenshot` | `repos/teacher/server/src/socket.js`、`repos/teacher/shared/teacher-shell/src/app.tsx`、`repos/student/ui/classroom/src/classroom-app.js`（学生课堂页已从教师仓库归位到学生端，见[迁移状态](/status/migration)） | 部分事件授权不一致，身份、事件 schema 与重连语义不统一 |
 | 页面 ↔ 原生壳 | WebView2 `window.chrome.webview.postMessage` / `WebMessageReceived`，JSON action 和返回消息；页面包装为 `teacherHost`/`studentHost` | 两端 `native/shell/src/main.cpp` | 原生桥暴露给加载页面，消息来源校验缺失 |
 | 浏览器/壳 → 教师服务 | HTTP 静态资源、`/api/*` REST 风格接口；课程、导出、布局、提交 | `repos/teacher/server/index.js`、`server/src/routes.js` | 写接口缺统一授权；路径输入需要约束 |
 | 教师服务 → 学生网卡 | UDP IPv4 广播 Wake-on-LAN 魔术包，默认端口 9 | `repos/teacher/server/src/socket.js` | 这是设备唤醒旁路，不属于课堂可靠消息通道 |

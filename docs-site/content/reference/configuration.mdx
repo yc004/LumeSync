@@ -25,9 +25,25 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 | `LUMESYNC_SKILL_PATH`、`LUMESYNC_COURSE_GUIDE_PATH` | `/api/download-skill`、`/api/course-guide` 下载的源文件 |
 | `LUMESYNC_STUDENT_LOG_MAX` | 进程内学生日志上限，默认 `500` |
 | `LUMESYNC_ANNOTATION_MAX_SEGMENTS_PER_SLIDE` | 每页标注上限，默认 `5000` |
+| `LUMESYNC_STUDENT_UI_DIR` | 学生课堂 UI 构建产物目录覆盖（默认由工作区包 `@lumesync/student-ui` 的 `exports("./dist")` 解析，即 `repos/student/ui/classroom/dist`）；见下节 |
 | `LUMESYNC_SERVER_PID_FILE` | 可选 PID 文件，服务启动写入、退出删除 |
 
 服务启动会创建公共目录、缓存、课程、布局父目录和提交目录；`POST /api/submission-config` 会更新目录并写配置文件。静态 bundle 与 `/protocol-client.js`（协议版本与事件清单，由 `packages/classroom-protocol` 生成）启动时按需重建；`/teacher-app.js`、`/render-engine.js` 以 no-store 提供。Socket 心跳固定为 `pingInterval=5000ms`、`pingTimeout=8000ms`，HTTP JSON 限制 2 MB；当前不是环境变量配置项。
+
+## 学生课堂 UI 构建产物
+
+正式课堂页由学生端仓库构建，教师服务只分发（见[目标架构 §6 模块归属](/architecture/target-architecture)与[迁移状态](/status/migration)）。
+
+| 项 | 值 |
+| --- | --- |
+| 源码 | `repos/student/ui/classroom/src/{index.html,classroom-app.js}`（工作区包 `@lumesync/student-ui`） |
+| 构建命令 | `pnpm --filter @lumesync/student-ui run build`（等价于 `node repos/student/ui/classroom/scripts/build.mjs`） |
+| 默认产物目录 | `repos/student/ui/classroom/dist`（由 `require('@lumesync/student-ui/dist')` 导出的 `distDir` 给出，也可用 `require.resolve` 定位） |
+| 版本方案 | `dist/<package version>-<构建输入 sha256 前 12 位>/`，例如 `dist/1.0.0-56532f8953d1/`；内容不变时重复构建版本不变 |
+| 指针文件 | `dist/current.json`（`{version, dir, entry, manifest}`）与 `dist/manifest.json`（`{version, files:[{path,size,sha256}], entry}`） |
+| 覆盖变量 | `LUMESYNC_STUDENT_UI_DIR` 指向任意等价的产物目录（同样需要 `current.json` + `manifest.json`）；测试与离线部署用 |
+
+教师服务启动时检查该产物（不重新构建、不做 Babel 编译）：产物缺失或损坏时日志给出预期路径与构建命令，`GET /student.html`、`GET /classroom/*` 返回 503，不静默 404、不回退旧副本。产物目录不在 Git 中（`dist/` 被忽略），部署前必须先构建。
 
 ## 会话配置
 

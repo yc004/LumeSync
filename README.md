@@ -9,7 +9,7 @@ LumeSync 是面向局域网教室的互动课件工作区。教师端管理课�
 | 模块 | 既有文档描述的用途 | 本次验证 |
 | --- | --- | --- |
 | 教师端 | 课程管理、课堂控制、HTTP/Socket 服务、提交收集 | 协议层与课程校验有自动化测试；桌面端未构建 |
-| 学生端 | 连接教师机、展示课件、互动和提交 | 源码已检出，版本不匹配 |
+| 学生端 | 连接教师机、展示课件、互动和提交；正式课堂 UI 归本仓 `repos/student/ui/classroom`（`@lumesync/student-ui`），构建成版本化产物由教师服务分发 | 源码已检出，版本不匹配；课堂 UI 构建与教师侧分发有自动化测试，两机实测未做 |
 | Core | `.lume` 渲染及通用运行时控制 | 源码位于 `repos/teacher/core`，版本不匹配 |
 | 共享契约包 | 课堂协议、课件格式与原生桥的单一契约来源 | 已落地，`pnpm run test:contracts` 覆盖 |
 | AI Editor | 旧编辑器，退出目标架构 | 按用户要求未克隆 |
@@ -25,7 +25,7 @@ LumeSync 是面向局域网教室的互动课件工作区。教师端管理课�
 .
 ├── repos/
 │   ├── teacher/          # Git 子模块；含工作区包 teacher/core
-│   ├── student/          # Git 子模块
+│   ├── student/          # Git 子模块；含工作区包 student/ui/classroom（正式课堂 UI）与 student/ui/student-host
 │   ├── ai-editor/        # 历史子模块声明，未检出，不进入目标架构
 │   └── editor-plugin/    # 历史子模块声明，未检出，不进入目标架构
 ├── packages/             # 共享契约包：classroom-protocol / course-format / native-contract
@@ -63,8 +63,9 @@ pnpm run start:teacher-server  # 教师服务
 pnpm run start:teacher         # 教师桌面端
 pnpm run start:student         # 学生桌面端
 pnpm run start:core            # 独立 Core runtime
+pnpm run build:student-ui      # 学生课堂 UI 构建产物（教师服务分发；缺产物时 /student.html 返回 503）
 pnpm run docs:dev              # 文档站
-pnpm run test                  # 契约包 + 教师服务测试
+pnpm run test                  # 契约包 + 学生课堂 UI + 教师服务测试
 ```
 
 桌面端启动命令需要 Windows 构建产物。完整步骤见 [安装与运行](docs/getting-started/running.md)。

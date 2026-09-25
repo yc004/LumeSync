@@ -30,17 +30,18 @@ pnpm install --no-frozen-lockfile
 
 | 命令 | 当前作用 | 运行条件与状态 |
 | --- | --- | --- |
-| `pnpm run start:teacher-server` | 启动教师 HTTP/Socket.IO 服务 | 需要教师端与 Core 可用；已通过 HTTP/协议层自动化测试，两端连课仍未实测 |
+| `pnpm run build:student-ui` | 构建学生课堂 UI 的版本化静态产物 | 纯 Node、无新依赖、幂等；教师服务分发它，缺失时 `/student.html` 返回 503 并提示该命令 |
+| `pnpm run start:teacher-server` | 启动教师 HTTP/Socket.IO 服务 | 需要教师端与 Core 可用，学生课堂页需要先构建学生 UI；已通过 HTTP/协议层自动化测试，两端连课仍未实测 |
 | `pnpm run start:teacher` | 启动现有 Windows 教师桌面壳 | 需要先得到 `LumeSyncTeacherShell.exe`；macOS 端尚未实现 |
 | `pnpm run start:student` | 启动现有 Windows 学生桌面壳 | 需要先构建学生端；当前学生端与根仓指针不匹配 |
 | `pnpm run start:core` | 启动独立 Core runtime | 需要 Core 构建产物；它不是完整教师课堂服务 |
-| `pnpm run test` | 契约包测试 + 教师服务测试 | 覆盖协议握手、越权拒绝、课程校验与会话引导回归 |
+| `pnpm run test` | 契约包 + 学生课堂 UI + 教师服务测试 | 覆盖协议握手、越权拒绝、课程校验、会话引导与产物分发回归 |
 | `pnpm run docs:dev` | 启动文档站 | 只需文档站依赖；站点构建时从 `docs/` 同步内容 |
 | `pnpm run start:website` | 启动下载站 | 需要 `WEBHOOK_SECRET`；默认端口可能与教师服务冲突 |
 
 根 `package.json` 不再保留旧 AI Editor 与 VS Code 插件脚本，两者也都不进入[目标架构](../architecture/target-architecture.md)。
 
-启动教师服务后，可用 `GET /api/health` 与 `GET /api/protocol` 确认协议版本（当前 `protocolVersion: 1`）与事件清单；客户端连接时应在 Socket.IO `auth` 中带上 `protocolVersion`。详见[共享契约包](../reference/contracts.md)。
+启动教师服务后，可用 `GET /api/health` 与 `GET /api/protocol` 确认协议版本（当前 `protocolVersion: 1`）与事件清单；客户端连接时应在 Socket.IO `auth` 中带上 `protocolVersion`。学生端访问 `/student.html`，静态资源走 `/classroom/<version>/*`。详见[共享契约包](../reference/contracts.md)与[学生课堂 UI 构建产物](../reference/configuration.md#学生课堂-ui-构建产物)。
 
 ## 当前课堂链路
 

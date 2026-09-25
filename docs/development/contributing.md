@@ -4,18 +4,35 @@
 
 根仓维护文档、工作区脚本、共享契约包（`packages/`）、文档站、下载站和子模块指针。当前检出的 Git 子模块是 `teacher` 与 `student`；`.gitmodules` 仍声明 `ai-editor` 与 `editor-plugin`，但两者已退出目标架构、未参加工作区构建。Core 由工作区路径 `repos/teacher/core` 引用。修改业务代码前先确认子模块已初始化，并检查各子模块自己的开发说明。
 
+学生端有两个工作区包（`pnpm-workspace.yaml` 的 `repos/student/ui/*`）：`repos/student/ui/classroom`（`@lumesync/student-ui`，正式课堂 UI 的构建产物）与 `repos/student/ui/student-host`（本机管理/离线页）。正式课堂页**不再**位于教师仓库。
+
+## 学生课堂 UI
+
+正式课堂页归学生端所有，教师服务只分发构建产物（见[目标架构 §6](../architecture/target-architecture.md)、[HTTP API](../reference/http-api.md)）。
+
+```bash
+pnpm run build:student-ui            # = pnpm --filter @lumesync/student-ui run build
+pnpm run test:student-ui             # 构建产物 + 页面源码契约测试
+node repos/student/ui/classroom/scripts/build.mjs   # 不经 pnpm 的直接调用
+```
+
+- 源码：`repos/student/ui/classroom/src/{index.html,classroom-app.js}`（字节级迁移，`classroom-app.js` 带 BOM）。页面仍以 `text/babel` 在浏览器里编译，依赖 `/lib/*`、`/socket.io/socket.io.js`、`/protocol-client.js`、`/render-engine.js` 由教师服务提供。
+- 产物：`repos/student/ui/classroom/dist/<version>/`，版本 = 包版本 + 构建输入内容哈希；`dist/manifest.json` 记录每个文件的 sha256，`dist/current.json` 指向当前版本。`dist/` 不入库，改完源码必须重新构建，否则教师服务在 `/student.html` 与 `/classroom/*` 上返回 503。
+- 构建脚本把 `src/index.html` 里的 `src="classroom-app.js"` 重写成 `/classroom/<version>/classroom-app.js`；修改该行时必须保留这一处引用，否则构建会显式失败。
+- 教师侧通过 `require('@lumesync/student-ui/dist')` 解析产物目录（`exports` 的 `./dist`），可用 `LUMESYNC_STUDENT_UI_DIR` 覆盖。
+
 ## 常用命令
 
 ```bash
 git submodule status
-pnpm install --no-frozen-lockfile   # 工作区含 packages/*，需要重建链接
-pnpm run test                       # 契约包 + 教师服务
+pnpm install --no-frozen-lockfile   # 工作区含 packages/* 与 repos/student/ui/*，需要重建链接
+pnpm run test                       # 契约包 + 学生课堂 UI + 教师服务
 pnpm run docs:sync
 pnpm run docs:check
 pnpm run docs:build
 ```
 
-`pnpm run test` 由两步组成：`pnpm run test:contracts`（`packages/` 下三个契约包）与 `pnpm run test:teacher-server`（教师服务，含协议握手、课程目录与会话引导回归）。契约包通过 `workspace:*` 被 `repos/teacher`、`repos/student` 引用，因此改动契约后必须在根目录重装链接。
+`pnpm run test` 由三步组成：`pnpm run test:contracts`（`packages/` 下三个契约包）、`pnpm run test:student-ui`（学生课堂 UI 构建产物与页面契约，内含一次真实构建）与 `pnpm run test:teacher-server`（教师服务，含协议握手、课程目录、会话引导和学生 UI 分发回归）。契约包通过 `workspace:*` 被 `repos/teacher`、`repos/student` 引用，因此改动契约后必须在根目录重装链接。教师服务测试会在开始时重新构建学生课堂 UI（构建幂等），所以单独运行 `node --test server/tests/*.test.js` 也不依赖手工预构建，但服务本身不会在缺少产物时回退。
 
 修改子模块后，应先在该子模块提交，再在根仓提交更新后的 gitlink。不要用 `repos:update` 当作可重复的安装步骤：它会移动到子模块远端分支，改变根仓原先锁定的组合。
 

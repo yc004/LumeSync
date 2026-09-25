@@ -20,10 +20,11 @@
 
 `test/capabilities.test.js` 会读取 `repos/teacher/native/shell/src/main.cpp` 与
 `repos/student/native/shell/src/main.cpp`，把 `HandleRpc` / `HandleEvent` 里实际分派的 `action == L"..."`
-与能力清单逐一比对。这发现了两个原生壳缺陷（已在清单中标注，等待原生壳修复）：
+与能力清单逐一比对。目前仍有一个原生壳缺陷（已在清单中标注）：
 
 - 教师壳：注入脚本暴露 `classStarted` / `classEnded` / `setFullscreen`，但 `HandleEvent` 没有对应分支，调用被静默丢弃。
-- 学生壳：注入脚本暴露 `maximizeWindow`，但 `HandleEvent` 没有对应分支。
+
+学生壳的 `maximizeWindow` 已接入 `HandleEvent`，仅在非授课状态切换最大化；Windows 实机编译与行为仍待验证。
 
 ## 使用
 

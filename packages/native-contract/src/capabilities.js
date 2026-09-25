@@ -73,7 +73,7 @@ const VIEWER_ACTIONS = {
     setAdminPassword: { kind: 'event', transport: 'native', implemented: true, risk: RISK.WRITE, summary: '下发管理密码哈希' },
     toggleDevTools: { kind: 'event', transport: 'native', implemented: true, risk: RISK.SYSTEM, summary: '开关调试面板' },
     minimizeWindow: { kind: 'event', transport: 'native', implemented: true, risk: RISK.SYSTEM, summary: '最小化窗口' },
-    maximizeWindow: { kind: 'event', transport: 'native', nativeDispatch: false, implemented: false, risk: RISK.SYSTEM, summary: '最大化/还原窗口', note: '注入脚本暴露了该方法，但学生壳 HandleEvent 未分派' },
+    maximizeWindow: { kind: 'event', transport: 'native', implemented: true, risk: RISK.SYSTEM, summary: '非授课状态最大化/还原窗口' },
     closeWindow: { kind: 'event', transport: 'native', implemented: true, risk: RISK.SYSTEM, summary: '关闭窗口' },
 
     // ---- 兼容占位：固定返回 null，不能视为学生端能力 ----

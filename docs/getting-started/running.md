@@ -34,6 +34,7 @@ pnpm install --no-frozen-lockfile
 | `pnpm run start:teacher-server` | 启动教师 HTTP/Socket.IO 服务 | 需要教师端与 Core 可用，学生课堂页需要先构建学生 UI；已通过 HTTP/协议层自动化测试，两端连课仍未实测 |
 | `pnpm run start:teacher` | 启动现有 Windows 教师桌面壳 | 需要先得到 `LumeSyncTeacherShell.exe`；macOS 用下面的 Electron 预览壳 |
 | `pnpm run start:teacher:desktop` | Electron 教师桌面壳（macOS / Windows 源码预览） | 复用现有 React 教师界面并自起本机教师服务；已在 macOS 实测直接模式的选课、翻页与结束课程，发行包与 Windows 实机未验证 |
+| `pnpm run start:editor` | 新课件编辑器 MVP | 首次需安装工作区依赖；支持声明式标准组件、`.lume` 源码往返和 Agent API 创作；限制与 API 配置见[编辑器指南](editor.md) |
 | `pnpm run start:hub` | 启动教室 Hub（`LUMESYNC_HUB_MODE=direct\|relay`） | 纯 Node 工作区包，relay 模式需要可用组播；无 TLS、无持久化 |
 | `pnpm run start:student` | 启动现有 Windows 学生桌面壳 | 需要先构建学生端；当前学生端与根仓指针不匹配 |
 | `pnpm run start:core` | 启动独立 Core runtime | 需要 Core 构建产物；它不是完整教师课堂服务 |

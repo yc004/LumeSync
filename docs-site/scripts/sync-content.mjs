@@ -11,7 +11,7 @@ const checkOnly = process.argv.includes('--check');
 // docs/ is the sole source for the current documentation. Keep this list in
 // sidebar order; archived material must never be included here.
 const sections = [
-  { slug: 'getting-started', title: '入门与运行', pages: [['running', '获取源码与运行现状']] },
+  { slug: 'getting-started', title: '入门与运行', pages: [['running', '获取源码与运行现状'], ['editor', '新课件编辑器 MVP']] },
   { slug: 'architecture', title: '架构', pages: [
     ['system', '当前系统架构'],
     ['three-end-architecture', '现有三端架构'],

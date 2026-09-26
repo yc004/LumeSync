@@ -1,0 +1,16 @@
+{
+  "name": "@lumesync/component-extensions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Safe declarative component pack format for LumeSync",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@lumesync/editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LumeSync 独立课件编辑器 MVP",
+  "license": "MIT",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron desktop/main.cjs",
+    "test": "node --test test/*.test.cjs"
+  },
+  "dependencies": {
+    "@lumesync/course-format": "workspace:*",
+    "@lumesync/course-model": "workspace:*",
+    "@lumesync/component-extensions": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "42.4.0"
+  }
+}

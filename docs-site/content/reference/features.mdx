@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 功能清单、证据与限制
 
-日期：2026-09-25。本页区分**源码中存在的入口**、**运行验证状态**与**目标设计**。源码审查覆盖教师端、学生端、Core 和遗留 VS Code 插件；学生端/Core 与上级锁定提交不一致，旧 AI Editor 未检出。未完成 Windows 构建及三端集成测试。
+日期：2026-09-26。本页区分**源码中存在的入口**、**运行验证状态**与**目标设计**。源码审查覆盖教师端、学生端、Core 和遗留 VS Code 插件；学生端/Core 与上级锁定提交不一致，旧 AI Editor 未检出。新编辑器 MVP 已加入根工作区，但未完成 Windows 构建及三端集成测试。
 
 | 功能 | 当前源码依据 | 验证状态 |
 | --- | --- | --- |
@@ -17,6 +17,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 | 课堂会话与协议版本握手 | `repos/teacher/server/src/protocol.js`、`packages/classroom-protocol` | 已有自动化测试（版本协商、越权拒绝、快照 revision、引导回归） |
 | 教师/学生 Windows 桌面壳 | 两端 `native/shell`、CMake/打包脚本 | 源码已审查；Windows 实际构建未运行 |
 | Electron 教师桌面壳（macOS/Windows 源码预览） | `apps/teacher/desktop/{main.cjs,preload.cjs,src/guards.cjs}` | macOS 上已运行**直接模式**源码预览：加载现有 React 教师界面、启动本机教师服务、经受限 preload 暴露原生能力；页面来源与课件路径守卫有自动化测试（`pnpm run test:teacher-desktop`）。中继模式接线、安装包/签名与 Windows 实机未验证 |
+| 新课件编辑器与 Agent | `apps/editor/desktop`、`apps/editor/ui`、`apps/editor/src/editor-service.cjs`、`packages/course-model` | 自动化测试覆盖模型 API 请求/取消、候选审查与包往返；尚未在桌面实机运行，也未用真实 API/Windows/macOS 安装包验收。操作说明见[编辑器 MVP 指南](/getting-started/editor) |
 | 教室 Hub 与教师端会话代理 | `apps/classroom-hub`、`apps/teacher/session-agent` | 都有自动化测试并驱动真实 Hub（`pnpm run test:hub`、`pnpm run test:session-agent`）；TLS、跨机实测与桌面壳接线未完成 |
 | 固定机只读投影界面 | `apps/classroom-hub/projector/index.html`、`GET /projector` | 已落地：本机可打开、非本机 403、页面无外链；在 1440/1024/390 三档视口做过真实渲染验证（无横向溢出、控制台零报错）。仍需人工开成全屏，无常驻与自启 |
 | 文档站与下载站 | `docs-site/`、`website/` | 源码已审查；下载站和 CI 有已知缺陷 |
@@ -30,7 +31,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 | Windows/macOS 共用教师端 | Electron 桌面壳已在 macOS 上运行直接模式源码预览；发行包、签名公证与 Windows 实机验证未完成 | [跨平台教师端](/architecture/teacher-cross-platform-relay) |
 | 教师自带电脑经固定机中继授课 | 契约层（`packages/classroom-protocol/src/relay/`）、教室 Hub（`apps/classroom-hub` relay 模式）与教师端会话代理（`apps/teacher/session-agent`）均已落地并有测试；缺 TLS/WSS、固定机只读投影界面与跨机实测 | [教室中继模式](/architecture/teacher-cross-platform-relay) |
 | 局域网自动发现、固定机显示验证码、教师电脑输入后连接 | Hub 已发布 `_lumesync-relay._tcp` 并在本机回环暴露屏幕验证码；教师端会话代理已实现搜索、配对候选连接与验证码 HMAC 证明；跨机实测未完成 | [自发现与验证码接入](/architecture/teacher-cross-platform-relay#5-局域网自发现与验证码接入) |
-| 全新独立编辑器、共享课件格式和隔离播放器 | 未开始，仅有设计文档（[内容规范](/architecture/course-content-extensions)、[编辑器设计](/architecture/editor-design)、[编辑器 Agent](/architecture/editor-agent)）；旧 AI Editor 与 VS Code 插件不作为基础 | [三端目标架构](/architecture/target-architecture) |
+| 新课件编辑器与 Agent API 创作 | Electron 编辑器支持四种声明式标准组件和首批自定义组件：导入 `.lumex`、字段表单编辑、按版本/hash 锁定并封装到 `.lume`；Core 源码校验后离线直渲染；Agent 接入单一 OpenAI Chat Completions 兼容 API，生成结果需审核 | 自动化测试覆盖组件包 ZIP 校验、模型 schema、命令/撤销、课件往返、构建摘要及 Agent 请求安全（`node --test packages/component-extensions/test/*.test.js packages/course-model/test/*.test.js apps/editor/test/*.test.cjs`）。自定义组件当前是无脚本声明式模板，不支持资源、交互插件、slots 或任意 JS；仍缺隔离播放器、旧课件 Babel 隔离与迁移、媒体导入、Agent 预算/流式/多服务适配、跨平台发行。Core 锁定版本和真实课堂还需验收；见[编辑器设计](/architecture/editor-design)、[Agent 设计](/architecture/editor-agent)、[扩展设计](/architecture/course-content-extensions) |
 
 旧 AI Editor 与 VS Code 插件均已退出目标架构。它们的历史源码或文档仅用于现状回溯，不代表推荐使用的制课流程。
 

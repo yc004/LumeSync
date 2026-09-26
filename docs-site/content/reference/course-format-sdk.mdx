@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 课件格式、加载器与课程 SDK
 
-状态：**当前 Core 检出源码**（2026-09-25 静态审查）；与教师仓库锁定的 Core 提交不一致，端到端兼容尚未验证。旧编辑器与 VS Code 插件不在目标架构内，本页只描述现行课件运行时。
+状态：**当前 Core 检出源码 + 新编辑器 MVP 格式**（2026-09-26）；Core 与教师仓库锁定的提交不一致，端到端兼容尚未验证。旧编辑器与 VS Code 插件不在目标架构内。
 
 ## 课程发现与优先级
 
@@ -42,6 +42,24 @@ lesson.lume
 加载过程：HTTP 下载 ZIP → JSZip 解包 → 读取/校验 manifest → 为 assets 建 Blob URL 并在换课时释放 → Babel Standalone 用 React/TypeScript preset 编译 TSX（模块用 CommonJS 转换）→ `new Function` 执行 → 渲染 React 元素。`require` 只显式映射 `react`、`react-dom`、`@lumesync/course-sdk` / `lumesync-course-sdk`，其他包名会抛错；额外脚本依赖应通过课件 `dependencies` 和服务端 `/lib` 缓存路径处理。课件与课堂页处于同一个 JS 上下文，**没有隔离沙箱**。`assetUrl('assets/figure.svg')` 返回解包后的 Blob URL；源码还会改写部分 JSX 字面量 `src`/`href`/`poster` 路径。
 
 运行时还有旧文本 `.lume`、TSX/JS 页面和 PDF 的兼容分支；它们与 ZIP manifest 不共享完整的构建约束。建议新课件以仓库的 `zip-format-smoke-test` 示例为可审查起点，并在当前运行时实机验证。
+
+### 新编辑器 MVP 的源文件
+
+`apps/editor` 写出的 ZIP 包仍使用当前 `schemaVersion: 1.0.0` 与 `runtime.entryMode: pages`，但增加 `manifest.editor` 标记源文档格式，并包含：
+
+```text
+lesson.lume
+├── manifest.json                 # pages 指向当前播放器兼容 TSX
+├── source/course.json            # 文档元数据、主题 token、页面顺序
+├── source/pages/<id>.json        # 可编辑声明式标准组件树
+├── source/extensions/<id>.json   # 课件锁定的声明式组件定义（可选）
+├── slides/<id>.tsx               # 由 core.* 组件定义生成的兼容输出
+└── build/build-manifest.json     # source/output SHA-256 摘要和构建器标识
+```
+
+`packages/course-model` 校验四种内置组件和用户导入的声明式模板组件。`source/course.json` 可包含 `extensions: [{id, version, hash}]`；每个锁定包的 JSON 定义位于 `source/extensions/<id>.json`，并参与输入摘要。扩展 `.lumex` 包仅允许根目录 `extension.json`，当前字段表支持文本、数字、布尔值、颜色和枚举；模板由受限标签、样式和文本/属性引用组成，不执行包内 JavaScript。一个课件对同一扩展 ID 只能锁定一个版本。
+
+当前 Core 源码识别 `manifest.editor` 后读取声明式 source，校验 schema、组件包 hash 和输入/输出摘要，再通过白名单 React 元素渲染，不编译或执行这些课件的 TSX。生成的 TSX 是旧版 Core 的兼容输出；旧版 Core 仍走 Babel。Core 当前检出与根仓锁定版本不一致，真实教室联调尚未完成。带行为的插件、包内媒体/样式资源、隔离运行时和通用预编译产物仍需后续版本化运行时契约；当前用户组件支持是安全的声明式组件切片，不是任意代码插件支持。
 
 ## `CourseGlobalContext` 实际能力
 

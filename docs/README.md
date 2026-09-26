@@ -1,10 +1,11 @@
 # 文档目录
 
-本目录是根仓的当前维护入口。文档按入门、架构、参考、开发和项目状态分类。教师端、学生端、Core 与遗留 VS Code 插件源码现已取得，但学生端和 Core 与锁定指针不一致；旧 AI Editor 未克隆。旧 AI Editor 和 VS Code 插件均不进入目标架构。共享契约包（`packages/`）已完成首轮落地，业务行为及三端集成仍待测试。
+本目录是根仓的当前维护入口。文档按入门、架构、参考、开发和项目状态分类。教师端、学生端、Core 与遗留 VS Code 插件源码现已取得，但学生端和 Core 与锁定指针不一致；旧 AI Editor 未克隆。旧 AI Editor 和 VS Code 插件均不进入目标架构。共享契约包已完成首轮落地；新课件编辑器和 Agent 已有 MVP，组件扩展及课堂播放器接线仍待完成。
 
 | 类别 | 文档 | 用途 |
 | --- | --- | --- |
 | 入门 | [安装与运行](getting-started/running.md) | 获取源码、启动和连接 |
+| 入门 | [新课件编辑器 MVP](getting-started/editor.md) | 启动编辑器、编辑课件和接入模型 API |
 | 架构 | [系统架构](architecture/system.md) | 模块边界、数据流和设计思路 |
 | 架构 | [三端架构图解](architecture/three-end-architecture.md) | 教师端、学生端、编辑器的产品视角与交互 |
 | 架构 | [当前通信与运行机制](architecture/runtime-mechanisms.md) | 进程、协议、身份、状态和信任边界 |

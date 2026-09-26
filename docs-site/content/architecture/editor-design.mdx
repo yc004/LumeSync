@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 新课件编辑器完整设计
 
-状态：**目标架构设计，尚未实现**（2026-09-25）。本文综合[三端目标架构](/architecture/target-architecture)、[课件渲染评估](/architecture/course-rendering)、[内容与扩展机制](/architecture/course-content-extensions)和[教师端/中继设计](/architecture/teacher-cross-platform-relay)。当前已落地的 `course-format`、`classroom-protocol`、Classroom Hub 与教师会话代理是可复用基础；新编辑器、声明式内容模型、扩展包运行时与隔离播放器仍待实现。本文示例接口和目录是设计约定，不代表当前 API。
+状态：**目标架构 + 编辑器与声明式组件首轮实现**（2026-09-26）。本文综合[三端目标架构](/architecture/target-architecture)、[课件渲染评估](/architecture/course-rendering)、[内容与扩展机制](/architecture/course-content-extensions)和[教师端/中继设计](/architecture/teacher-cross-platform-relay)。`packages/course-model`、`packages/component-extensions` 与 `apps/editor` 已实现声明式文档、四种标准组件、受限 `.lumex` 模板组件导入、锁定、编辑、`.lume` 离线封装、撤销/重做、Agent 候选审查和 Electron UI。任意代码扩展、资源插件、通用预编译器和隔离课堂播放器仍待实现；本文中的其余接口与目录是目标设计。
 
 ## 1. 产品定位与关键决策
 
@@ -109,11 +109,11 @@ flowchart TB
 
 | 模块 | 职责与所有权 | 当前状态 |
 | --- | --- | --- |
-| `apps/editor/desktop`、`apps/editor/ui` | 桌面窗口、受限 IPC、编辑体验与草稿管理 | 新建；不复用旧 AI Editor。 |
-| `packages/course-format` | 包 schema、ZIP 读写、路径/大小限制、内容 hash 与旧包迁移 | 已有首轮；扩展新 schema、源/产物校验。 |
-| `packages/course-model` | 组件树、命令、撤销、页面/资源引用与迁移 | 新建；不处理 Socket 或原生桥。 |
+| `apps/editor/desktop`、`apps/editor/ui` | 桌面窗口、受限 IPC、编辑体验与草稿管理 | 已有 MVP：Electron sandbox/preload、标准组件表单、静态预览、页面管理、自动恢复、打开/保存。旧包尚不能导入编辑。 |
+| `packages/course-format` | ZIP 读写、路径/大小限制、manifest 校验和内容 hash | 已有；编辑器复用包校验/打包，目前 authoring metadata 位于 v1 manifest 扩展字段。 |
+| `packages/course-model`、`packages/component-extensions` | 文档 schema、标准组件、声明式组件包校验、props 表单元数据、扩展锁、静态预览与 TSX 兼容输出 | 首轮已实现；尚缺交互扩展 API、资源引用、代码页与真正预编译产物。 |
 | `packages/course-build` | 依赖解析、静态分析、TSX/组件预编译、CSS 收集与产物摘要 | 新建；构建进程使用，不在学生浏览器执行。 |
-| `packages/course-agent`、`model-provider` | 用户自带模型 API 适配、受限创作工具、候选草稿和诊断反馈 | 新建；详见[Agent 设计](/architecture/editor-agent)。 |
+| Agent / model provider | 用户自带 API、受限创作工具和候选草稿 | `apps/editor/src/editor-service.cjs` 已有单一 OpenAI Chat Completions 兼容适配、连通测试、取消和类型化候选审查；多供应商抽象、流式、费用预算及独立 `packages/course-agent`/`model-provider` 尚未抽取。 |
 | `packages/component-registry`、`extension-format`、`extension-kit` | 安装、包校验、版本锁、开发者脚手架 | 按[扩展设计](/architecture/course-content-extensions#模块归属与公共接口)建设。 |
 | `packages/course-player`、`content-sdk` | 教师、学生和编辑器共享的隔离播放与受控能力 API | 新建；替换当前 Core 的全局执行路径。 |
 | `packages/classroom-protocol` | 课堂状态与命令 schema、角色和版本 | 已有首轮；插件互动事件仍需扩展。 |
@@ -187,11 +187,11 @@ sequenceDiagram
 | 2. 构建与一致预览 | `course-build`、预编译产物、隔离播放器、教师/学生/导出预览 | 同一快照在三种预览和实际双机播放可比对；课堂端不运行 Babel。 |
 | 3. Agent 基础创作 | 用户模型 API 配置、受限编辑命令、页纲提案、候选差异与接受/撤销 | 主题能生成可编辑草稿；无效模型输出、取消或断网不能损坏现有课件；密钥不进入 renderer/课件。 |
 | 4. 组件与主题 | 标准组件、schema 属性面板、主题 token、导出适配；Agent 可检索并选用组件 | 不改 Core 固定脚本顺序即可增加组件；编辑器与课堂样式一致。 |
-| 5. 自定义扩展 | `.lumex` 导入、锁文件、受控互动 API、离线缓存 | 用户自己开发的组件可导入、配置、保存、重开、离线播放；不兼容包在发布前被拒绝。 |
+| 5. 自定义扩展 | `.lumex` 声明式组件导入和锁定已首轮实现；后续增加受控互动 API、资源和离线缓存 | 用户组件可用白名单模板定义、导入、配置、保存、重开、离线播放；代码插件和不兼容能力检查仍待建设。 |
 | 6. 教师发布接线 | 教师应用本地 handoff、直接/中继 Hub 扩展分发和快照切换 | 两模式均可发布同一课件；上传失败、断线和回滚保持旧课堂可用。 |
 | 7. 旧课迁移与跨平台交付 | 显式迁移器、旧 TSX 隔离兼容；Windows/macOS 签名安装包 | 旧课有迁移报告与原件备份；两系统可离线编辑、预览、导出。 |
 
-最小可用版本应覆盖“声明式页面 + 标准组件 + 保存/重开 + 预编译预览 + `.lume` 导出 + 用户 API 驱动的 Agent 基础创作”，不依赖在线仓库或中继。自定义组件与教师端 handoff 可以随后接入，但内容模型、扩展锁、隔离播放器和类型化编辑命令需在第一阶段定稿，以免把临时 Babel/全局 API 或模型直接写文件的捷径带进新编辑器。
+首轮可用版本覆盖“声明式页面 + 标准与模板组件 + 保存/重开 + 静态预览 + `.lume` 导出 + 用户 API 驱动的 Agent 基础创作”，不依赖在线仓库或中继。下一步是补齐可执行插件所需的隔离播放器、权限契约、资源管理和教师端 handoff；模板组件与完整代码插件必须继续保持清晰的能力边界。
 
 ## 9. 仍需原型确认的选择
 

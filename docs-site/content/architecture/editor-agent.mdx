@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 编辑器 Agent 与用户自带模型 API 设计
 
-状态：**目标设计，尚未实现**（2026-09-25）。本文补充[新编辑器完整设计](/architecture/editor-design)；AI 生成的结果仍是同一种可编辑 `.lume` 课件，不增加独立的“AI 课件格式”。模型 API 由用户自行配置，编辑器不要求使用某一家服务。旧 AI Editor 不作为实现基础。
+状态：**MVP 首轮已实现，完整设计仍待完成**（2026-09-26）。本文补充[新编辑器完整设计](/architecture/editor-design)；AI 生成结果仍是同一种可编辑 `.lume`，不增加独立格式。`apps/editor` 已实现一个 OpenAI Chat Completions 兼容 API 适配、连接测试、取消请求、固定类型编辑命令、候选差异审查和 `safeStorage` 密钥保护。Agent 上下文现在包含当前课件锁定的自定义组件 ID 与 props schema，可在候选命令中选用这些组件；Agent 不能安装包或修改扩展锁。多供应商适配、流式输出、预算/用量策略、材料授权、来源引用和多阶段页纲审批仍是目标设计。旧 AI Editor 不作为实现基础。
 
 ## 目标与边界
 
@@ -119,10 +119,10 @@ Agent 上下文分四类：系统内置的课件 schema/工具规范、编辑器
 
 | 目标模块 | 职责 |
 | --- | --- |
-| `apps/editor/ui/agent` | 对话、页纲、材料授权、候选差异、预算与状态展示。 |
-| `apps/editor/desktop/agent-service` | Agent 状态机、请求取消、网络请求、凭证读取和会话恢复。 |
-| `packages/model-provider` | 提供商适配器、能力声明、流式事件与用量归一；不认识课件文件结构。 |
-| `packages/course-agent` | 课件创作工具、候选分支、类型化命令、诊断反馈与迭代限制；依赖 `course-model`、格式库、组件注册表和构建器。 |
-| `packages/course-model` | 命令应用、revision、撤销和差异；人和 Agent 使用同一入口。 |
+| `apps/editor/ui` | 已有 Agent/API 配置面板、创作提示词、候选计划和差异审查；材料授权、预算提示和流式状态仍待实现。 |
+| `apps/editor/desktop` + `apps/editor/src/editor-service.cjs` | 已有单一 Chat Completions 请求、取消、系统安全存储和受限 IPC；任务恢复、分步状态和重试策略待实现。 |
+| `packages/model-provider` | 待抽取；当前只有 editor 内的单一兼容适配，不含流式事件或多供应商能力探测。 |
+| `packages/course-agent` | 待抽取；当前 `generateCourseCandidate` 只负责一次提案、类型化命令校验和本地候选分支。 |
+| `packages/course-model` | 已实现文档校验、标准组件定义、命令/revision、撤销重做、候选审查、差异和静态编译。 |
 
 第一步在课件数据模型中定义类型化编辑命令和分支/合并机制，并让手工 UI 使用同一命令入口。第二步实现一个文本模型适配器与受保护凭证配置，完成“主题 → 页纲 → 声明式页面草稿 → 差异接受”。第三步接入组件检索、材料引用、构建/预览诊断与可控重试。最后增加多模态资源和高级代码组件生成。验收重点是：无效模型输出不能修改项目；取消/断线/预算耗尽不损坏草稿；同一候选分支能一键接受或撤销；生成课件重开后仍可手工编辑；模型密钥不出现在课件、预览、日志或插件中。

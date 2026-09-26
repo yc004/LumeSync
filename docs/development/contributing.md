@@ -54,7 +54,7 @@ pnpm run docs:build
 
 ## 编辑器设计文档
 
-新课件内容规范与编辑器设计尚未实现，相关文档放在 `docs/architecture/`：`course-content-extensions.md`（内容规范与插件机制）、`editor-design.md`（编辑器设计）、`editor-agent.md`（编辑器 Agent 与模型 API）。它们与已有的 `course-rendering.md` 评估配套阅读；落地的结构变化要同步更新而非另开一份设计稿。三页都已登记在 `sync-content.mjs` 的 `sections` 中。
+新课件内容规范与编辑器方案已部分实现：`packages/course-model` 和 `apps/editor` 支持声明式文档与 Agent，`packages/component-extensions` 支持无脚本 `.lumex` 模板组件。相关设计文档位于 `docs/architecture/`：`course-content-extensions.md`（内容规范与插件机制）、`editor-design.md`（编辑器设计）、`editor-agent.md`（编辑器 Agent 与模型 API）。它们与 `course-rendering.md` 评估配套阅读；实现变化应同步更新这些文档和 `docs-site/scripts/sync-content.mjs` 的同步内容。
 
 ## 文档维护
 

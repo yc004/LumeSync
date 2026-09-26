@@ -34,6 +34,22 @@ importers:
         specifier: ^4.8.3
         version: 4.8.3
 
+  apps/editor:
+    dependencies:
+      '@lumesync/component-extensions':
+        specifier: workspace:*
+        version: link:../../packages/component-extensions
+      '@lumesync/course-format':
+        specifier: workspace:*
+        version: link:../../packages/course-format
+      '@lumesync/course-model':
+        specifier: workspace:*
+        version: link:../../packages/course-model
+    devDependencies:
+      electron:
+        specifier: 42.4.0
+        version: 42.4.0
+
   apps/teacher/desktop:
     devDependencies:
       electron:
@@ -88,6 +104,18 @@ importers:
       jszip:
         specifier: ^3.10.1
         version: 3.10.1
+
+  packages/component-extensions:
+    dependencies:
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
+
+  packages/course-model:
+    dependencies:
+      '@lumesync/component-extensions':
+        specifier: workspace:*
+        version: link:../component-extensions
 
   packages/native-contract:
     dependencies:

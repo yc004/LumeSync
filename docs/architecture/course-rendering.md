@@ -1,12 +1,12 @@
 # 课件渲染架构评估与改进建议
 
-状态：**2026-09-25 当前检出源码的静态审查 + 目标设计建议**。学生端和 Core 当前检出与根仓锁定指针不一致，尚未做教师/学生 Windows 实机联调。审查包含已落地的 `packages/course-format`、学生 UI 归位和教室 Hub 首轮实现；下文单独指出尚未接入当前课堂播放器的能力。课件字段和 SDK 的现状见[课件格式与 SDK](../reference/course-format-sdk.md)，迁移进度见[目标架构迁移状态](../status/migration.md)。
+状态：**2026-09-26 当前检出源码的静态审查 + 目标设计建议**。学生端和 Core 当前检出与根仓锁定指针不一致，尚未做教师/学生 Windows 实机联调。新编辑器的标准组件与受限 `.lumex` 模板组件已有声明式课堂渲染分支；旧 TSX/JS 课件仍走 Babel 与 `new Function`。审查也包含已落地的 `packages/course-format`、学生 UI 归位和教室 Hub 首轮实现。课件字段和 SDK 的现状见[课件格式与 SDK](../reference/course-format-sdk.md)，迁移进度见[目标架构迁移状态](../status/migration.md)。
 
 页面编码规范、可扩展组件库与插件机制的专项方案见[课件内容规范、插件与组件库设计](course-content-extensions.md)。
 
 ## 结论
 
-现有职责划分基本合理：教师服务托管课程文件和课堂状态，Core 提供浏览器加载与播放，教师页面、学生页面和导出预览复用同一渲染引擎；PDF 也有独立播放分支。共享 `course-format` 已提供 ZIP/manifest 校验、版本规则和内容 hash，教师服务扫描与中继 Hub 发布已接入。当前播放器仍用自己的弱校验和全局执行环境，加载/释放也没有按“一个课程实例”管理。下一步应让播放器接入共享格式库，建立隔离环境与明确的生命周期。
+现有职责划分基本合理：教师服务托管课程文件和课堂状态，Core 提供浏览器加载与播放，教师页面、学生页面和导出预览复用同一渲染引擎；PDF 也有独立播放分支。共享 `course-format` 已提供 ZIP/manifest 校验、版本规则和内容 hash，教师服务扫描与中继 Hub 发布已接入。新编辑器格式现有一个白名单声明式渲染分支；旧 TSX/JS 分支仍在课堂页面同一 JS 环境中编译执行。浏览器尚未复用完整 `course-format` 校验器，加载/释放也没有按“一个课程实例”管理。下一步应先锁定并联调 Core 版本，再统一运行时校验和生命周期。
 
 ## 当前渲染链路
 
@@ -19,8 +19,10 @@ flowchart LR
   T --> E[Core 浏览器引擎]
   S --> E
   E --> Z[ZIP 解包与资源 Blob URL]
-  Z --> C[Babel 编译 TSX / 执行模块]
-  C --> R[React 课件舞台]
+  Z --> D[声明式 source 与扩展包校验 / 白名单组件渲染]
+  Z --> C[旧格式 Babel 编译 TSX / 执行模块]
+  D --> R[React 课件舞台]
+  C --> R
   H --> P[Socket.IO 课程和页码状态]
   P --> T
   P --> S
@@ -29,9 +31,11 @@ flowchart LR
 ```
 
 1. 当前教师服务扫描 `.lume`、PDF 和脚本文件；ZIP `.lume` 用共享 `course-format` 校验，损坏包进入目录结果的 `invalid` 列表。选课后服务端广播课程 ID，教师、学生页面分别从 `/courses/...` 获取文件并调用 `engine.loadCourse`。证据：`repos/teacher/server/src/courses.js:8,50-54,66-74,102-133`、`repos/teacher/server/src/socket.js:358-393`、`repos/teacher/shared/teacher-shell/src/app.tsx:1042-1075`、`repos/student/ui/classroom/src/classroom-app.js:191-212,330-339`。
-2. 当前播放器的 ZIP 分支在浏览器完整下载文件，用 JSZip 解包，生成资源 Blob URL，逐页用 Babel Standalone 编译 TSX，再以 `new Function` 执行并生成 React 元素；随后加载依赖脚本并建立课程上下文。它没有调用共享 `course-format`。证据：`repos/teacher/core/src/browser/engine/runtime/app.tsx:87-160,250-343,476-525`。
+2. 当前 ZIP 分支在浏览器下载并用 JSZip 解包。标记为 `lumesync-course-document` 的新编辑器课件由 `course-components/document-renderer.js` 校验声明式页面、组件包版本/hash 与 source/output 摘要，再把内置组件和受限模板映射成 React 元素，不经过 Babel；其余 pages/legacy 课件仍逐页用 Babel 编译并由 `new Function` 执行，之后加载依赖脚本、建立课程上下文。浏览器没有调用共享 `course-format`。证据：`repos/teacher/core/src/browser/engine/runtime/app.tsx:250-343`、`repos/teacher/core/src/browser/engine/course-components/document-renderer.js`。
 3. 新教室 Hub 的中继发布链路已经用共享格式库校验上传包并核对 `courseHash`；教师会话代理完成暂存和发布。但当前教师/学生课堂页面还未改为按该 hash 从 Hub 加载隔离播放器，不能把 Hub 的门禁等同于旧课堂选课流程的端到端可播放性保证。证据：`apps/classroom-hub/src/routes.js:45-112`、`apps/teacher/session-agent/src/agent.js:1189-1294`。
 4. `CourseStage` 复用 `SyncClassroom` 播放舞台；PDF 用 pdf.js 将页面画到 Canvas；导出预览也调用同一 `loadCourse`，但使用一套禁用部分交互能力的上下文。证据：`repos/teacher/core/src/browser/engine/runtime/app.tsx:346-429,458-474,528-563,597-695`、`repos/teacher/shared/public/export-preview.html:548-565`。
+
+新编辑器把 `source/pages/*.json` 和锁定的 `source/extensions/*.json` 构建成 TSX 兼容输出；当前 Core 源码的声明式分支直接读取 JSON 和模板，不使用这份 TSX，旧版 Core 会将兼容输出交给 Babel。编辑器的本地预览是无脚本静态 HTML，不是实际课堂运行时。带行为的插件、通用预编译运行时、旧课件隔离及移除其 Babel 依赖仍待后续实施；根仓锁定 Core 的实际课堂兼容也尚未验证。
 
 这里的“复用引擎”是浏览器代码复用，并非课件在教师端编译一次后分发给学生。各客户端仍独立下载、解包、编译和执行。Core 的 `CourseStage` 同时包含播放、同步变量、标注、投票及部分教师工具栏；它还不是纯粹的渲染核心。
 
@@ -82,9 +86,9 @@ flowchart LR
 | 阶段 | 最小交付 | 验收 |
 | --- | --- | --- |
 | 1. 固定现状 | 锁定教师/学生/Core 版本；建立 ZIP、PDF、互动、资源依赖样本；记录三端首屏、内存与切课行为 | 同一锁定版本可在 Windows 双机复现播放、翻页和导出，记录已知差异。 |
-| 2. 格式与发布门禁 | 将已实现的 `course-format` 接入浏览器播放器和编辑器；补 runtimeVersion 兼容矩阵、依赖完整性与每页编译检查 | 教师扫描、Hub 发布、浏览器播放对同一包给出一致结果；坏包和无法编译的页在切换前被拒绝。 |
+| 2. 格式与发布门禁 | 标准组件和声明式模板组件已有直接渲染分支；将共享 `course-format` 接入浏览器，补 runtimeVersion 兼容矩阵、依赖完整性与旧页预检 | 教师扫描、Hub 发布、浏览器播放对同一包给出一致结果；坏包和无法编译的旧页在切换前被拒绝。 |
 | 3. 生命周期与可靠性 | 课程实例、AbortSignal/代次、依赖先加载、失败回滚、统一 dispose、PDF 缓存上限 | 快速切课、断网、缺依赖与失败重试不回写旧结果、不泄漏 URL/监听器。 |
 | 4. 隔离播放器 | 隔离环境与最小 SDK 消息协议；逐步迁移页组件 | 课件无法调用宿主 DOM、Socket 或原生能力；既有互动样本在授权能力内运行。 |
 | 5. 性能与一致性 | 预编译或按页编译、按需资源解包、hash 缓存、导出能力声明 | 教师/学生/预览渲染结果在固定样本上可比对，较大课件的加载与内存有预算。 |
 
-上述验收是后续实施门槛；第 2 阶段已有共享格式库与部分服务端接入，其余仍待完成。短期最应先完成播放器接入与第 3 阶段的生命周期改造，因为它们直接决定新编辑器产物能否稳定在教师、学生和中继模式播放。
+上述验收是后续实施门槛；共享格式库、服务端接入和新编辑器声明式直渲染已有首轮实现，但浏览器统一校验、版本对齐和真实教室联调仍待完成。短期应先固定可复现的 Core 基线并验证教师、学生、导出预览一致，再推进第 3 阶段生命周期改造。

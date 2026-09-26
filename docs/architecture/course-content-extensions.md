@@ -1,6 +1,34 @@
 # 课件内容规范、插件与组件库设计
 
-状态：**2026-09-25 源码评估与目标方案**。下文的 manifest 扩展、插件 API 和组件仓库均为设计示例，当前尚未实现。先阅读[课件渲染评估](course-rendering.md)与[当前格式和 SDK](../reference/course-format-sdk.md)可了解现有播放链路。
+状态：**2026-09-26 源码评估、目标方案与扩展组件首轮闭环**。`packages/component-extensions`、`packages/course-model` 和 `apps/editor` 已支持 `.lumex` 声明式组件包导入、组件属性编辑、精确版本/hash 锁定、保存重开和课程内离线封装；当前 Core 源码验证包摘要并以白名单 React 元素渲染。首轮仅支持受限模板与字段表单，不运行包内 JavaScript；交互插件、资源与样式资产、主题包、扩展 API、独立隔离运行时和发布仓库仍属后续设计。先阅读[课件渲染评估](course-rendering.md)与[当前格式和 SDK](../reference/course-format-sdk.md)了解播放链路。
+
+## 已实现的声明式组件包切片
+
+当前 `.lumex` 是只含根目录 `extension.json` 的 ZIP。`@lumesync/component-extensions` 校验包 ID、semver、组件命名空间、props 默认值和模板；模板只允许有限 HTML 标签、样式属性、静态文本和 props 引用。脚本、事件处理器、任意 HTML 属性、外链与其他 ZIP 条目都会被拒绝。可编辑字段类型为文本、数字、布尔值、颜色和枚举。
+
+编辑器导入包后将其放入本机组件库，并把 `{id, version, hash}` 加入课件扩展锁。保存 `.lume` 时，组件定义写入 `source/extensions/<id>.json`；源码摘要包含该定义，课件可离线重开和播放。Core 在加载时重新验证包格式和 hash，校验所有自定义块的锁与属性，再将受限模板映射到 React 元素。生成的 TSX 仍作为旧版 Core 的兼容输出，但新 Core 对编辑器格式走 JSON 直渲染。
+
+一个课件当前对每个扩展 ID 只能锁定一个版本。扩展包是自包含的；课堂端不需要安装本机 `.lumex` 文件或访问网络。当前模板不支持插槽、图片/字体等包内资产、动态行为、课堂状态 API 或第三方 React 组件，因此它适用于新布局和信息卡片，不等同于完整的代码插件系统。
+
+组件定义示例：
+
+```json
+{
+  "format": "lumesync-component-pack",
+  "formatVersion": "1.0.0",
+  "id": "org.example.cards",
+  "version": "1.0.0",
+  "displayName": "课堂卡片",
+  "components": [{
+    "id": "org.example.cards.fact-card",
+    "label": "知识卡片",
+    "props": {"title": {"type": "string", "label": "标题", "default": "新知识"}},
+    "template": {"tag": "article", "style": {"padding": "20px"}, "children": [{"tag": "h2", "children": [{"prop": "title"}]}]}
+  }]
+}
+```
+
+在 Node.js 中可用 `@lumesync/component-extensions` 的 `writeComponentPack(pack)` 将该对象打包为 `.lumex`，`readComponentPack(bytes)` 可在导入前校验并计算 hash。模板只接受仓库内置的安全标签和样式白名单；组件库开发者指南见 `packages/component-extensions/README.md`。
 
 ## 架构决策
 
@@ -27,7 +55,7 @@ flowchart LR
 
 ## 判断：统一包结构还不足以保证课件兼容
 
-当前 `course-format` 已规定 ZIP 路径、大小、manifest、`schemaVersion` 和页面文件是否存在，并用于教师服务扫描和 Hub 上传。这解决了“包能否安全读取”的一部分问题，不能回答“页面代码能否稳定运行”。播放端仍自行用 Babel 编译 TSX，再通过 `new Function` 执行；它只映射 `react`、`react-dom` 和 `@lumesync/course-sdk` 这几个 import，其他依赖靠全局脚本与 CDN 回退。可用的全局变量、CSS 类、组件属性、SDK 行为与引擎版本没有一份共同的内容契约。
+当前 `course-format` 已规定 ZIP 路径、大小、manifest、`schemaVersion` 和页面文件是否存在，并用于教师服务扫描和 Hub 上传。新编辑器格式的四种内置组件已有直接 JSON 渲染分支；任意 TSX/JS 旧课件仍由 Babel 编译并通过 `new Function` 执行，且没有隔离沙箱。它只映射 `react`、`react-dom` 和 `@lumesync/course-sdk` 这几个 import，其他依赖靠全局脚本与 CDN 回退。可用的全局变量、CSS 类、组件属性、SDK 行为与引擎版本没有一份共同的内容契约。
 
 | 缺口 | 现在的证据 | 容易出现的现象 |
 | --- | --- | --- |
@@ -92,7 +120,7 @@ flowchart LR
 
 `type` 必须是带命名空间的稳定组件 ID。组件包发布自己的 props JSON Schema、默认值、可编辑控件描述、可选插槽、事件与辅助功能语义。编辑器和播放器共用同一个 schema：编辑时实时校验，发布前完整校验，播放时拒绝不受支持的必需组件并给出组件名与版本。对于仅装饰性的可选组件，可按包内定义的静态占位内容降级；不能静默丢弃教学关键内容。
 
-扩展包建议采用独立的 `.lumex` ZIP（名称为方案占位），包含 `extension.json`、浏览器构建产物、样式、资源、类型声明与可选编辑器/导出入口。`extension.json` 至少定义：反向域名 ID、版本、所需 SDK/播放器范围、提供的组件与插件扩展点、所需能力、资源上限、构建目标、入口文件及各文件 hash。**课件只引用确定版本和 hash**；安装后生成锁文件，Hub 按 hash 分发，学生端和离线教室从本地缓存读取。不得在播放时从任意 CDN 拉取未锁定脚本。
+对于后续的**代码型插件**，目标是扩展 `.lumex` ZIP：包含清单、浏览器构建产物、样式、资源、类型声明与可选编辑器/导出入口。清单定义反向域名 ID、版本、SDK/播放器范围、扩展点、能力、资源上限、构建目标、入口文件和各文件 hash。**这部分是目标协议，不是当前首轮 `.lumex` 格式**；当前实际导入包仅含 `extension.json`，无 JS/资源入口。目标协议里课件仍按精确版本和 hash 锁定，课堂不从未锁定 CDN 拉取脚本。
 
 ### 可编辑课件与播放产物
 

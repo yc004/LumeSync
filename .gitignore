@@ -46,5 +46,8 @@ public/weights/
 # pnpm 本地存储（包缓存不应提交）
 .pnpm-store/
 
+# 本地交付物（图表、报告等一次性产出）；memory/ 仍随仓维护
+.workbuddy/artifacts/
+
 # Claude Code
 .claude/worktrees/

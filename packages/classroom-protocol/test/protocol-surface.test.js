@@ -16,7 +16,7 @@ const {
 } = require('../index.js');
 
 test('课程读取保持公开，管理与提交路径要求 host', () => {
-    // 与 repos/teacher/server/tests/http-auth.test.js 的既有断言保持一致
+    // 与 apps/teacher/server/tests/http-auth.test.js 的既有断言保持一致
     assert.equal(requiresHostForApiRoute('GET', '/courses'), false);
     assert.equal(requiresHostForApiRoute('DELETE', '/delete-course'), true);
     assert.equal(requiresHostForApiRoute('GET', '/submissions/lesson'), true);

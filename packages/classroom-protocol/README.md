@@ -23,7 +23,7 @@ LumeSync 课堂协议的共享契约。教师服务（以及未来的教室 Hub�
 const { negotiateProtocol, authorizeEvent, createInboundGuard } = require('@lumesync/classroom-protocol');
 ```
 
-服务端接入示例（`repos/teacher/server/src/protocol.js`）：
+服务端接入示例（`apps/teacher/server/src/protocol.js`）：
 
 ```js
 const negotiation = protocol.negotiateConnection(socket);   // 版本协商

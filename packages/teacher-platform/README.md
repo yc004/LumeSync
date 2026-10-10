@@ -67,5 +67,5 @@ Electron 通道名与主进程异常处理、空适配器降级、能力清单�
 
 - 教师 UI 的调用点仍直接使用 `window.teacherHost`；按调用点迁移到本接口尚未完成，
   迁移时会先给页面生成浏览器可用的 `window.LumeSyncPlatform`（与 `/protocol-client.js` 同样的生成方式）。
-- Electron 宿主本身（`apps/teacher/desktop`）与 `ClassroomConnection` 抽象尚未实现，
-  见[迁移状态](../../docs/status/migration.md)。
+- Electron 宿主（`apps/teacher/desktop`）已有本机直接模式源码预览；
+  `ClassroomConnection` 抽象、中继接线、安装包与跨机验收尚未完成，见[迁移状态](../../docs/status/migration.md)。

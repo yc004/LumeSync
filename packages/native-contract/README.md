@@ -18,8 +18,8 @@
 
 ## 契约对照测试
 
-`test/capabilities.test.js` 会读取 `repos/teacher/native/shell/src/main.cpp` 与
-`repos/student/native/shell/src/main.cpp`，把 `HandleRpc` / `HandleEvent` 里实际分派的 `action == L"..."`
+`test/capabilities.test.js` 会读取 `apps/teacher/native/shell/src/main.cpp` 与
+`apps/student/desktop/shell/src/main.cpp`，把 `HandleRpc` / `HandleEvent` 里实际分派的 `action == L"..."`
 与能力清单逐一比对。目前仍有一个原生壳缺陷（已在清单中标注）：
 
 - 教师壳：注入脚本暴露 `classStarted` / `classEnded` / `setFullscreen`，但 `HandleEvent` 没有对应分支，调用被静默丢弃。

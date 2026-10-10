@@ -15,7 +15,8 @@ const {
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
 function shellPath(repo) {
-    return path.join(REPO_ROOT, 'repos', repo, 'native', 'shell', 'src', 'main.cpp');
+    const desktopFolder = repo === 'student' ? 'desktop' : 'native';
+    return path.join(REPO_ROOT, 'apps', repo, desktopFolder, 'shell', 'src', 'main.cpp');
 }
 
 // 从 C++ 壳里读出 HandleRpc / HandleEvent 实际分派的动作名，
@@ -38,10 +39,7 @@ function expected(role, kind) {
 
 function assertParity(repo, role) {
     const file = shellPath(repo);
-    if (!fs.existsSync(file)) {
-        test.skip?.(`${repo} 子模块未检出，跳过原生分派对照`);
-        return;
-    }
+    assert.ok(fs.existsSync(file), `${repo} 原生壳源码不存在：${file}`);
     const source = fs.readFileSync(file, 'utf8');
     assert.deepEqual(extractNativeActions(source, 'HandleRpc'), expected(role, 'rpc'), `${repo} 的 RPC 动作与契约不一致`);
     assert.deepEqual(extractNativeActions(source, 'HandleEvent'), expected(role, 'event'), `${repo} 的事件动作与契约不一致`);

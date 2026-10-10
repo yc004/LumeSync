@@ -2,7 +2,7 @@
 //
 // 这张表是 Socket 层的唯一事实来源：服务端用它做角色校验和 payload 校验，
 // 客户端和文档从它生成类型与清单。表内容对应 2026-09-25 教师服务的实际行为
-// （repos/teacher/server/src/socket.js），字段按当前处理器实际读取的键声明。
+// （apps/teacher/server/src/socket.js），字段按当前处理器实际读取的键声明。
 //
 // status 取值：
 //   current  当前协议的一部分

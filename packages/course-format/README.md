@@ -34,9 +34,9 @@ if (!pkg.ok) console.error(pkg.code, pkg.errors);   // manifest_missing / packag
 const { hash } = await computeCourseHash(buffer);   // sha256:...
 ```
 
-教师服务接入点：`repos/teacher/server/src/courses.js` 用 `lintLumeFileSync` 扫描目录，
+教师服务接入点：`apps/teacher/server/src/courses.js` 用 `lintLumeFileSync` 扫描目录，
 损坏的课件进入目录结果的 `invalid` 列表而不是被静默跳过；旧迁移脚本
-`repos/teacher/scripts/legacy-lume-migrator.js` 也只是本包的兼容层。
+`apps/teacher/scripts/legacy-lume-migrator.js` 也只是本包的兼容层。
 
 ## 已知限制
 

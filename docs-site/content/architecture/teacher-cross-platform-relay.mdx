@@ -7,7 +7,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 状态：目标架构设计，macOS Electron 教师端已有第一阶段直接授课预览，中继桌面接入尚未完成。基于 2026-09-25 的源码评估。本文细化[三端目标架构](/architecture/target-architecture)中的教师端；旧 AI Editor 与 VS Code 插件均不进入目标架构。Windows 旧端仍为 C++20/Win32/WebView2；跨平台新端采用 Electron 复用现有 React 教师界面。
 
-> 已实现部分：[共享契约包](/reference/contracts)、`apps/classroom-hub`（含固定机只读投影界面 `GET /projector`，见[教室 Hub §2.1](/reference/classroom-hub)）、`apps/teacher/session-agent` 与 [Electron 教师端预览](https://github.com/yc004/SyncClassroom/blob/main/apps/teacher/desktop/README.md)。预览在 macOS 上加载现有教师界面并经本机课堂协议实测；中继模式的发现、配对与租约尚未接入桌面壳，固定机侧仍需人工把投影界面开成全屏。下文其余协议与流程描述的是目标行为。
+> 已实现部分：[共享契约包](/reference/contracts)、`apps/classroom-hub`（含固定机只读投影界面 `GET /projector`，见[教室 Hub §2.1](/reference/classroom-hub)）、`apps/teacher/session-agent` 与 [Electron 教师端预览](https://github.com/yc004/LumeSync/blob/main/apps/teacher/desktop/README.md)。预览在 macOS 上加载现有教师界面并经本机课堂协议实测；中继模式的发现、配对与租约尚未接入桌面壳，固定机侧仍需人工把投影界面开成全屏。下文其余协议与流程描述的是目标行为。
 
 ## 1. 目标与边界
 
@@ -217,7 +217,7 @@ sequenceDiagram
 
 ## 9. 与现有架构的差距与实施顺序
 
-当前 `repos/teacher/native/shell`、`scripts/start-native.js` 和 Windows 打包脚本仍绑定 `.exe`、CMake/MSVC/PowerShell。`apps/teacher/desktop` 已实现 Electron 源码预览，复用 `window.teacherHost`/`window.electronAPI` 的现有调用点；正式安装包和完整能力回归仍待完成。教师服务的课程、布局、提交主要由本机文件路径和进程内变量管理，不能直接当作跨设备中继服务使用。安全加固现状详见[迁移状态](/status/migration)。
+当前 `apps/teacher/native/shell`、`scripts/start-native.js` 和 Windows 打包脚本仍绑定 `.exe`、CMake/MSVC/PowerShell。`apps/teacher/desktop` 已实现 Electron 源码预览，复用 `window.teacherHost`/`window.electronAPI` 的现有调用点；正式安装包和完整能力回归仍待完成。教师服务的课程、布局、提交主要由本机文件路径和进程内变量管理，不能直接当作跨设备中继服务使用。安全加固现状详见[迁移状态](/status/migration)。
 
 | 阶段 | 交付物 | 验收 |
 | --- | --- | --- |

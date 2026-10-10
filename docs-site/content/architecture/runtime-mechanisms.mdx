@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 当前通信、身份与运行机制
 
-状态：**源码现状**（2026-09-25 静态审查），不是未来中继协议。教师服务、Core 独立 runtime、下载站是不同进程；学生与教师的 Windows 壳通过 WebView2 承载页面。学生端和 Core 当前检出与根仓锁定提交不一致，跨端行为尚未实测。
+状态：**源码现状**（2026-09-25 静态审查，2026-09-27 更新路径），不是未来中继协议。教师服务、Core 独立 runtime、下载站是不同进程；学生与教师的 Windows 壳通过 WebView2 承载页面。教师、学生和 Core 已并入根仓，跨端行为尚未实测。
 
 ## 进程和传输全景
 
@@ -26,10 +26,10 @@ flowchart LR
 
 | 边界 | 现有协议 | 目的 | 源码入口 |
 | --- | --- | --- | --- |
-| 页面 ↔ 教师服务 | HTTP/JSON、静态资源、Socket.IO | 课程目录、提交、课堂状态与事件 | `repos/teacher/server/index.js`、`src/routes.js`、`src/socket.js` |
+| 页面 ↔ 教师服务 | HTTP/JSON、静态资源、Socket.IO | 课程目录、提交、课堂状态与事件 | `apps/teacher/server/index.js`、`src/routes.js`、`src/socket.js` |
 | 教师/学生页面 ↔ 本机壳 | WebView2 WebMessage，JSON RPC/单向事件 | 本机配置、窗口、导入导出、截图、电源 | 两端 `native/shell/src/main.cpp` |
-| 学生壳 ↔ 教师服务 | WinHTTP bootstrap；之后 WebView2 加载教师 URL | 获取 viewer 会话并进入课堂 | `repos/student/native/shell/src/main.cpp` |
-| 教师壳 ↔ 子进程 | Windows 子进程及环境变量 | 启动 Node 服务、注入 token 与路径 | `repos/teacher/native/shell/src/main.cpp` |
+| 学生壳 ↔ 教师服务 | WinHTTP bootstrap；之后 WebView2 加载教师 URL | 获取 viewer 会话并进入课堂 | `apps/student/desktop/shell/src/main.cpp` |
+| 教师壳 ↔ 子进程 | Windows 子进程及环境变量 | 启动 Node 服务、注入 token 与路径 | `apps/teacher/native/shell/src/main.cpp` |
 | 教师服务 ↔ 网络 | HTTP/HTTPS 出站、UDP Wake-on-LAN | 依赖缓存和远程开机 | `src/proxy.js`、`src/socket.js` |
 | GitHub ↔ 下载站 | HTTPS webhook、HMAC-SHA256 | 发布资产下载与版本元数据 | `website/server.js` |
 

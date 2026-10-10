@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 获取源码与运行现状
 
-状态：2026-09-25 的源码检查结果。当前根仓锁定的学生端和教师端内 Core 提交在可取得的远端历史中缺失，**尚不能保证按根仓锁定版本完成安装和运行**。Windows 原生构建、macOS 教师端与中继模式均未完成验证；后两者属于[目标设计](/architecture/teacher-cross-platform-relay)，不是当前启动选项。
+状态：2026-09-27 复核。教师、学生和 Core 源码已并入根仓；Windows 原生安装和三端跨机运行尚未验收。macOS Electron 教师端已有本机直接模式源码预览，中继模式客户端已实现但尚未接入桌面 UI。详见[源码迁移记录](/status/submodules)与[实施 TODO](/status/todo)。
 
 ## 环境
 
@@ -16,20 +16,14 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 ## 获取源码
 
 ```bash
-git clone https://github.com/yc004/SyncClassroom.git
+git clone https://github.com/yc004/LumeSync.git
 cd SyncClassroom
-git submodule status
+pnpm install --frozen-lockfile
 ```
 
-通常可用 `git submodule update --init --recursive` 取得锁定子模块，但**当前该命令可能因学生端、Core 和旧 AI Editor 的失效指针而失败**。旧 AI Editor 与 VS Code 插件均退出目标架构，不建议为了运行新方案额外克隆旧编辑器。已经取得的本地源码组合和准确 SHA 见[子模块状态](/status/submodules)。在指针修复和兼容测试完成之前，不应将可访问的远端最新提交误当成项目锁定版本。
+当前工作区不需要初始化 Git 子模块。旧 AI Editor 与 VS Code 插件未并入目标架构。
 
-当所需包和锁定文件都可用时，安装依赖的命令是：
-
-```bash
-pnpm install --no-frozen-lockfile
-```
-
-工作区包含根目录、`packages/`（共享契约包）、`docs-site`、`website`、`repos/teacher`、`repos/teacher/core` 与 `repos/student`；`repos/teacher`、`repos/student` 通过 `workspace:*` 引用契约包，因此改动契约后必须重新安装以重建链接。`pnpm install` 仅安装 JavaScript 依赖，不构建 Windows 桌面壳。
+工作区包含根目录、`packages/`（共享契约包）、`docs-site`、`website`、`apps/teacher`、`packages/course-runtime` 与 `apps/student`；`apps/teacher`、`apps/student` 通过 `workspace:*` 引用契约包，因此改动契约后必须重新安装以重建链接。`pnpm install` 仅安装 JavaScript 依赖，不构建 Windows 桌面壳。
 
 ## 当前脚本入口
 
@@ -41,8 +35,7 @@ pnpm install --no-frozen-lockfile
 | `pnpm run start:teacher:desktop` | Electron 教师桌面壳（macOS / Windows 源码预览） | 复用现有 React 教师界面并自起本机教师服务；已在 macOS 实测直接模式的选课、翻页与结束课程，发行包与 Windows 实机未验证 |
 | `pnpm run start:editor` | 新课件编辑器 MVP | 首次需安装工作区依赖；支持声明式标准组件、`.lume` 源码往返和 Agent API 创作；限制与 API 配置见[编辑器指南](/getting-started/editor) |
 | `pnpm run start:hub` | 启动教室 Hub（`LUMESYNC_HUB_MODE=direct\|relay`） | 纯 Node 工作区包，relay 模式需要可用组播；无 TLS、无持久化 |
-| `pnpm run start:student` | 启动现有 Windows 学生桌面壳 | 需要先构建学生端；当前学生端与根仓指针不匹配 |
-| `pnpm run start:core` | 启动独立 Core runtime | 需要 Core 构建产物；它不是完整教师课堂服务 |
+| `pnpm run start:student` | 启动现有 Windows 学生桌面壳 | 需要先构建学生端；Windows 实机仍未验收 |
 | `pnpm run test` | 契约包 + 学生课堂 UI + 教师服务 + 教室 Hub + 会话代理 + 教师桌面壳测试 | 覆盖协议握手、越权拒绝、课程校验、会话引导、产物分发、中继配对/租约与桌面壳来源守卫回归 |
 | `pnpm run docs:dev` | 启动文档站 | 只需文档站依赖；站点构建时从 `docs/` 同步内容 |
 | `pnpm run start:website` | 启动下载站 | 需要 `WEBHOOK_SECRET`；默认端口可能与教师服务冲突 |
@@ -53,11 +46,11 @@ pnpm install --no-frozen-lockfile
 
 ## 当前课堂链路
 
-现有实现中，教师服务提供课程、页面和 Socket.IO 课堂事件；学生端配置教师机的局域网地址。教师端选课、翻页、互动和提交功能已能从源码定位，**尚未在当前不匹配的提交组合上完成端到端验证**。具体模块与风险见[源码级评估](/architecture/source-review)。
+现有实现中，教师服务提供课程、页面和 Socket.IO 课堂事件；学生端配置教师机的局域网地址。教师端选课、翻页、互动和提交功能已能从源码定位，**当前锁定组合仍未完成端到端验证**。具体模块与风险见[源码级评估](/architecture/source-review)。
 
 ## 常见问题
 
-- **子模块无法初始化**：先查看[子模块状态](/status/submodules)，不要直接更新到远端最新提交并宣称版本兼容。
+- **找不到教师/学生/Core 源码**：确认检出的是完成并仓后的根仓提交，目录对应关系见[源码迁移记录](/status/submodules)。
 - **找不到 Windows `.exe`**：启动脚本不是构建脚本，需要在 Windows 环境完成原生构建。
 - **学生无法连接**：检查教师服务是否启动、两机 IP/端口、防火墙和学生端地址配置；当前没有完整的自动连课验证结果。
 - **端口占用**：教师服务与下载站均可能使用 3000 端口，需分别配置。

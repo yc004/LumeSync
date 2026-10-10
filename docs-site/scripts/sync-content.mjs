@@ -12,9 +12,9 @@ const checkOnly = process.argv.includes('--check');
 // sidebar order; archived material must never be included here.
 const sections = [
   { slug: 'getting-started', title: '入门与运行', pages: [['running', '获取源码与运行现状'], ['editor', '新课件编辑器 MVP']] },
+  { slug: 'design', title: '客户端设计规范', pages: [['client-ui-standard', '客户端 UI 标准'], ['ui-migration', 'UI 迁移清单']] },
   { slug: 'architecture', title: '架构', pages: [
     ['system', '当前系统架构'],
-    ['three-end-architecture', '现有三端架构'],
     ['runtime-mechanisms', '当前通信与运行机制'],
     ['course-rendering', '课件渲染架构评估'],
     ['course-content-extensions', '课件内容规范与插件机制'],
@@ -38,8 +38,9 @@ const sections = [
   { slug: 'development', title: '开发与维护', pages: [['contributing', '开发与维护']] },
   { slug: 'status', title: '项目状态', pages: [
     ['migration', '目标架构迁移状态'],
+    ['todo', '代码审查与实施 TODO'],
     ['audit', '根仓审查报告'],
-    ['submodules', '子模块源码状态']
+    ['submodules', '源码迁移记录']
   ] }
 ];
 
@@ -66,7 +67,7 @@ function rewriteLinks(source, sourcePath) {
     const insideDocs = docsRelative !== '..' && !docsRelative.startsWith(`..${sep}`);
     const route = insideDocs && !docsRelative.startsWith(`archive${sep}`)
       ? `/${docsRelative.replaceAll(sep, '/').replace(/\.md$/, '')}`
-      : `https://github.com/yc004/SyncClassroom/blob/main/${relative(root, absolute).replaceAll(sep, '/')}`;
+      : `https://github.com/yc004/LumeSync/blob/main/${relative(root, absolute).replaceAll(sep, '/')}`;
     return `](${route}${fragment ? `#${fragment}` : ''})`;
   });
 }

@@ -7,9 +7,9 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 ## 仓库边界
 
-根仓维护文档、工作区脚本、共享契约包（`packages/`）、文档站、下载站和子模块指针。当前检出的 Git 子模块是 `teacher` 与 `student`；`.gitmodules` 仍声明 `ai-editor` 与 `editor-plugin`，但两者已退出目标架构、未参加工作区构建。Core 由工作区路径 `repos/teacher/core` 引用。修改业务代码前先确认子模块已初始化，并检查各子模块自己的开发说明。
+本仓是一个 pnpm 工作区：`apps/` 放教师、学生、编辑器和教室 Hub，`packages/` 放共享契约、课件格式、组件扩展和原 Core 运行时。教师、学生和 Core 已从子模块并入根仓，来源提交见[源码迁移记录](/status/submodules)。业务代码与共享包都在根仓维护。
 
-学生端有两个工作区包（`pnpm-workspace.yaml` 的 `repos/student/ui/*`）：`repos/student/ui/classroom`（`@lumesync/student-ui`，正式课堂 UI 的构建产物）与 `repos/student/ui/student-host`（本机管理/离线页）。正式课堂页**不再**位于教师仓库。
+学生端有两个工作区包（`pnpm-workspace.yaml` 的 `apps/student/ui/*`）：`apps/student/ui/classroom`（`@lumesync/student-ui`，正式课堂 UI 的构建产物）与 `apps/student/ui/student-host`（本机管理/离线页）。正式课堂页**不再**位于教师仓库。
 
 ## 学生课堂 UI
 
@@ -18,19 +18,18 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 ```bash
 pnpm run build:student-ui            # = pnpm --filter @lumesync/student-ui run build
 pnpm run test:student-ui             # 构建产物 + 页面源码契约测试
-node repos/student/ui/classroom/scripts/build.mjs   # 不经 pnpm 的直接调用
+node apps/student/ui/classroom/scripts/build.mjs   # 不经 pnpm 的直接调用
 ```
 
-- 源码：`repos/student/ui/classroom/src/{index.html,classroom-app.js}`（字节级迁移，`classroom-app.js` 带 BOM）。页面仍以 `text/babel` 在浏览器里编译，依赖 `/lib/*`、`/socket.io/socket.io.js`、`/protocol-client.js`、`/render-engine.js` 由教师服务提供。
-- 产物：`repos/student/ui/classroom/dist/<version>/`，版本 = 包版本 + 构建输入内容哈希；`dist/manifest.json` 记录每个文件的 sha256，`dist/current.json` 指向当前版本。`dist/` 不入库，改完源码必须重新构建，否则教师服务在 `/student.html` 与 `/classroom/*` 上返回 503。
+- 源码：`apps/student/ui/classroom/src/{index.html,classroom-app.js}`（字节级迁移，`classroom-app.js` 带 BOM）。页面仍以 `text/babel` 在浏览器里编译，依赖 `/lib/*`、`/socket.io/socket.io.js`、`/protocol-client.js`、`/render-engine.js` 由教师服务提供。
+- 产物：`apps/student/ui/classroom/dist/<version>/`，版本 = 包版本 + 构建输入内容哈希；`dist/manifest.json` 记录每个文件的 sha256，`dist/current.json` 指向当前版本。`dist/` 不入库，改完源码必须重新构建，否则教师服务在 `/student.html` 与 `/classroom/*` 上返回 503。
 - 构建脚本把 `src/index.html` 里的 `src="classroom-app.js"` 重写成 `/classroom/<version>/classroom-app.js`；修改该行时必须保留这一处引用，否则构建会显式失败。
 - 教师侧通过 `require('@lumesync/student-ui/dist')` 解析产物目录（`exports` 的 `./dist`），可用 `LUMESYNC_STUDENT_UI_DIR` 覆盖。
 
 ## 常用命令
 
 ```bash
-git submodule status
-pnpm install --no-frozen-lockfile   # 工作区含 packages/*、apps/* 与 repos/student/ui/*，需要重建链接
+pnpm install --frozen-lockfile      # 工作区含 packages/*、apps/* 与 apps/student/ui/*
 pnpm run test                       # 契约包 + 学生课堂 UI + 教师服务 + 教室 Hub + 会话代理 + 教师桌面壳
 pnpm run test:hub                   # 教室 Hub（真实 Express + Socket.IO + course-format 课件）
 pnpm run test:session-agent         # 教师端会话代理（单元 + 驱动真实 Hub 的集成）
@@ -40,11 +39,11 @@ pnpm run docs:check
 pnpm run docs:build
 ```
 
-`pnpm run test` 由六步组成，顺序串行执行：`pnpm run test:contracts`（`packages/` 下四个契约包）、`pnpm run test:student-ui`（学生课堂 UI 构建产物与页面契约，内含一次真实构建）、`pnpm run test:teacher-server`（教师服务，含协议握手、课程目录、会话引导和学生 UI 分发回归）、`pnpm run test:hub`（教室 Hub，direct 与 relay 两种模式）、`pnpm run test:session-agent`（教师端会话代理，含驱动真实 Hub 的集成用例）与 `pnpm run test:teacher-desktop`（Electron 桌面壳的守卫纯函数）。
+`pnpm run test` 串行运行契约包、编辑器、学生课堂 UI、教师服务、教室 Hub、会话代理与教师桌面壳测试。Core 的构建与单独测试使用 `pnpm run build:core`、`pnpm run test:core`。
 
-新增可测包时应加上 `test:<name>` 脚本并串进根 `test`，否则它不会被 CI 覆盖。契约包通过 `workspace:*` 被 `repos/teacher`、`repos/student` 引用，因此改动契约后必须在根目录重装链接。教师服务测试会在开始时重新构建学生课堂 UI（构建幂等），所以单独运行 `node --test server/tests/*.test.js` 也不依赖手工预构建，但服务本身不会在缺少产物时回退。
+新增可测包时应加上 `test:<name>` 脚本并串进根 `test`，否则它不会被 CI 覆盖。契约包通过 `workspace:*` 被 `apps/teacher`、`apps/student` 引用，因此改动契约后必须在根目录重装链接。教师服务测试会在开始时重新构建学生课堂 UI（构建幂等），所以单独运行 `node --test server/tests/*.test.js` 也不依赖手工预构建，但服务本身不会在缺少产物时回退。
 
-`apps/classroom-hub` 与 `apps/teacher/*` 是根工作区包（不在子模块内），直接在本仓提交；只有 `repos/*` 的改动才需要先在子模块提交、再在根仓提交更新后的 gitlink。不要用 `repos:update` 当作可重复的安装步骤：它会移动到子模块远端分支，改变根仓原先锁定的组合。
+所有工作区源码都直接在本仓提交。课堂服务代码在 `apps/classroom-hub/server/`，教师 React 界面在 `apps/teacher/ui/`，学生 C++ 壳在 `apps/student/desktop/`，编辑器实现位于 `apps/editor/app/`。
 
 ## 共享契约
 
@@ -63,7 +62,7 @@ pnpm run docs:build
 
 ## 文档维护
 
-- 根 [README](https://github.com/yc004/SyncClassroom/blob/main/README.md) 只放项目入口、功能状态、最短启动路径及导航。
+- 根 [README](https://github.com/yc004/LumeSync/blob/main/README.md) 只放项目入口、功能状态、最短启动路径及导航。
 - `docs/getting-started` 放安装和运行；`architecture` 放边界、协议全景与数据流；`reference` 放功能、HTTP/Socket/WebView2 接口、课件格式和配置；`status` 放审查与已知问题。
 - `docs/` 是当前文档的唯一内容源。`docs-site/scripts/sync-content.mjs` 将入门、架构、参考、开发和状态页生成到 `docs-site/content`；首页为站点导航页。改动文档后运行 `pnpm run docs:sync`，用 `pnpm run docs:check` 检查生成内容是否漂移；构建前也会自动同步。
 - 新 API、Socket 或课件用法只有在对照源码并记录验证状态后才放入当前文档。旧站内容保存在 `docs/archive/docs-site-pre-sync`，不作为当前规范。
@@ -71,4 +70,4 @@ pnpm run docs:build
 
 ## CI 与发布
 
-发布前先修复 [审查报告](/status/audit) 中的 CI 问题，在 Windows 机器上验证桌面构建与安装包路径。现有 `release.yml` 和 `build-branch.yml` 不能作为已验证可用的发布流程。
+根仓 `ci.yml` 运行工作区测试和文档构建，`editor-desktop.yml` 单独构建编辑器安装包，`deploy-docs-pages.yml` 发布文档站。旧 `release.yml` 和 `build-branch.yml` 因引用失效路径已移除；教师、学生 Windows 安装包仍需独立验收与发布工作流。

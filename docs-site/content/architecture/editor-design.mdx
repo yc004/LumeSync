@@ -109,11 +109,11 @@ flowchart TB
 
 | 模块 | 职责与所有权 | 当前状态 |
 | --- | --- | --- |
-| `apps/editor/desktop`、`apps/editor/ui` | 桌面窗口、受限 IPC、编辑体验与草稿管理 | 已有 MVP：Electron sandbox/preload、标准组件表单、静态预览、页面管理、自动恢复、打开/保存。旧包尚不能导入编辑。 |
+| `apps/editor/app/desktop`、`apps/editor/app/ui` | 桌面窗口、受限 IPC、编辑体验与草稿管理 | 已有 MVP：Electron sandbox/preload、标准组件表单、静态预览、页面管理、自动恢复、打开/保存。旧包尚不能导入编辑。 |
 | `packages/course-format` | ZIP 读写、路径/大小限制、manifest 校验和内容 hash | 已有；编辑器复用包校验/打包，目前 authoring metadata 位于 v1 manifest 扩展字段。 |
 | `packages/course-model`、`packages/component-extensions` | 文档 schema、标准组件、声明式组件包校验、props 表单元数据、扩展锁、静态预览与 TSX 兼容输出 | 首轮已实现；尚缺交互扩展 API、资源引用、代码页与真正预编译产物。 |
 | `packages/course-build` | 依赖解析、静态分析、TSX/组件预编译、CSS 收集与产物摘要 | 新建；构建进程使用，不在学生浏览器执行。 |
-| Agent / model provider | 用户自带 API、受限创作工具和候选草稿 | `apps/editor/src/editor-service.cjs` 已有单一 OpenAI Chat Completions 兼容适配、连通测试、取消和类型化候选审查；多供应商抽象、流式、费用预算及独立 `packages/course-agent`/`model-provider` 尚未抽取。 |
+| Agent / model provider | 用户自带 API、受限创作工具和候选草稿 | `apps/editor/app/src/editor-service.cjs` 已有单一 OpenAI Chat Completions 兼容适配、连通测试、取消和类型化候选审查；多供应商抽象、流式、费用预算及独立 `packages/course-agent`/`model-provider` 尚未抽取。 |
 | `packages/component-registry`、`extension-format`、`extension-kit` | 安装、包校验、版本锁、开发者脚手架 | 按[扩展设计](/architecture/course-content-extensions#模块归属与公共接口)建设。 |
 | `packages/course-player`、`content-sdk` | 教师、学生和编辑器共享的隔离播放与受控能力 API | 新建；替换当前 Core 的全局执行路径。 |
 | `packages/classroom-protocol` | 课堂状态与命令 schema、角色和版本 | 已有首轮；插件互动事件仍需扩展。 |

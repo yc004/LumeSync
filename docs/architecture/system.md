@@ -1,40 +1,33 @@
-# 系统架构与设计思路
+# 当前系统架构
 
-## 范围
+更新：2026-09-27。教师、学生和 Core 已并入根仓，目录对应关系见[源码迁移记录](../status/submodules.md)。本页描述当前模块位置；未完成的行为迁移见[实施 TODO](../status/todo.md)。
 
-本页记录当前仓库结构。根仓的模块划分可由 `.gitmodules`、`pnpm-workspace.yaml` 和根脚本确认。教师端、学生端、Core 与遗留 VS Code 插件源码现已取得；学生端和 Core 与锁定指针不一致，旧 AI Editor 未克隆。两个旧编辑入口均不进入[目标架构](target-architecture.md)。
+## 工作区结构
 
-## 模块与数据流
+| 目录 | 职责 |
+| --- | --- |
+| `apps/teacher/desktop` | 跨平台 Electron 教师壳，现阶段运行本机直接模式 |
+| `apps/teacher/ui`、`apps/teacher/server` | React 教师界面与现有课程/课堂 HTTP、Socket.IO 服务 |
+| `apps/teacher/session-agent`、`apps/teacher/native` | 中继/直接模式客户端与旧 Windows WebView2 壳 |
+| `apps/student/desktop`、`apps/student/ui` | Windows WebView2 壳及学生课堂/本机页面 |
+| `apps/classroom-hub/server`、`apps/classroom-hub/projector` | 直接/中继课堂 Hub 和固定机只读投影页 |
+| `apps/editor/app` | Electron 编辑器、UI、文件服务与模型 Agent |
+| `packages/course-runtime` | 从 Core 导入的渲染和通用运行能力，包名暂为 `@lumesync/core` |
+| `packages/*` 其他包 | 课堂协议、课件格式、组件模型/扩展和原生/平台契约 |
 
-```text
-旧 AI Editor / VS Code 插件 ──生成 .lume──> 教师机课程目录
-                                           │
-教师桌面 UI ──HTTP / Socket.IO──> 教师服务 ──资源与课堂状态──> 学生端
-                  │                         │
-                  └──── Core 渲染运行时 <──┘
+`pnpm-workspace.yaml` 管理上述 JavaScript 包；学生与旧教师 Windows 原生壳仍由各自 CMake/NSIS 脚本构建。文档站位于 `docs-site/`，下载站位于 `website/`。
 
-根仓 ──锁定四个子模块、统一脚本、文档站与下载站
+## 当前课堂数据流
+
+```mermaid
+flowchart LR
+  Editor[编辑器] -->|导出 .lume| Teacher[教师课程库]
+  Teacher --> Service[教师服务 / 直接课堂]
+  Teacher -. 会话代理 .-> Hub[固定机 Hub / 中继课堂]
+  Service -->|HTTP + Socket.IO| Student[学生课堂 UI]
+  Hub -->|HTTP + Socket.IO| Student
+  Core[共享课件运行时] --> Teacher
+  Core --> Student
 ```
 
-| 位置 | 职责 | 证据 |
-| --- | --- | --- |
-| `repos/teacher` | 教师桌面、课程和课堂服务 | 根子模块 + 既有文档 |
-| `repos/teacher/core` | 渲染与通用 runtime | 工作区路径 + 既有文档；不是根子模块 |
-| `repos/student` | 学生桌面与课堂接入 | 根子模块 + 既有文档 |
-| `repos/ai-editor` | 遗留 `.lume` 编辑器；不进入目标架构 | 根子模块 + 既有文档 |
-| `repos/editor-plugin` | 遗留 VS Code 编辑/预览插件；不进入目标架构 | 根子模块 + 源码 |
-| `docs-site` | Nextra 文档 | 本仓源码 |
-| `website` | 下载页与 Release webhook 缓存 | 本仓源码 |
-
-既有设计以教师机作为课程内容和课堂状态来源。教师服务通过 HTTP 提供资源与业务 API，通过 Socket.IO 发送选课、页码和互动事件；学生端消费这些资源和状态。Core 是共享渲染与通用运行时层，独立的 `start:core` 不是完整教师服务。
-
-课件主格式按现有文档为 Zip `.lume`，由 `manifest.json` 指定页面与资源。编辑器制作，教师服务托管，渲染运行时播放。schema、旧格式兼容与 SDK 行为必须在子模块恢复后确认。
-
-## 设计取舍
-
-- **分仓**：业务端独立版本化，根仓锁定组合提交；因此克隆与 CI 必须初始化子模块。
-- **教师机作为课堂中心**：适合局域网教室；部署需处理端口、防火墙、数据备份与身份配置。
-- **桌面壳与 Web UI 分层**：既有文档描述 Windows 原生壳承载 Web UI；原生构建与服务启动是不同步骤。
-- **运行时与业务服务分层**：Core 提供渲染及通用协议，教师服务持有课程和课堂数据。
-
-需复核的架构点包括构建输出、Core 源码路径、身份鉴权、Socket 权限、提交落盘和学生页面来源，见 [审查报告](../status/audit.md)。
+直接模式仍依赖现有教师服务；中继 Hub 与会话代理已有独立测试，但教师桌面 UI 尚未接入该路径。现有 Core 的旧 TSX/JS 播放分支仍使用 Babel 和页面内执行；目标的隔离播放器尚未实现。具体身份、状态与风险见[当前运行机制](runtime-mechanisms.md)、[功能清单](../reference/features.md)和[目标架构](target-architecture.md)。

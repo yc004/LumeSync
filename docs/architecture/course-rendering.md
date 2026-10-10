@@ -1,6 +1,6 @@
 # 课件渲染架构评估与改进建议
 
-状态：**2026-09-26 当前检出源码的静态审查 + 目标设计建议**。学生端和 Core 当前检出与根仓锁定指针不一致，尚未做教师/学生 Windows 实机联调。新编辑器的标准组件与受限 `.lumex` 模板组件已有声明式课堂渲染分支；旧 TSX/JS 课件仍走 Babel 与 `new Function`。审查也包含已落地的 `packages/course-format`、学生 UI 归位和教室 Hub 首轮实现。课件字段和 SDK 的现状见[课件格式与 SDK](../reference/course-format-sdk.md)，迁移进度见[目标架构迁移状态](../status/migration.md)。
+状态：**2026-09-26 静态审查 + 目标设计建议；2026-09-27 路径更新**。教师、学生和 Core 已并入根仓，尚未做 Windows 双机实测。新编辑器的标准组件与受限 `.lumex` 模板组件已有声明式课堂渲染分支；旧 TSX/JS 课件仍走 Babel 与 `new Function`。审查也包含已落地的 `packages/course-format`、学生 UI 归位和教室 Hub 首轮实现。课件字段和 SDK 的现状见[课件格式与 SDK](../reference/course-format-sdk.md)，迁移进度见[目标架构迁移状态](../status/migration.md)。
 
 页面编码规范、可扩展组件库与插件机制的专项方案见[课件内容规范、插件与组件库设计](course-content-extensions.md)。
 
@@ -30,10 +30,10 @@ flowchart LR
   X --> E
 ```
 
-1. 当前教师服务扫描 `.lume`、PDF 和脚本文件；ZIP `.lume` 用共享 `course-format` 校验，损坏包进入目录结果的 `invalid` 列表。选课后服务端广播课程 ID，教师、学生页面分别从 `/courses/...` 获取文件并调用 `engine.loadCourse`。证据：`repos/teacher/server/src/courses.js:8,50-54,66-74,102-133`、`repos/teacher/server/src/socket.js:358-393`、`repos/teacher/shared/teacher-shell/src/app.tsx:1042-1075`、`repos/student/ui/classroom/src/classroom-app.js:191-212,330-339`。
-2. 当前 ZIP 分支在浏览器下载并用 JSZip 解包。标记为 `lumesync-course-document` 的新编辑器课件由 `course-components/document-renderer.js` 校验声明式页面、组件包版本/hash 与 source/output 摘要，再把内置组件和受限模板映射成 React 元素，不经过 Babel；其余 pages/legacy 课件仍逐页用 Babel 编译并由 `new Function` 执行，之后加载依赖脚本、建立课程上下文。浏览器没有调用共享 `course-format`。证据：`repos/teacher/core/src/browser/engine/runtime/app.tsx:250-343`、`repos/teacher/core/src/browser/engine/course-components/document-renderer.js`。
-3. 新教室 Hub 的中继发布链路已经用共享格式库校验上传包并核对 `courseHash`；教师会话代理完成暂存和发布。但当前教师/学生课堂页面还未改为按该 hash 从 Hub 加载隔离播放器，不能把 Hub 的门禁等同于旧课堂选课流程的端到端可播放性保证。证据：`apps/classroom-hub/src/routes.js:45-112`、`apps/teacher/session-agent/src/agent.js:1189-1294`。
-4. `CourseStage` 复用 `SyncClassroom` 播放舞台；PDF 用 pdf.js 将页面画到 Canvas；导出预览也调用同一 `loadCourse`，但使用一套禁用部分交互能力的上下文。证据：`repos/teacher/core/src/browser/engine/runtime/app.tsx:346-429,458-474,528-563,597-695`、`repos/teacher/shared/public/export-preview.html:548-565`。
+1. 当前教师服务扫描 `.lume`、PDF 和脚本文件；ZIP `.lume` 用共享 `course-format` 校验，损坏包进入目录结果的 `invalid` 列表。选课后服务端广播课程 ID，教师、学生页面分别从 `/courses/...` 获取文件并调用 `engine.loadCourse`。证据：`apps/teacher/server/src/courses.js:8,50-54,66-74,102-133`、`apps/teacher/server/src/socket.js:358-393`、`apps/teacher/ui/src/app.tsx:1042-1075`、`apps/student/ui/classroom/src/classroom-app.js:191-212,330-339`。
+2. 当前 ZIP 分支在浏览器下载并用 JSZip 解包。标记为 `lumesync-course-document` 的新编辑器课件由 `course-components/document-renderer.js` 校验声明式页面、组件包版本/hash 与 source/output 摘要，再把内置组件和受限模板映射成 React 元素，不经过 Babel；其余 pages/legacy 课件仍逐页用 Babel 编译并由 `new Function` 执行，之后加载依赖脚本、建立课程上下文。浏览器没有调用共享 `course-format`。证据：`packages/course-runtime/src/browser/engine/runtime/app.tsx:250-343`、`packages/course-runtime/src/browser/engine/course-components/document-renderer.js`。
+3. 新教室 Hub 的中继发布链路已经用共享格式库校验上传包并核对 `courseHash`；教师会话代理完成暂存和发布。但当前教师/学生课堂页面还未改为按该 hash 从 Hub 加载隔离播放器，不能把 Hub 的门禁等同于旧课堂选课流程的端到端可播放性保证。证据：`apps/classroom-hub/server/routes.js:45-112`、`apps/teacher/session-agent/src/agent.js:1189-1294`。
+4. `CourseStage` 复用 `SyncClassroom` 播放舞台；PDF 用 pdf.js 将页面画到 Canvas；导出预览也调用同一 `loadCourse`，但使用一套禁用部分交互能力的上下文。证据：`packages/course-runtime/src/browser/engine/runtime/app.tsx:346-429,458-474,528-563,597-695`、`apps/teacher/shared/public/export-preview.html:548-565`。
 
 新编辑器把 `source/pages/*.json` 和锁定的 `source/extensions/*.json` 构建成 TSX 兼容输出；当前 Core 源码的声明式分支直接读取 JSON 和模板，不使用这份 TSX，旧版 Core 会将兼容输出交给 Babel。编辑器的本地预览是无脚本静态 HTML，不是实际课堂运行时。带行为的插件、通用预编译运行时、旧课件隔离及移除其 Babel 依赖仍待后续实施；根仓锁定 Core 的实际课堂兼容也尚未验证。
 
@@ -53,8 +53,8 @@ flowchart LR
 | 优先级 | 问题 | 影响与源码证据 |
 | --- | --- | --- |
 | P0 | 课件代码没有隔离边界 | `new Function` 在课堂页面执行，能访问 `window`、DOM、Socket 和页面上可见的原生桥；`require` 白名单只限制 import 名称，不能限制全局访问。第三方依赖又以 `<script>` 注入同一页面。`app.tsx:127-160,476-506,585`；`resource-loader.tsx:6-53`。将来即便换 Electron 壳，也必须独立限制课件 origin、进程和 IPC 能力。 |
-| P1 | 播放器未接入共享格式库，发布门禁不覆盖代码可执行性 | `course-format` 已在教师目录扫描和中继 Hub 上传中校验 manifest、ZIP 路径/大小/压缩比；但浏览器播放器仍用本地 `validateLumeManifest`，只检查 format、entryMode 和页面文件，无法保证直接收到的包遵循同一约束。服务端校验也不编译每页 TSX，语法/运行错误仍可能在全班选课后各自暴露。`packages/course-format/src/manifest.js:70-159`；`repos/teacher/server/src/courses.js:50-54,102-133`；`apps/classroom-hub/src/routes.js:45-112`；Core `app.tsx:176-190,258-320`。 |
-| P1 | 加载顺序、并发与资源生命周期不完整 | 页面模块先编译和执行，`dependencies` 随后才加载；模块顶层若直接用依赖全局变量会失败。开始加载新包时先撤销上一包 Blob URL；错误路径没有统一的 finally 清理。教师和学生端的异步 `loadCourse` 未见请求代次或取消逻辑，快速切课可能使旧结果回写新课堂。Core `app.tsx:35-45,250-343,476-525`；教师 `repos/teacher/shared/teacher-shell/src/app.tsx:1042-1075`；学生 `repos/student/ui/classroom/src/classroom-app.js:191-212,330-339`。 |
+| P1 | 播放器未接入共享格式库，发布门禁不覆盖代码可执行性 | `course-format` 已在教师目录扫描和中继 Hub 上传中校验 manifest、ZIP 路径/大小/压缩比；但浏览器播放器仍用本地 `validateLumeManifest`，只检查 format、entryMode 和页面文件，无法保证直接收到的包遵循同一约束。服务端校验也不编译每页 TSX，语法/运行错误仍可能在全班选课后各自暴露。`packages/course-format/src/manifest.js:70-159`；`apps/teacher/server/src/courses.js:50-54,102-133`；`apps/classroom-hub/server/routes.js:45-112`；Core `app.tsx:176-190,258-320`。 |
+| P1 | 加载顺序、并发与资源生命周期不完整 | 页面模块先编译和执行，`dependencies` 随后才加载；模块顶层若直接用依赖全局变量会失败。开始加载新包时先撤销上一包 Blob URL；错误路径没有统一的 finally 清理。教师和学生端的异步 `loadCourse` 未见请求代次或取消逻辑，快速切课可能使旧结果回写新课堂。Core `app.tsx:35-45,250-343,476-525`；教师 `apps/teacher/ui/src/app.tsx:1042-1075`；学生 `apps/student/ui/classroom/src/classroom-app.js:191-212,330-339`。 |
 | P1 | 全局可变上下文跨课程共享 | `window.CourseData`、`window.CourseGlobalContext` 和 Object URL 列表挂在同一个页面全局；课件模块执行时上下文建立于之后，旧值可能仍可见。课程卸载并不等于脚本、副作用、事件监听与计时器被撤销。`app.tsx:35-45,127-160,276-343,523-525`。这是从实现推导的风险，需用切课与副作用测试确认具体表现。 |
 | P1 | 资源依赖不具备可复现性 | 加载器在本地脚本失败时回退第三方 CDN，且课程可声明任意 `publicSrc`；失败结果没有被依赖加载循环作为硬错误处理。不同教室网络可能播放不同版本或缺失依赖。`resource-loader.tsx:6-53`；`app.tsx:490-507`。 |
 | P2 | 资源与布局成本由每个客户端重复承担 | 每台学生机完整下载 ZIP、解包全部 assets、编译所有页面；资源 URL 一次性创建。PDF 文档 Promise 按 URL 缓存在全局 Map，当前未见淘汰；Canvas 按固定 1280×720 目标与设备像素比渲染。大课件和高 DPI 设备的内存、首屏时间需测量。`app.tsx:87-110,258-343,346-395`。 |

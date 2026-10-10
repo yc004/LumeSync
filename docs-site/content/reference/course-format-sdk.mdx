@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # 课件格式、加载器与课程 SDK
 
-状态：**当前 Core 检出源码 + 新编辑器 MVP 格式**（2026-09-26）；Core 与教师仓库锁定的提交不一致，端到端兼容尚未验证。旧编辑器与 VS Code 插件不在目标架构内。
+状态：**当前 Core 源码 + 新编辑器 MVP 格式**（2026-09-27）；Core 已并入 `packages/course-runtime`，端到端兼容尚未验证。旧编辑器与 VS Code 插件不在目标架构内。
 
 ## 课程发现与优先级
 
@@ -59,7 +59,7 @@ lesson.lume
 
 `packages/course-model` 校验四种内置组件和用户导入的声明式模板组件。`source/course.json` 可包含 `extensions: [{id, version, hash}]`；每个锁定包的 JSON 定义位于 `source/extensions/<id>.json`，并参与输入摘要。扩展 `.lumex` 包仅允许根目录 `extension.json`，当前字段表支持文本、数字、布尔值、颜色和枚举；模板由受限标签、样式和文本/属性引用组成，不执行包内 JavaScript。一个课件对同一扩展 ID 只能锁定一个版本。
 
-当前 Core 源码识别 `manifest.editor` 后读取声明式 source，校验 schema、组件包 hash 和输入/输出摘要，再通过白名单 React 元素渲染，不编译或执行这些课件的 TSX。生成的 TSX 是旧版 Core 的兼容输出；旧版 Core 仍走 Babel。Core 当前检出与根仓锁定版本不一致，真实教室联调尚未完成。带行为的插件、包内媒体/样式资源、隔离运行时和通用预编译产物仍需后续版本化运行时契约；当前用户组件支持是安全的声明式组件切片，不是任意代码插件支持。
+当前 Core 源码识别 `manifest.editor` 后读取声明式 source，校验 schema、组件包 hash 和输入/输出摘要，再通过白名单 React 元素渲染，不编译或执行这些课件的 TSX。生成的 TSX 是旧版 Core 的兼容输出；旧版 Core 仍走 Babel。真实教室联调尚未完成。带行为的插件、包内媒体/样式资源、隔离运行时和通用预编译产物仍需后续版本化运行时契约；当前用户组件支持是安全的声明式组件切片，不是任意代码插件支持。
 
 ## `CourseGlobalContext` 实际能力
 

@@ -1,6 +1,6 @@
 # 三端目标架构设计（讨论稿）
 
-日期：2026-09-25。本文是在[源码级评估](source-review.md)基础上的**目标设计**，不是已实现功能说明。旧 AI Editor 与 VS Code 插件均不纳入目标架构；新编辑器方案见[专项设计](editor-design.md)。教师端新增 Windows/macOS 与固定机中继模式，详见[跨平台教师端专项设计](teacher-cross-platform-relay.md)。学生端和 Core 当前检出与上级锁定提交不一致，因此现状细节仍需在可复现基线建立后做集成验证。
+日期：2026-09-25；目录迁移状态于 2026-09-27 更新。本文是在[源码级评估](source-review.md)基础上的**目标设计**，不是已实现功能说明。教师、学生和 Core 源码现已并入根仓并按 §6 的目标目录整理，来源见[源码迁移记录](../status/submodules.md)；课堂连接、隔离播放器和跨平台交付等行为目标仍在[实施 TODO](../status/todo.md)。旧 AI Editor 与 VS Code 插件不纳入目标架构；新编辑器方案见[专项设计](editor-design.md)。
 
 ## 1. 产品与部署边界
 
@@ -66,12 +66,12 @@ flowchart LR
 
 | 通信双方 | 当前传输与内容 | 代码证据 | 主要问题 |
 | --- | --- | --- | --- |
-| 教师壳 → 教师服务 | 本机 HTTP `POST /api/session/bootstrap`，返回 host token；页面通过 HTTP 加载 | `repos/teacher/native/shell/src/main.cpp`、`repos/teacher/server/index.js` | host token 发放未核实本机进程身份 |
-| 学生壳 → 教师服务 | 局域网 HTTP `POST /api/session/bootstrap`，获取 viewer token；WebView2 导航教师机 `http://IP:port` | `repos/student/native/shell/src/main.cpp` | 凭证和页面当前经明文 HTTP 传输 |
-| 教师/学生页面 ↔ 教师服务 | Socket.IO（HTTP 长轮询/WebSocket 由 Socket.IO 协商），JSON 事件；如 `select-course`、`course-changed`、`sync-slide`、`student:submit`、`student:screenshot` | `repos/teacher/server/src/socket.js`、`repos/teacher/shared/teacher-shell/src/app.tsx`、`repos/student/ui/classroom/src/classroom-app.js`（学生课堂页已从教师仓库归位到学生端，见[迁移状态](../status/migration.md)） | 部分事件授权不一致，身份、事件 schema 与重连语义不统一 |
+| 教师壳 → 教师服务 | 本机 HTTP `POST /api/session/bootstrap`，返回 host token；页面通过 HTTP 加载 | `apps/teacher/native/shell/src/main.cpp`、`apps/teacher/server/index.js` | host token 发放未核实本机进程身份 |
+| 学生壳 → 教师服务 | 局域网 HTTP `POST /api/session/bootstrap`，获取 viewer token；WebView2 导航教师机 `http://IP:port` | `apps/student/desktop/shell/src/main.cpp` | 凭证和页面当前经明文 HTTP 传输 |
+| 教师/学生页面 ↔ 教师服务 | Socket.IO（HTTP 长轮询/WebSocket 由 Socket.IO 协商），JSON 事件；如 `select-course`、`course-changed`、`sync-slide`、`student:submit`、`student:screenshot` | `apps/teacher/server/src/socket.js`、`apps/teacher/ui/src/app.tsx`、`apps/student/ui/classroom/src/classroom-app.js`（学生课堂页已从教师仓库归位到学生端，见[迁移状态](../status/migration.md)） | 部分事件授权不一致，身份、事件 schema 与重连语义不统一 |
 | 页面 ↔ 原生壳 | WebView2 `window.chrome.webview.postMessage` / `WebMessageReceived`，JSON action 和返回消息；页面包装为 `teacherHost`/`studentHost` | 两端 `native/shell/src/main.cpp` | 原生桥暴露给加载页面，消息来源校验缺失 |
-| 浏览器/壳 → 教师服务 | HTTP 静态资源、`/api/*` REST 风格接口；课程、导出、布局、提交 | `repos/teacher/server/index.js`、`server/src/routes.js` | 写接口缺统一授权；路径输入需要约束 |
-| 教师服务 → 学生网卡 | UDP IPv4 广播 Wake-on-LAN 魔术包，默认端口 9 | `repos/teacher/server/src/socket.js` | 这是设备唤醒旁路，不属于课堂可靠消息通道 |
+| 浏览器/壳 → 教师服务 | HTTP 静态资源、`/api/*` REST 风格接口；课程、导出、布局、提交 | `apps/teacher/server/index.js`、`server/src/routes.js` | 写接口缺统一授权；路径输入需要约束 |
+| 教师服务 → 学生网卡 | UDP IPv4 广播 Wake-on-LAN 魔术包，默认端口 9 | `apps/teacher/server/src/socket.js` | 这是设备唤醒旁路，不属于课堂可靠消息通道 |
 | 编辑器 → 教师端 | `.lume` 文件导入/复制；当前没有稳定的在线发布协议 | Core 课件加载与插件源码 | 文件格式与插件编辑方式不一致 |
 
 当前 Socket.IO 并不等于裸 WebSocket；浏览器与服务端仍使用 Socket.IO 的握手、重连和事件语义。文中的 HTTPS/WSS 为**目标协议**，当前局域网实现是 HTTP/Socket.IO。
@@ -164,7 +164,7 @@ course.lume  (ZIP)
 
 ## 6. 模块归属与建议仓库结构
 
-建议最终采用一个 pnpm 工作区管理跨端 TypeScript 契约。教师桌面端构建 Windows/macOS 包，学生 Windows C++ 壳继续由 CMake 构建。此结构是**目标逻辑目录**；是否合并现有 Git 仓库可在建立可构建基线后决定，模块边界不依赖 Git 形式。
+当前已采用一个 pnpm 工作区管理跨端契约和应用源码。教师桌面端目标是 Windows/macOS Electron 包，学生 Windows C++ 壳继续由 CMake 构建。下列结构给出目标模块边界；目录迁移已完成首轮，缺失包及行为接线仍按[实施 TODO](../status/todo.md)推进。
 
 ```text
 apps/
@@ -200,7 +200,7 @@ docs/                     # 当前架构、运维、开发和历史资料
 
 ## 7. 迁移顺序与验收点
 
-1. **建立基线**：修复不可取得的子模块提交，固定版本矩阵；跑通 Windows 教师/学生构建、两机连课、翻页与提交的最小烟测。
+1. **建立基线**：源码已并入根仓；仍需跑通 Windows 教师/学生构建、两机连课、翻页与提交的最小烟测，并固定结果与版本矩阵。
 2. **封闭现有风险入口**：收紧 host bootstrap、HTTP/Socket 权限、原生桥来源与路径校验；保留旧协议兼容窗口，记录客户端版本。
 3. **抽出共享契约**：定义 `.lume` schema、课件读写库、课堂协议及 WebView2 消息 schema；用跨端契约测试验证教师/学生组合。
 4. **归位代码**：学生课堂 UI 回学生端；移除旧插件对工作区构建和发布的依赖；Core 只保留共享运行能力；课堂 Hub 成为唯一状态中心。教师桌面端通过跨平台会话代理接入本机或固定机 Hub；旧插件源码是否归档由后续仓库整理决定，不进入新架构。
@@ -215,4 +215,4 @@ docs/                     # 当前架构、运维、开发和历史资料
 3. 教室是否必须完全离线运行？这决定证书分发、资源缓存和在线发布入口。
 4. 课堂状态在教师服务重启后恢复到什么程度？至少应明确课程、页码、提交与互动会话各自的持久化要求。
 
-以上决策尚未在代码中实施；现有功能和风险以[源码级评估](source-review.md)与[功能清单](../reference/features.md)为准。
+目录归位已落地，协议、运行时、平台能力与发布流程仍分阶段实施。现有功能和风险以[功能清单](../reference/features.md)与[实施 TODO](../status/todo.md)为准；[源码级评估](source-review.md)保留 2026-09-25 的历史证据。

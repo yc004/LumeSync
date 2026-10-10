@@ -35,6 +35,22 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 在 Node.js 中可用 `@lumesync/component-extensions` 的 `writeComponentPack(pack)` 将该对象打包为 `.lumex`，`readComponentPack(bytes)` 可在导入前校验并计算 hash。模板只接受仓库内置的安全标签和样式白名单；组件库开发者指南见 `packages/component-extensions/README.md`。
 
+### 创建和发布用户组件
+
+仓库提供 `lumex-component` 开发命令。当前工作区可直接用 Node 调用，不需要额外安装工具：
+
+```sh
+node packages/component-extensions/bin/lumex.cjs init org.school.science "科学组件" --version 1.0.0
+# 编辑 extension.json 中的组件 label、props、默认值和 template
+node packages/component-extensions/bin/lumex.cjs validate extension.json
+node packages/component-extensions/bin/lumex.cjs pack extension.json science-1.0.0.lumex
+node packages/component-extensions/bin/lumex.cjs validate science-1.0.0.lumex
+```
+
+`init` 会生成一个包含标题、正文和强调色的卡片样例；`validate` 对 JSON 源文件或 `.lumex` 成品执行同一份契约校验并输出稳定 hash；`pack` 只在输出路径不存在时写入 ZIP。开发者编辑的是普通 JSON 源文件，可以持续修改、重新校验和打包。发布有兼容性影响的修改时应升级 semver；课程保存包版本和 hash，原课件不会被个人组件库后续更新悄悄改变。CLI 与编辑器导入共享 `@lumesync/component-extensions` 校验器，避免开发期和播放期接受不同格式。
+
+首版生成的包仍只包含声明式模板。开发者不能在包中加入 JS、CSS 文件、媒体、事件或远程依赖；这些能力需要下一版明确的运行时和权限契约。命令与可直接调用的 Node API 见组件包源码目录的 `README.md`。
+
 ## 架构决策
 
 第一版采用**声明式课件 + 可编译组件 + 受控功能插件**。课件源文件保持可编辑，发布时生成不可变的播放产物。扩展以 `id + version + hash` 锁定；编辑器、教师端、Hub 和学生端共享格式/兼容性判定，但只有编辑器和发布端运行编译工具。课堂播放器不运行 Babel，不从公网临时下载依赖。

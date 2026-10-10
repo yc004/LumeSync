@@ -1,6 +1,6 @@
 # HTTP API 与静态资源
 
-状态：**当前源码实现**，审查日期 2026-09-25。本文依据 `repos/teacher/server/index.js`、`server/src/routes.js`、`server/src/proxy.js`、`repos/teacher/core/src/server/create-core-server.ts` 和 `website/server.js`。学生端与 Core 的本地检出不匹配上级锁定提交；未做端到端运行验证。下表是路由清单，不意味着这些接口已经具备可靠的访问控制。目标架构中的 `/api/v1/*` 尚未实现，见[目标协议](../architecture/target-architecture.md)。
+状态：**当前源码实现**，初审日期 2026-09-25，指针于 2026-09-27 复核。本文依据 `apps/teacher/server/index.js`、`server/src/routes.js`、`server/src/proxy.js`、`packages/course-runtime/src/server/create-core-server.ts` 和 `website/server.js`。学生端与 Core 的当前检出和 Git 指针一致，但未做端到端运行验证。下表是路由清单，不意味着这些接口已经具备完整的访问控制。目标架构中的 `/api/v1/*` 尚未实现，见[目标协议](../architecture/target-architecture.md)。
 
 ## 服务与公共约定
 
@@ -14,7 +14,7 @@
 
 教师服务已在首轮迁移中加入路由级 host 授权：写入请求以及课程导出、座位布局、提交文件和目录配置等敏感读取要求 `Authorization: Bearer <host token>`；`/api/students`、`/api/student-log` 也要求 host。课程目录、课件静态文件和部分读取接口仍公开，尚无完整的 viewer 资源授权。
 
-授权判定不再是本模块里的正则，而是[共享契约](contracts.md) `packages/classroom-protocol/src/routes.js` 的路由表（`public` / `host` / `bootstrap`）。**本轮修复**：`apiRouter` 挂在 `/api` 上并带 host 中间件，`/api/session/bootstrap` 由 `server/index.js` 处理，此前"写请求一律 host"的兜底让引导请求先返回 403，viewer 与 host 都领不到凭证；现在该路径在路由表中标为 `bootstrap` 并放行到处理器，回归用例见 `repos/teacher/server/tests/session-bootstrap.test.js`。
+授权判定不再是本模块里的正则，而是[共享契约](contracts.md) `packages/classroom-protocol/src/routes.js` 的路由表（`public` / `host` / `bootstrap`）。**本轮修复**：`apiRouter` 挂在 `/api` 上并带 host 中间件，`/api/session/bootstrap` 由 `server/index.js` 处理，此前"写请求一律 host"的兜底让引导请求先返回 403，viewer 与 host 都领不到凭证；现在该路径在路由表中标为 `bootstrap` 并放行到处理器，回归用例见 `apps/teacher/server/tests/session-bootstrap.test.js`。
 
 host bootstrap 仅允许本机连接并要求 `X-LumeSync-Host-Token`。不要把此阶段当成已可直接暴露到不可信网络的完整安全部署。
 
@@ -84,20 +84,20 @@ Content-Type: application/json
 | `/courses/*` | 直接从课程目录提供文件，供教师/学生播放器获取课件 |
 | `/components/*`、`/engine/*` | 组件缓存与 Core 引擎源码 |
 | `/student.html` | 学生课堂 UI 的稳定入口（学生 Windows 壳导航的地址）：返回当前版本产物的 `index.html`，`Cache-Control: no-store`。产物缺失或损坏时返回 **503**，正文与日志给出预期路径和构建命令，不回退旧副本 |
-| `/classroom/<version>/*` | 学生课堂 UI 版本化资源：`/classroom/<version>/classroom-app.js` 映射到 `repos/student/ui/classroom/dist/<version>/…`，内容寻址，响应 `Cache-Control: public, max-age=31536000, immutable`；`/classroom/manifest.json` 与 `/classroom/current.json` 为 no-store 指针。产物不可用时整段路径返回 503 |
+| `/classroom/<version>/*` | 学生课堂 UI 版本化资源：`/classroom/<version>/classroom-app.js` 映射到 `apps/student/ui/classroom/dist/<version>/…`，内容寻址，响应 `Cache-Control: public, max-age=31536000, immutable`；`/classroom/manifest.json` 与 `/classroom/current.json` 为 no-store 指针。产物不可用时整段路径返回 503 |
 | `/teacher-app.js`、`/render-engine.js`、其他静态页 | 从 `STATIC_DIR`/缓存根目录提供；两个 bundle 设置 `Cache-Control: no-store`。学生课堂页**不再**从这里提供（原 `shared/public/student.html`、`student-app.js` 已删除） |
 | `/lib/:fileName` | 优先本地缓存；否则按固定 CDN 映射、Socket 注册的依赖 URL、包名猜测顺序下载并缓存 |
 | `/webfonts/:fileName`、`/lib/fonts/:fileName` | 字体缓存与代理 |
 | `/weights/:fileName` | 从 face-api.js 权重地址下载缓存；`HEAD` 返回 200 |
 | `/images/proxy?url=...` | 仅接受公网 HTTP/HTTPS 标准端口，预解析并固定公网 IPv4，拒绝本地地址与非图片响应；单图上限 5 MB、超时 15 秒，按内容 hash 缓存 |
 
-学生课堂 UI 由学生端仓库的 `@lumesync/student-ui` 构建，产物目录由工作区依赖解析，可用 `LUMESYNC_STUDENT_UI_DIR` 覆盖；构建命令与版本方案见[配置](configuration.md#学生课堂-ui-构建产物)。页面引用的 `/protocol-client.js`、`/render-engine.js`、`/lib/*`、`/socket.io/socket.io.js`、`/courses/*` 仍由教师服务提供，只有课堂页本身是学生端产物。回归用例：`repos/teacher/server/tests/student-ui-distribution.test.js`。
+学生课堂 UI 由学生端仓库的 `@lumesync/student-ui` 构建，产物目录由工作区依赖解析，可用 `LUMESYNC_STUDENT_UI_DIR` 覆盖；构建命令与版本方案见[配置](configuration.md#学生课堂-ui-构建产物)。页面引用的 `/protocol-client.js`、`/render-engine.js`、`/lib/*`、`/socket.io/socket.io.js`、`/courses/*` 仍由教师服务提供，只有课堂页本身是学生端产物。回归用例：`apps/teacher/server/tests/student-ui-distribution.test.js`。
 
 `server/src/proxy.js` 是资源代理实现。`register-dependencies` Socket 事件现要求 host，但其 URL 仍可影响 `/lib/:fileName` 的下载地址；该链路还缺目标域名、重定向和大小限制。课件依赖加载还会调用 Core 的 `script-cache.ts` 预缓存。图片代理完成了首轮公网地址检查，但不能替代统一的出站网络策略。
 
 ## Core 独立服务的 HTTP API
 
-`repos/teacher/core/src/server/create-core-server.ts` 提供另一个 Express 服务。它不托管实际课件文件，下列兼容路由故意返回空课程数据；不能将其与教师服务 `/api/courses` 混用。
+`packages/course-runtime/src/server/create-core-server.ts` 提供另一个 Express 服务。它不托管实际课件文件，下列兼容路由故意返回空课程数据；不能将其与教师服务 `/api/courses` 混用。
 
 | 方法与路径 | 当前返回/用途 |
 | --- | --- |

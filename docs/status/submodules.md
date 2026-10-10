@@ -1,19 +1,17 @@
-# 子模块源码状态
+# 源码迁移记录
 
-检查日期：2026-09-25。本页记录当前本地源码与根仓锁定指针的对应关系；**根仓的 gitlink 和各子仓远端没有被改写**。
+更新：2026-09-27。教师、学生和 Core 已从原 Git 子模块按下表锁定提交导入根仓。当前工作区的正式源码位于 `apps/` 和 `packages/`；根 `.gitmodules` 与 `repos/` 检出已移除。旧 AI Editor 与 VS Code 插件不进入目标架构。
 
-| 模块 | 根仓/上级锁定提交 | 当前检出 | 状态 |
+| 来源仓库 | 导入提交 | 当前目录 | 说明 |
 | --- | --- | --- | --- |
-| 教师端 `repos/teacher` | `e4c480b` | `e4c480b` | 匹配 |
-| 学生端 `repos/student` | `c7b7373` | `0898e88` | 不匹配；锁定提交未在可取得的远端历史中找到 |
-| VS Code 插件 `repos/editor-plugin` | `428f4a3` | `428f4a3` | 匹配；已退出目标架构，仅保留作现状审查 |
-| Core `repos/teacher/core` | `1c0de62` | `1c3df08` | 不匹配；锁定提交未在可取得的远端历史中找到 |
-| AI Editor `repos/ai-editor` | `31efe7b` | 未检出 | 按用户要求不再克隆；旧编辑器已退出目标架构 |
+| LumeSync-Teacher | `ea2c0bd8ab03c42508842f7ee3a05b5a324722a4` | `apps/teacher/` | 原 `shared/teacher-shell` 已移至 `ui/`；原 Windows 壳仍在 `native/`，跨平台 Electron 壳在 `desktop/` |
+| LumeSync-Student | `e8d5c780d2ffcddef07e44a198d461efe0aab593` | `apps/student/` | 原 `native/` 已移至 `desktop/`，课堂 UI 仍在 `ui/classroom/` |
+| LumeSync-Core | `35bec94dcce0173597e5c2a34d4c64d7e078d65b` | `packages/course-runtime/` | 包名暂保留 `@lumesync/core` 以维持现有导入协议 |
 
-教师端的 Core 是嵌套子模块，因此根仓显示教师端匹配，并不表示整个教师端依赖组合匹配。当前源码可用于阅读和架构分析；未经兼容性测试，不能当作根仓锁定版本的可重复构建。
+导入使用对应提交的受版本控制文件；子仓的 `.git` 元数据、独立 CI、重复 npm 锁文件和过期 `dist.stale` 未作为产品源码保留。长期来源以表中提交为准。根仓 `HEAD` 仍记录迁移前的 gitlink，待本次改动提交后由普通文件替代。
 
-## 获取过程与限制
+目录调整不会自动完成新架构的行为迁移。`packages/course-runtime` 仍包含旧 Core 的浏览器代码路径，教师 UI 与 Hub 的统一接线、隔离播放器和 Windows 实机验收仍见[实施 TODO](todo.md)。
 
-完整历史克隆 AI Editor 时发现其历史对象量很大，已中止。浅克隆尝试获取根仓锁定提交时，远端拒绝了 AI Editor、学生端和 Core 的对应提交。随后对学生端和 Core 补取可访问的远端历史，仍未找到锁定提交。AI Editor 的临时检出已撤销；后续不再获取旧 AI Editor。
+## 历史快照
 
-学生端和 Core 目前保留在可取得的远端当前提交，以便继续审查源码。未来若找到原始提交或决定升级依赖，应先验证三端兼容性，再更新上级子模块指针。
+2026-09-25 首次审查时，学生端和 Core 的早期 gitlink 无法从可访问远端取得；该情况已随之后更新的锁定提交和本次源码导入结束。早期[审查报告](audit.md)和架构评估保留当时证据，不应用来推断当前检出状态。

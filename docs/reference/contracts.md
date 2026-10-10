@@ -13,23 +13,23 @@
 | [`@lumesync/native-contract`](../../packages/native-contract/README.md) | 原生桥消息封装与回执、按角色的动作能力清单、教师/学生桥类型 | 两端页面、C++ 原生壳（对照校验）、Electron preload |
 | [`@lumesync/teacher-platform`](../../packages/teacher-platform/README.md) | 教师端平台能力接口（文件、导入导出、提交目录、日志、窗口、全屏、受保护会话凭证）与 WebView2 / Electron 适配器 | 教师 React UI、现有 Windows 壳、Electron 桌面壳（`apps/teacher/desktop`） |
 
-四个包都不发布到 npm，通过 pnpm 工作区（`workspace:*`）被 `repos/teacher` 与 `repos/student` 引用；
+四个包都不发布到 npm，通过 pnpm 工作区（`workspace:*`）被 `apps/teacher` 与 `apps/student` 引用；
 `pnpm-workspace.yaml` 中的 `packages/*` 是它们的工作区入口。
 
 ## 已经接入的位置
 
 | 位置 | 接入方式 |
 | --- | --- |
-| `repos/teacher/server/src/protocol.js` | 版本协商、入站守卫、`session:accepted` / `protocol-rejected` / 快照构造、`/api/protocol` 的协议描述 |
-| `repos/teacher/server/src/socket.js` | 连接时协商版本并按角色挂载 `socket.use` 守卫；合法事件照常进入原有处理器 |
-| `repos/teacher/server/src/http-auth.js` | 路由授权改为查 `classroom-protocol` 的路由表，删除了本地正则 |
-| `repos/teacher/server/src/classroom-state.js` | 快照由 `createClassroomSnapshot` 构造，字段与客户端理解一致 |
-| `repos/teacher/server/src/courses.js` | `.lume` 校验改为 `course-format` 的同步校验器；损坏课件进入目录结果的 `invalid` |
-| `repos/teacher/server/src/teacher-shell-build.js` | 生成 `/protocol-client.js`，把协议版本与事件清单注入页面 |
-| `repos/teacher/shared/teacher-shell/src/{api-fetch.ts,app.tsx}` | 凭证包装器装到 `window.fetch`；握手带上 `protocolVersion`，处理 `session:accepted` / `protocol-rejected` |
-| `repos/student/ui/classroom/src/classroom-app.js` | 同上（学生课堂页已归位到学生端仓库，教师服务只分发版本化产物，见[迁移状态](../status/migration.md)）；并按 `revision` 消费 `classroom:snapshot`：课程或页码与服务端不一致时以服务端为准，过期快照丢弃 |
-| `repos/teacher/shared/protocol/teacher-host.ts`、`repos/student/shared/protocol/student-host.ts`、`repos/student/ui/student-host/src/types.d.ts` | 只再从 `native-contract` 导出类型，不再各自定义 |
-| `repos/teacher/scripts/legacy-lume-migrator.js` | 旧迁移脚本变为 `course-format` 的兼容层 |
+| `apps/teacher/server/src/protocol.js` | 版本协商、入站守卫、`session:accepted` / `protocol-rejected` / 快照构造、`/api/protocol` 的协议描述 |
+| `apps/teacher/server/src/socket.js` | 连接时协商版本并按角色挂载 `socket.use` 守卫；合法事件照常进入原有处理器 |
+| `apps/teacher/server/src/http-auth.js` | 路由授权改为查 `classroom-protocol` 的路由表，删除了本地正则 |
+| `apps/teacher/server/src/classroom-state.js` | 快照由 `createClassroomSnapshot` 构造，字段与客户端理解一致 |
+| `apps/teacher/server/src/courses.js` | `.lume` 校验改为 `course-format` 的同步校验器；损坏课件进入目录结果的 `invalid` |
+| `apps/teacher/server/src/teacher-shell-build.js` | 生成 `/protocol-client.js`，把协议版本与事件清单注入页面 |
+| `apps/teacher/ui/src/{api-fetch.ts,app.tsx}` | 凭证包装器装到 `window.fetch`；握手带上 `protocolVersion`，处理 `session:accepted` / `protocol-rejected` |
+| `apps/student/ui/classroom/src/classroom-app.js` | 同上（学生课堂页已归位到学生端仓库，教师服务只分发版本化产物，见[迁移状态](../status/migration.md)）；并按 `revision` 消费 `classroom:snapshot`：课程或页码与服务端不一致时以服务端为准，过期快照丢弃 |
+| `apps/teacher/shared/protocol/teacher-host.ts`、`apps/student/shared/protocol/student-host.ts`、`apps/student/ui/student-host/src/types.d.ts` | 只再从 `native-contract` 导出类型，不再各自定义 |
+| `apps/teacher/scripts/legacy-lume-migrator.js` | 旧迁移脚本变为 `course-format` 的兼容层 |
 
 ## 本轮修掉的两个实际缺陷
 
@@ -37,7 +37,7 @@
    `/api/session/bootstrap` 又由 `server/index.js` 处理，于是"写请求一律要求 host"的兜底规则
    先返回 403：viewer 与 host 都领不到凭证。现在路由表把该路径标为 `bootstrap`，
    由处理器自己执行"本机 + `X-LumeSync-Host-Token`"或"签发 viewer 凭证"的规则。
-   回归用例：`repos/teacher/server/tests/session-bootstrap.test.js`。
+   回归用例：`apps/teacher/server/tests/session-bootstrap.test.js`。
 2. **教师页面的凭证包装器没有装到全局。** 原来只在打包后的 IIFE 里遮蔽 `fetch`，
    内联脚本与课件运行时拿到的仍是原生 `fetch`；构建产物过期时页面会在"路由要求凭证"下静默失败。
    现在同时设置 `window.__LumeSyncApiFetch` 与 `window.fetch`。
@@ -69,8 +69,8 @@ Hub 只负责接传输、持久化与凭证签发：
 | `course-format` 在播放器与编辑器中的复用 | 教师服务与教室 Hub 已用；浏览器运行时仍走 Core 内的旧 `validateLumeManifest` |
 | `native-contract` 的版本字段 | 契约要求消息带 `version`，两端 C++ 壳尚未发送；能力清单对照测试会暴露漂移 |
 | `teacher-platform` 的 UI 迁移 | 接口、WebView2/Electron 适配器与测试已就位；`apps/teacher/desktop` 的 preload 目前只**兼容**现有 `window.teacherHost`/`window.electronAPI` 调用点，教师 UI 尚未按调用点迁移到 `window.LumeSyncPlatform`，`ClassroomConnection` 抽象也尚未接入 |
-| `course-runtime` | 尚未创建 |
-| 中继的传输与持久化 | 契约层（配对/租约/状态机/队列）、`apps/classroom-hub`（mDNS 广播、WSS 网关、课件上传、凭证签发）与教师端会话代理（`apps/teacher/session-agent`）均已落地并有测试。仍缺：TLS/WSS（当前明文 WSS）、Hub 状态持久化（课堂、租约、暂存、提交队列、配对全在进程内存，重启不恢复）、固定机只读投影界面与固定机安装包 |
+| `course-runtime` | 原 Core 源码已并入 `packages/course-runtime`（包名仍为 `@lumesync/core`）；目标的隔离共享播放器尚未创建 |
+| 中继的传输与持久化 | 契约层（配对/租约/状态机/队列）、`apps/classroom-hub`（mDNS 广播、明文 HTTP/Socket.IO 网关、课件上传、凭证签发、固定机只读投影网页）与教师端会话代理（`apps/teacher/session-agent`）均已落地并有测试。仍缺：TLS/WSS、Hub 状态持久化（课堂、租约、暂存、提交队列、配对全在进程内存，重启不恢复）、常驻 kiosk 与固定机安装包 |
 
 ## 验证方式
 

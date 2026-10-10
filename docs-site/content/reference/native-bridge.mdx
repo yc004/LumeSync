@@ -5,7 +5,7 @@ description: "LumeSync 当前维护文档；页面内注明现状或目标设计
 
 # Windows 原生壳与 WebView2 桥接 API
 
-状态：**当前源码实现**，依据两端 `native/shell/src/main.cpp` 与[共享契约](/reference/contracts) `packages/native-contract`，尚未在 Windows 实机联调。教师和学生原生壳均为 C++/WebView2；`window.electronAPI` 在 Windows 壳里只是兼容别名。本页描述的 C++/WebView2 消息通道是 Windows 壳的实现；**macOS/Windows 的 Electron 源码预览壳**（`apps/teacher/desktop`）另有一套受限 preload，直接暴露同一组 `window.teacherHost`/`window.electronAPI` 调用点，不走 WebMessage，见[Electron 教师桌面壳](#electron-教师桌面壳)。Electron 壳的完整平台能力（`window.LumeSyncPlatform` 迁移、中继模式接线）尚未实现。
+状态：**当前源码实现**，依据教师 `apps/teacher/native/shell/src/main.cpp`、学生 `apps/student/desktop/shell/src/main.cpp` 与[共享契约](/reference/contracts) `packages/native-contract`，尚未在 Windows 实机联调。教师和学生原生壳均为 C++/WebView2；`window.electronAPI` 在 Windows 壳里只是兼容别名。本页描述的 C++/WebView2 消息通道是 Windows 壳的实现；**macOS/Windows 的 Electron 源码预览壳**（`apps/teacher/desktop`）另有一套受限 preload，直接暴露同一组 `window.teacherHost`/`window.electronAPI` 调用点，不走 WebMessage，见[Electron 教师桌面壳](#electron-教师桌面壳)。Electron 壳的完整平台能力（`window.LumeSyncPlatform` 迁移、中继模式接线）尚未实现。
 
 ## 消息封装
 
@@ -65,7 +65,7 @@ WebMessage 消息格式只封装了动作名称，没有 origin/能力声明。�
 
 两端桥的类型与动作清单现在由[共享契约](/reference/contracts) `packages/native-contract` 单点维护：消息封装 `{kind, id, action, payload, version}`、回执 `{kind:'rpc-result', id, ok, payload, error}`、RPC 超时 10 秒、payload 上限，以及按角色的动作表（`kind`、`transport`、`implemented`、`nativeDispatch`、`risk`）。
 
-`repos/teacher/shared/protocol/teacher-host.ts`、`repos/student/shared/protocol/student-host.ts` 与 `repos/student/ui/student-host/src/types.d.ts` 现在只从这里再导出类型。契约测试会读取两端 `native/shell/src/main.cpp` 的动作分派并与清单对照；目前仍有一处已知缺口：
+`apps/teacher/shared/protocol/teacher-host.ts`、`apps/student/shared/protocol/student-host.ts` 与 `apps/student/ui/student-host/src/types.d.ts` 现在只从这里再导出类型。契约测试会读取两端 `native/shell/src/main.cpp` 的动作分派并与清单对照；目前仍有一处已知缺口：
 
 | 端 | 问题 | 影响 |
 | --- | --- | --- |

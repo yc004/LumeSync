@@ -7,6 +7,7 @@ export default {
     }
   },
   "getting-started": "入门与运行",
+  "design": "客户端设计规范",
   "architecture": "架构",
   "reference": "接口与实现参考",
   "development": "开发与维护",

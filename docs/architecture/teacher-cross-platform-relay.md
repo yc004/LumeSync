@@ -212,7 +212,7 @@ sequenceDiagram
 
 ## 9. 与现有架构的差距与实施顺序
 
-当前 `repos/teacher/native/shell`、`scripts/start-native.js` 和 Windows 打包脚本仍绑定 `.exe`、CMake/MSVC/PowerShell。`apps/teacher/desktop` 已实现 Electron 源码预览，复用 `window.teacherHost`/`window.electronAPI` 的现有调用点；正式安装包和完整能力回归仍待完成。教师服务的课程、布局、提交主要由本机文件路径和进程内变量管理，不能直接当作跨设备中继服务使用。安全加固现状详见[迁移状态](../status/migration.md)。
+当前 `apps/teacher/native/shell`、`scripts/start-native.js` 和 Windows 打包脚本仍绑定 `.exe`、CMake/MSVC/PowerShell。`apps/teacher/desktop` 已实现 Electron 源码预览，复用 `window.teacherHost`/`window.electronAPI` 的现有调用点；正式安装包和完整能力回归仍待完成。教师服务的课程、布局、提交主要由本机文件路径和进程内变量管理，不能直接当作跨设备中继服务使用。安全加固现状详见[迁移状态](../status/migration.md)。
 
 | 阶段 | 交付物 | 验收 |
 | --- | --- | --- |

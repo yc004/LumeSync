@@ -1,6 +1,6 @@
 # Socket.IO 课堂事件协议
 
-状态：**当前教师服务实现**，依据 `repos/teacher/server/src/socket.js`；Core 独立 runtime 另见文末。这里的事件名、字段和路由是源码现状，不是已完成类型化或版本化的公开协议。当前只做静态核对，跨端联调尚未运行。
+状态：**当前教师服务实现**，依据 `apps/teacher/server/src/socket.js`；Core 独立 runtime 另见文末。这里的事件名、字段和路由是源码现状，不是已完成类型化或版本化的公开协议。当前只做静态核对，跨端联调尚未运行。
 
 ## 连接、身份与房间
 
@@ -113,7 +113,7 @@ sequenceDiagram
 
 ## Core 独立 runtime 服务
 
-Core 的 `src/node/runtime-control.ts` 不是上述业务协议。它在连接时核验 host/viewer 身份，加入 `hosts`/`viewers`，发 `role-assigned` 与 `participant-joined`/`participant-left`；失败时发 `identity-rejected` 并断开。随后通过 `socket.onAny` 转发**除保留事件和仅服务端事件外**的任意事件：host 默认广播其他连接，viewer 默认转发 hosts；payload 里有 `targetId` 时定向到该 socket，并剥离 `targetId`。它不保存课程、投票或提交。`LUMESYNC_IDENTITY_LEGACY_COMPAT` 默认按源码为 `true`，可关闭；身份验证和失败码见 `repos/teacher/core/src/node/runtime-control.ts`。
+Core 的 `src/node/runtime-control.ts` 不是上述业务协议。它在连接时核验 host/viewer 身份，加入 `hosts`/`viewers`，发 `role-assigned` 与 `participant-joined`/`participant-left`；失败时发 `identity-rejected` 并断开。随后通过 `socket.onAny` 转发**除保留事件和仅服务端事件外**的任意事件：host 默认广播其他连接，viewer 默认转发 hosts；payload 里有 `targetId` 时定向到该 socket，并剥离 `targetId`。它不保存课程、投票或提交。`LUMESYNC_IDENTITY_LEGACY_COMPAT` 默认按源码为 `true`，可关闭；身份验证和失败码见 `packages/course-runtime/src/node/runtime-control.ts`。
 
 ## 协议限制与下一步
 

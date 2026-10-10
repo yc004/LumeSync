@@ -1,6 +1,6 @@
 # 配置、目录与环境变量
 
-状态：**当前源码默认值**，依据 `repos/teacher/server/src/config.js`、`server/index.js`、两端 Windows 壳和 `website/server.js`。相对路径以下均相对教师仓库或对应服务。公开部署前需先处理[安全缺口](../architecture/runtime-mechanisms.md#信任边界与现状风险)。
+状态：**当前源码默认值**，依据 `apps/teacher/server/src/config.js`、`server/index.js`、两端 Windows 壳和 `website/server.js`。相对路径以下均相对教师仓库或对应服务。公开部署前需先处理[安全缺口](../architecture/runtime-mechanisms.md#信任边界与现状风险)。
 
 ## 教师 Node 服务
 
@@ -12,15 +12,15 @@
 | `LUMESYNC_COURSES_DIR` | 课程文件，默认 `shared/public/courses` |
 | `LUMESYNC_FOLDER_DATA_PATH` | 文件夹元数据，默认 `shared/public/data/course-folders.json` |
 | `LUMESYNC_CLASSROOM_LAYOUT_PATH` | 座位布局，默认 `shared/public/data/classroom-layout-v1.json` |
-| `LUMESYNC_SUBMISSIONS_DIR` | 默认提交根目录，默认 `repos/teacher/submissions` |
-| `LUMESYNC_SUBMISSIONS_CONFIG` | 提交目录选择记录，默认 `repos/teacher/submissions-config.json` |
+| `LUMESYNC_SUBMISSIONS_DIR` | 默认提交根目录，默认 `apps/teacher/submissions` |
+| `LUMESYNC_SUBMISSIONS_CONFIG` | 提交目录选择记录，默认 `apps/teacher/submissions-config.json` |
 | `SUBMISSIONS_DIR` | 实际提交目录的进程环境覆盖值；启动时可被上述配置文件写入 |
 | `LUMESYNC_CACHE_DIR` | 总缓存根，默认公共资源根 |
 | `LUMESYNC_LIB_DIR`、`LUMESYNC_WEIGHTS_DIR`、`LUMESYNC_IMAGES_DIR`、`LUMESYNC_WEBFONTS_DIR` | 各类依赖缓存目录，默认位于缓存根下对应子目录 |
 | `LUMESYNC_SKILL_PATH`、`LUMESYNC_COURSE_GUIDE_PATH` | `/api/download-skill`、`/api/course-guide` 下载的源文件 |
 | `LUMESYNC_STUDENT_LOG_MAX` | 进程内学生日志上限，默认 `500` |
 | `LUMESYNC_ANNOTATION_MAX_SEGMENTS_PER_SLIDE` | 每页标注上限，默认 `5000` |
-| `LUMESYNC_STUDENT_UI_DIR` | 学生课堂 UI 构建产物目录覆盖（默认由工作区包 `@lumesync/student-ui` 的 `exports("./dist")` 解析，即 `repos/student/ui/classroom/dist`）；见下节 |
+| `LUMESYNC_STUDENT_UI_DIR` | 学生课堂 UI 构建产物目录覆盖（默认由工作区包 `@lumesync/student-ui` 的 `exports("./dist")` 解析，即 `apps/student/ui/classroom/dist`）；见下节 |
 | `LUMESYNC_SERVER_PID_FILE` | 可选 PID 文件，服务启动写入、退出删除 |
 
 服务启动会创建公共目录、缓存、课程、布局父目录和提交目录；`POST /api/submission-config` 会更新目录并写配置文件。静态 bundle 与 `/protocol-client.js`（协议版本与事件清单，由 `packages/classroom-protocol` 生成）启动时按需重建；`/teacher-app.js`、`/render-engine.js` 以 no-store 提供。Socket 心跳固定为 `pingInterval=5000ms`、`pingTimeout=8000ms`，HTTP JSON 限制 2 MB；当前不是环境变量配置项。
@@ -31,9 +31,9 @@
 
 | 项 | 值 |
 | --- | --- |
-| 源码 | `repos/student/ui/classroom/src/{index.html,classroom-app.js}`（工作区包 `@lumesync/student-ui`） |
-| 构建命令 | `pnpm --filter @lumesync/student-ui run build`（等价于 `node repos/student/ui/classroom/scripts/build.mjs`） |
-| 默认产物目录 | `repos/student/ui/classroom/dist`（由 `require('@lumesync/student-ui/dist')` 导出的 `distDir` 给出，也可用 `require.resolve` 定位） |
+| 源码 | `apps/student/ui/classroom/src/{index.html,classroom-app.js}`（工作区包 `@lumesync/student-ui`） |
+| 构建命令 | `pnpm --filter @lumesync/student-ui run build`（等价于 `node apps/student/ui/classroom/scripts/build.mjs`） |
+| 默认产物目录 | `apps/student/ui/classroom/dist`（由 `require('@lumesync/student-ui/dist')` 导出的 `distDir` 给出，也可用 `require.resolve` 定位） |
 | 版本方案 | `dist/<package version>-<构建输入 sha256 前 12 位>/`，例如 `dist/1.0.0-56532f8953d1/`；内容不变时重复构建版本不变 |
 | 指针文件 | `dist/current.json`（`{version, dir, entry, manifest}`）与 `dist/manifest.json`（`{version, files:[{path,size,sha256}], entry}`） |
 | 覆盖变量 | `LUMESYNC_STUDENT_UI_DIR` 指向任意等价的产物目录（同样需要 `current.json` + `manifest.json`）；测试与离线部署用 |

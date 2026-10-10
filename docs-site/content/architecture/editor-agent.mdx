@@ -119,8 +119,8 @@ Agent 上下文分四类：系统内置的课件 schema/工具规范、编辑器
 
 | 目标模块 | 职责 |
 | --- | --- |
-| `apps/editor/ui` | 已有 Agent/API 配置面板、创作提示词、候选计划和差异审查；材料授权、预算提示和流式状态仍待实现。 |
-| `apps/editor/desktop` + `apps/editor/src/editor-service.cjs` | 已有单一 Chat Completions 请求、取消、系统安全存储和受限 IPC；任务恢复、分步状态和重试策略待实现。 |
+| `apps/editor/app/ui` | 已有 Agent/API 配置面板、创作提示词、候选计划和差异审查；材料授权、预算提示和流式状态仍待实现。 |
+| `apps/editor/app/desktop` + `apps/editor/app/src/editor-service.cjs` | 已有单一 Chat Completions 请求、取消、系统安全存储和受限 IPC；任务恢复、分步状态和重试策略待实现。 |
 | `packages/model-provider` | 待抽取；当前只有 editor 内的单一兼容适配，不含流式事件或多供应商能力探测。 |
 | `packages/course-agent` | 待抽取；当前 `generateCourseCandidate` 只负责一次提案、类型化命令校验和本地候选分支。 |
 | `packages/course-model` | 已实现文档校验、标准组件定义、命令/revision、撤销重做、候选审查、差异和静态编译。 |

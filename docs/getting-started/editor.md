@@ -1,6 +1,6 @@
 # 新课件编辑器 MVP
 
-状态：**首轮 Electron MVP 与声明式组件包闭环已实现；代码插件和发行验收仍在开发**（2026-09-26）。编辑器使用独立课件文档模型，不依赖旧 AI Editor 或 VS Code 插件。
+状态：**Electron 客户端已实现；macOS ARM64 DMG 已校验并启动验证，Intel x64 DMG 已校验，Windows 安装包仍待 Windows runner 验证**（2026-09-26）。编辑器使用独立课件文档模型，不依赖旧 AI Editor 或 VS Code 插件。
 
 ## 启动
 
@@ -10,6 +10,26 @@ pnpm run start:editor
 ```
 
 需要桌面图形环境。编辑器主进程通过 Electron `safeStorage` 保存加密后的 API 密钥；如果系统没有可用的 Keychain、DPAPI 或 libsecret 后端，编辑器会拒绝保存密钥，不会退回明文存储。
+
+## macOS 和 Windows 安装包
+
+```sh
+# macOS：生成 arm64 和 x64 的 DMG 与 ZIP
+pnpm run dist:editor:mac
+
+# macOS：生成仅供当前构建机器测试的 ad-hoc 签名包
+pnpm run dist:editor:mac:local
+
+# macOS：使用 Developer ID 签名，并在配置 Apple API 密钥后执行公证
+pnpm run dist:editor:mac:release
+
+# Windows x64：在 Windows 环境生成 NSIS 安装程序
+pnpm run dist:editor:win
+```
+
+产物写入 `apps/editor/release/`。GitHub Actions 的“Editor desktop builds”工作流会分别在 macOS 和 Windows runner 构建，并提供可下载的构建产物；也可手动触发该工作流。客户端安装后可双击 `.lume` 课件打开；菜单提供新建、打开、保存、撤销/重做及对应系统快捷键。
+
+`dist:editor:mac` 会自动使用构建机上的 Developer ID 证书（如已配置）。没有证书时，使用 `dist:editor:mac:local` 生成本机 ad-hoc 签名包；这种签名仅用于构建机器上的开发验证，不适合作为跨设备发布包。GitHub Actions 可通过 `MACOS_CSC_LINK` / `MACOS_CSC_KEY_PASSWORD` 和 `WINDOWS_CSC_LINK` / `WINDOWS_CSC_KEY_PASSWORD` secrets 签署安装包；配置 `APPLE_API_KEY`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER` 与 `APPLE_TEAM_ID` 后，macOS 工作流会执行公证。工作流只产出构建产物，不发布到商店或自动更新渠道。
 
 ## 编辑课件
 
@@ -44,7 +64,7 @@ MVP 支持新建课件和页面，编辑课件/页面标题，添加或调整以
 
 - 当前 Core 源码识别编辑器标记后，校验声明式 source、构建摘要与嵌入组件包 hash，再将标准组件和受限组件模板创建为 React 元素；这条路径不编译或执行生成的 TSX。生成的 TSX 暂时保留作旧 Core 的兼容输出，因此旧版 Core 仍会走 Babel。根仓锁定的 Core 与已检出源码不一致，尚未完成真实教师/学生课堂联调；本地静态预览也不等同于课堂运行验收。
 - 尚不支持媒体资源、任意代码插件、插槽、主题包、课堂互动组件和独立预编译运行时。
-- 尚未验证 Windows/macOS 安装包、签名、公证和跨设备播放。
+- macOS ARM64 DMG 已通过 `hdiutil verify` 与 `codesign --verify --deep --strict`，并实际启动到编辑器窗口；Intel x64 DMG 通过镜像校验，但未在原生 Intel Mac 验收；Windows runner 构建、正式签名/公证与跨设备播放尚未验收。
 
 自动化检查：
 

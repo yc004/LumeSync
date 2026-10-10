@@ -19,6 +19,7 @@
 - `interaction/`：旧版互动同步文档
 - `ai/`：旧版知识库与 AI 相关说明
 - `project/`：项目申报和比赛材料
+- [`core-readme-pre-monorepo.md`](core-readme-pre-monorepo.md)：原 Core 独立仓库的完整 README；构建与子模块流程已过时
 
 ## 使用原则
 

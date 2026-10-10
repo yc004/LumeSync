@@ -1,0 +1,102 @@
+/* LumeSync UI Standard v1.0. Semantic CSS tokens. No element styles here. */
+:root,
+[data-ls-theme="light"] {
+  color-scheme: light;
+  --ls-color-canvas: #f6f8fc;
+  --ls-color-surface: #ffffff;
+  --ls-color-surface-subtle: #eef3fa;
+  --ls-color-text: #172033;
+  --ls-color-text-muted: #526176;
+  --ls-color-primary: #2457c5;
+  --ls-color-on-primary: #ffffff;
+  --ls-color-danger: #b42332;
+  --ls-color-success: #12633c;
+  --ls-color-warning: #8a4b00;
+  --ls-color-border-decorative: #cdd6e5;
+  --ls-color-border-control: #8394ab;
+  --ls-color-focus: #155eef;
+  --ls-space-1: 4px;
+  --ls-space-2: 8px;
+  --ls-space-3: 12px;
+  --ls-space-4: 16px;
+  --ls-space-5: 24px;
+  --ls-space-6: 32px;
+  --ls-space-7: 48px;
+  --ls-radius-control: 8px;
+  --ls-radius-panel: 12px;
+  --ls-radius-dialog: 16px;
+  --ls-font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif;
+  --ls-font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ls-type-body: 14px;
+  --ls-type-body-large: 16px;
+  --ls-type-caption: 12px;
+  --ls-type-title: 20px;
+  --ls-type-display: 32px;
+  --ls-line-body: 1.5;
+  --ls-motion-fast: 120ms;
+  --ls-motion-normal: 200ms;
+}
+
+[data-ls-theme="dark"] {
+  color-scheme: dark;
+  --ls-color-canvas: #101725;
+  --ls-color-surface: #1b2638;
+  --ls-color-surface-subtle: #26344a;
+  --ls-color-text: #f4f7fd;
+  --ls-color-text-muted: #b8c6db;
+  --ls-color-primary: #a5c4ff;
+  --ls-color-on-primary: #101725;
+  --ls-color-danger: #ffb4b8;
+  --ls-color-success: #8de0ad;
+  --ls-color-warning: #ffd76e;
+  --ls-color-border-decorative: #465b78;
+  --ls-color-border-control: #879ab5;
+  --ls-color-focus: #a5c4ff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-ls-theme]) {
+    color-scheme: dark;
+    --ls-color-canvas: #101725;
+    --ls-color-surface: #1b2638;
+    --ls-color-surface-subtle: #26344a;
+    --ls-color-text: #f4f7fd;
+    --ls-color-text-muted: #b8c6db;
+    --ls-color-primary: #a5c4ff;
+    --ls-color-on-primary: #101725;
+    --ls-color-danger: #ffb4b8;
+    --ls-color-success: #8de0ad;
+    --ls-color-warning: #ffd76e;
+    --ls-color-border-decorative: #465b78;
+    --ls-color-border-control: #879ab5;
+    --ls-color-focus: #a5c4ff;
+  }
+}
+
+@media (forced-colors: active) {
+  :root,
+  [data-ls-theme] {
+    color-scheme: light dark;
+    --ls-color-canvas: Canvas;
+    --ls-color-surface: Canvas;
+    --ls-color-surface-subtle: Canvas;
+    --ls-color-text: CanvasText;
+    --ls-color-text-muted: CanvasText;
+    --ls-color-primary: Highlight;
+    --ls-color-on-primary: HighlightText;
+    --ls-color-danger: CanvasText;
+    --ls-color-success: CanvasText;
+    --ls-color-warning: CanvasText;
+    --ls-color-border-decorative: CanvasText;
+    --ls-color-border-control: CanvasText;
+    --ls-color-focus: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  [data-ls-theme] {
+    --ls-motion-fast: 0ms;
+    --ls-motion-normal: 0ms;
+  }
+}

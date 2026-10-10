@@ -46,7 +46,9 @@ pnpm install --frozen-lockfile
 ## 常见问题
 
 - **找不到教师/学生/Core 源码**：确认检出的是完成并仓后的根仓提交，目录对应关系见[源码迁移记录](../status/submodules.md)。
-- **找不到 Windows `.exe`**：启动脚本不是构建脚本，需要在 Windows 环境完成原生构建。
+- **找不到 Windows `.exe`**：启动脚本不是构建脚本，需要在 Windows 环境完成原生构建。`start:teacher` 与 `start:student` 会先检查 `.exe` 是否存在，缺失时打印所需命令后退出。
+- **在 macOS/Linux 上跑 `pnpm run start:teacher` 或 `start:student`**：这两个入口启动的是 Windows C++/WebView2 原生壳，跨平台不可用，脚本会直接提示并退出。教师端改用 `pnpm run start:teacher:desktop`（Electron），或只起服务用 `pnpm run start:teacher-server` 后在浏览器访问 `/student.html` 调试学生课堂界面。
+- **`pnpm run start:teacher:desktop` 报 `Cannot read properties of undefined (reading 'setName')`**：说明当前 shell 里设置了 `ELECTRON_RUN_AS_NODE`（常见于从其他 Electron 应用派生的终端）。该变量会让 Electron 退化为纯 Node，`require('electron')` 返回的是包路径字符串而不是 API。执行前 `unset ELECTRON_RUN_AS_NODE` 即可。
 - **学生无法连接**：检查教师服务是否启动、两机 IP/端口、防火墙和学生端地址配置；当前没有完整的自动连课验证结果。
 - **端口占用**：教师服务与下载站均可能使用 3000 端口，需分别配置。
 - **搜索不到教室中继**：教室 Hub 已发布 `_lumesync-relay._tcp` 并支持验证码配对，教师端会话代理也能搜索与配对；但**中继模式尚未接入 Electron 桌面壳**，跨机实测与固定机安装包未完成，组播不可用时需改用[手动地址](../reference/classroom-hub.md)。见[教室中继模式](../architecture/teacher-cross-platform-relay.md)。

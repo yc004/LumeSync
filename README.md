@@ -58,11 +58,11 @@ pnpm install --frozen-lockfile
 
 ```bash
 pnpm run start:hub             # 教室 Hub（LUMESYNC_HUB_MODE=direct|relay）
-pnpm run start:teacher-server  # 教师服务
-pnpm run start:teacher         # 教师桌面端
-pnpm run start:teacher:desktop # macOS/Windows Electron 教师端源码预览
+pnpm run start:teacher-server  # 教师服务（只跑 HTTP/Socket.IO，不开桌面窗口）
+pnpm run start:teacher:desktop # 教师端 Electron 桌面壳（macOS / Windows 源码预览）
+pnpm run start:teacher         # 教师端 Windows 原生壳（仅 Windows，需先构建）
 pnpm run start:editor          # 新课件编辑器 Electron MVP
-pnpm run start:student         # 学生桌面端
+pnpm run start:student         # 学生端 Windows 原生壳（仅 Windows，需先构建）
 pnpm run build:student-ui      # 学生课堂 UI 构建产物（教师服务分发；缺产物时 /student.html 返回 503）
 pnpm run docs:dev              # 文档站
 pnpm run test:hub              # 教室 Hub 测试（真实 Express + Socket.IO + course-format 课件）
@@ -72,7 +72,9 @@ pnpm run test:editor           # 编辑器格式往返、Agent 安全和候选�
 pnpm run test                  # 契约包 + 编辑器 + 学生课堂 UI + 教师服务 + 教室 Hub + 会话代理 + 教师桌面壳
 ```
 
-桌面端启动命令需要 Windows 构建产物。完整步骤见 [安装与运行](docs/getting-started/running.md)。
+`start:teacher` 与 `start:student` 是 **Windows 原生壳入口**，需要先在 Windows 上构建，
+且只能在 Windows 上运行；在 macOS 上开发教师端请用 `start:teacher:desktop`。
+完整步骤见 [安装与运行](docs/getting-started/running.md)。
 
 ## 架构与文档
 

@@ -1,6 +1,6 @@
 // 课堂状态：Hub 是唯一写入者。
 //
-// 与 repos/teacher/server/src/classroom-state.js 相同的语义：会话标识 + 单调递增
+// 与 apps/teacher/server/src/classroom-state.js 相同的语义：会话标识 + 单调递增
 // revision + 当前课程/页码/设置。快照结构由共享契约构造，客户端不自行拼装。
 
 const { createClassroomSnapshot } = require('@lumesync/classroom-protocol');

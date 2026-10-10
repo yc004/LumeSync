@@ -13,10 +13,10 @@
 //   ...
 //   await hub.stop();
 
-const { createHub, startHub, HUB_MODES } = require('./src/hub');
-const { loadConfig } = require('./src/config');
-const { createLogger, createSilentLogger } = require('./src/logger');
-const protocol = require('./src/protocol');
+const { createHub, startHub, HUB_MODES } = require('./server/hub');
+const { loadConfig } = require('./server/config');
+const { createLogger, createSilentLogger } = require('./server/logger');
+const protocol = require('./server/protocol');
 const {
     createDiscoveryPublisher,
     mergeRelayRecords,
@@ -25,9 +25,9 @@ const {
     parseServiceType,
     inspectTxt,
     DNS_SD_SERVICE_TYPE
-} = require('./src/discovery');
-const { createBonjourTransport } = require('./src/discovery-bonjour');
-const { VIEWER_FORWARD_EVENTS, HANDLED_VIEWER_EVENTS, DIRECT_COMMAND_EVENTS } = require('./src/socket');
+} = require('./server/discovery');
+const { createBonjourTransport } = require('./server/discovery-bonjour');
+const { VIEWER_FORWARD_EVENTS, HANDLED_VIEWER_EVENTS, DIRECT_COMMAND_EVENTS } = require('./server/socket');
 
 if (require.main === module) {
     startHub()

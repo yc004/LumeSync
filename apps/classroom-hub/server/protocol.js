@@ -1,6 +1,6 @@
 // 协议接入层（Hub 侧）。
 //
-// 与 repos/teacher/server/src/protocol.js 同构：版本协商、入站守卫、快照与回执
+// 与 apps/teacher/server/src/protocol.js 同构：版本协商、入站守卫、快照与回执
 // 全部引用 @lumesync/classroom-protocol，Hub 不自己维护事件名与授权规则。
 //
 // 与教师服务的两点差异：

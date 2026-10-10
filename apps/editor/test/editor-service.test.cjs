@@ -20,7 +20,7 @@ const {
   testModelConnection,
   generateCourseCandidate,
   createDocumentStore
-} = require('../src/editor-service.cjs');
+} = require('../app/src/editor-service.cjs');
 
 function profile(overrides = {}) {
   return { label: 'Local test', model: 'test-model', baseUrl: 'https://models.example/v1', ...overrides };

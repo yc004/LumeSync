@@ -8,11 +8,11 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '../../..');
 const JSZip = require('jszip');
 const { createCourseDocument } = require(path.join(root, 'packages/course-model'));
-const { createCoursePackage } = require('../src/editor-service.cjs');
+const { createCoursePackage } = require('../app/src/editor-service.cjs');
 const { componentPackHash } = require(path.join(root, 'packages/component-extensions'));
 
 async function loadRenderer({ useWebCrypto = false } = {}) {
-  const source = await fs.readFile(path.join(root, 'repos/teacher/core/src/browser/engine/course-components/document-renderer.js'), 'utf8');
+  const source = await fs.readFile(path.join(root, 'packages/course-runtime/src/browser/engine/course-components/document-renderer.js'), 'utf8');
   const browserWindow = { crypto: useWebCrypto ? globalThis.crypto : undefined, TextEncoder };
   vm.runInNewContext(source, { window: browserWindow, TextEncoder }, { filename: 'document-renderer.js' });
   return browserWindow.LumeSyncDocumentRenderer;
@@ -106,8 +106,8 @@ test('classroom renderer rejects a stale generated output digest', async () => {
 });
 
 test('render-engine source order loads the document renderer before runtime/app', () => {
-  const engineSource = require('node:fs').readFileSync(path.join(root, 'repos/teacher/core/packages/render-engine/index.js'), 'utf8');
-  const typedSource = require('node:fs').readFileSync(path.join(root, 'repos/teacher/core/src/node/render-engine.ts'), 'utf8');
+  const engineSource = require('node:fs').readFileSync(path.join(root, 'packages/course-runtime/packages/render-engine/index.js'), 'utf8');
+  const typedSource = require('node:fs').readFileSync(path.join(root, 'packages/course-runtime/src/node/render-engine.ts'), 'utf8');
   const sourceOrder = source => source.slice(source.indexOf('const sourceOrder') >= 0 ? source.indexOf('const sourceOrder') : source.indexOf('const teacherRenderEngineSourceOrder'));
   const rendererIndex = sourceOrder(engineSource).indexOf('course-components/document-renderer.js');
   const appIndex = sourceOrder(engineSource).indexOf('runtime/app.tsx');

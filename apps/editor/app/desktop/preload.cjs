@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('lumeEditor', Object.freeze({
   redo: expectedRevision => invoke('redo', { expectedRevision }),
   getPreview: pageId => invoke('preview', { pageId }),
   openCourse: () => invoke('open-course'),
+  resolveNativeOpen: (requestId, accepted) => invoke('resolve-native-open', { requestId, accepted: Boolean(accepted) }),
   importComponentPack: () => invoke('import-component-pack'),
   saveCourse: saveAs => invoke('save-course', { saveAs: Boolean(saveAs) }),
   saveModelProfile: (profile, apiKey) => invoke('save-model-profile', { profile, apiKey }),
@@ -26,5 +27,7 @@ contextBridge.exposeInMainWorld('lumeEditor', Object.freeze({
   cancelAgent: requestId => invoke('agent-cancel', { requestId }),
   acceptCandidate: expectedRevision => invoke('candidate-accept', { expectedRevision }),
   discardCandidate: () => invoke('candidate-discard'),
-  onAgentEvent: callback => listen('editor:agent-event', callback)
+  onAgentEvent: callback => listen('editor:agent-event', callback),
+  onMenuAction: callback => listen('editor:menu-action', callback),
+  onNativeOpenRequest: callback => listen('editor:open-course-request', callback)
 }));

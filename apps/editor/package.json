@@ -3,18 +3,74 @@
   "version": "0.1.0",
   "private": true,
   "description": "LumeSync 独立课件编辑器 MVP",
+  "author": "LumeSync",
   "license": "MIT",
-  "main": "desktop/main.cjs",
+  "packageManager": "pnpm@10.33.0",
+  "main": "app/desktop/main.cjs",
   "scripts": {
-    "start": "electron desktop/main.cjs",
+    "start": "electron app/desktop/main.cjs",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:mac:release": "electron-builder --mac --publish never -c.mac.notarize=true",
+    "dist:mac:local": "electron-builder --mac --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:dir": "electron-builder --dir --publish never",
     "test": "node --test test/*.test.cjs"
   },
   "dependencies": {
+    "@lumesync/component-extensions": "workspace:*",
     "@lumesync/course-format": "workspace:*",
-    "@lumesync/course-model": "workspace:*",
-    "@lumesync/component-extensions": "workspace:*"
+    "@lumesync/course-model": "workspace:*"
   },
   "devDependencies": {
-    "electron": "42.4.0"
+    "electron": "42.4.0",
+    "electron-builder": "26.16.1"
+  },
+  "build": {
+    "appId": "com.lumesync.editor",
+    "productName": "LumeSync Course Editor",
+    "executableName": "LumeSyncEditor",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "app/**/*",
+      "package.json",
+      "!**/test/**"
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "fileAssociations": [
+      {
+        "ext": "lume",
+        "name": "LumeSync Course",
+        "description": "LumeSync editable course package",
+        "role": "Editor"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.education",
+      "icon": "build-resources/icon.icns",
+      "entitlements": "build-resources/entitlements.mac.plist",
+      "entitlementsInherit": "build-resources/entitlements.mac.inherit.plist",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ]
+    },
+    "win": {
+      "icon": "build-resources/icon.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LumeSync Course Editor",
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

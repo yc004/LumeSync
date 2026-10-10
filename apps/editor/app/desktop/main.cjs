@@ -1,11 +1,10 @@
 'use strict';
 
-const { app, BrowserWindow, dialog, ipcMain, safeStorage } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { fileURLToPath } = require('node:url');
 const crypto = require('node:crypto');
-const root = path.resolve(__dirname, '../../..');
 const uiIndex = path.join(__dirname, '../ui/index.html');
 const {
   createCourseDocument,
@@ -15,9 +14,8 @@ const {
   assertValidCourseDocument,
   stableStringify,
   getComponentCatalog
-} = require(path.join(root, 'packages/course-model'));
-const { readComponentPack } = require(path.join(root, 'packages/component-extensions'));
-const { componentPackHash } = require(path.join(root, 'packages/component-extensions'));
+} = require('@lumesync/course-model');
+const { readComponentPack, componentPackHash } = require('@lumesync/component-extensions');
 const {
   openCoursePackage,
   createCoursePackage,
@@ -25,7 +23,7 @@ const {
   testModelConnection,
   generateCourseCandidate,
   atomicWriteFile
-} = require(path.join(root, 'apps/editor/src/editor-service.cjs'));
+} = require('../src/editor-service.cjs');
 
 app.setName('LumeSync 课件编辑器');
 
@@ -37,6 +35,8 @@ let savedDocumentJson = null;
 let candidate = null;
 let modelSettings = { profile: null, encryptedApiKey: null };
 const agentRequests = new Map();
+const pendingNativeOpenPaths = [];
+const nativeOpenRequests = new Map();
 const settingsPath = () => path.join(app.getPath('userData'), 'editor-settings.json');
 const recoveryPath = () => path.join(app.getPath('userData'), 'editor-recovery.json');
 const componentPackDirectory = () => path.join(app.getPath('userData'), 'component-packs');
@@ -154,6 +154,108 @@ function cancelAgentRequests() {
   for (const request of agentRequests.values()) request.controller.abort();
 }
 
+function sendMenuAction(action) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('editor:menu-action', action);
+}
+
+function buildApplicationMenu() {
+  const isMac = process.platform === 'darwin';
+  const template = [];
+  if (isMac) {
+    template.push({
+      label: app.name,
+      submenu: [
+        { role: 'about', label: '关于 LumeSync 编辑器' },
+        { type: 'separator' },
+        { role: 'services', label: '服务' },
+        { type: 'separator' },
+        { role: 'hide', label: '隐藏 LumeSync 编辑器' },
+        { role: 'hideOthers', label: '隐藏其他应用' },
+        { role: 'unhide', label: '全部显示' },
+        { type: 'separator' },
+        { role: 'quit', label: '退出 LumeSync 编辑器' }
+      ]
+    });
+  }
+  template.push(
+    {
+      label: '文件',
+      submenu: [
+        { label: '新建课件', accelerator: 'CmdOrCtrl+N', click: () => sendMenuAction('new-course') },
+        { label: '打开课件…', accelerator: 'CmdOrCtrl+O', click: () => sendMenuAction('open-course') },
+        { type: 'separator' },
+        { label: '保存课件', accelerator: 'CmdOrCtrl+S', click: () => sendMenuAction('save-course') },
+        { label: '另存为…', accelerator: 'CmdOrCtrl+Shift+S', click: () => sendMenuAction('save-as') },
+        { type: 'separator' },
+        { label: '导入组件包…', click: () => sendMenuAction('import-component-pack') },
+        { type: 'separator' },
+        isMac ? { role: 'close', label: '关闭窗口' } : { role: 'quit', label: '退出' }
+      ]
+    },
+    {
+      label: '编辑',
+      submenu: [
+        { label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => sendMenuAction('undo') },
+        { label: '重做', accelerator: isMac ? 'CmdOrCtrl+Shift+Z' : 'CmdOrCtrl+Y', click: () => sendMenuAction('redo') },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' }
+      ]
+    },
+    {
+      label: '视图',
+      submenu: [
+        { role: 'reload', label: '重新加载' },
+        ...(!app.isPackaged ? [{ role: 'toggleDevTools', label: '开发者工具' }] : []),
+        { type: 'separator' },
+        { role: 'resetZoom', label: '实际大小' },
+        { role: 'zoomIn', label: '放大' },
+        { role: 'zoomOut', label: '缩小' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: '切换全屏' }
+      ]
+    }
+  );
+  if (!isMac) template.push({ label: '帮助', submenu: [{ role: 'about', label: '关于 LumeSync 编辑器' }] });
+  return Menu.buildFromTemplate(template);
+}
+
+function isCoursePath(value) {
+  return typeof value === 'string' && path.extname(value).toLowerCase() === '.lume';
+}
+
+function requestNativeCourseOpen(target) {
+  if (!isCoursePath(target)) return;
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) {
+    pendingNativeOpenPaths.push(target);
+    return;
+  }
+  const requestId = crypto.randomUUID();
+  nativeOpenRequests.set(requestId, target);
+  while (nativeOpenRequests.size > 20) nativeOpenRequests.delete(nativeOpenRequests.keys().next().value);
+  mainWindow.webContents.send('editor:open-course-request', { requestId, fileName: path.basename(target) });
+}
+
+function flushNativeOpenPaths() {
+  while (pendingNativeOpenPaths.length) requestNativeCourseOpen(pendingNativeOpenPaths.shift());
+}
+
+async function loadCourseAtPath(target) {
+  const bytes = await fs.readFile(target);
+  const opened = await openCoursePackage(bytes);
+  for (const pack of opened.componentPacks) store.registerComponentPack(pack);
+  cancelAgentRequests();
+  store = createDocumentStore(opened.document, { componentPacks: store.componentPacks() });
+  currentFilePath = target;
+  currentFileHash = opened.courseHash;
+  savedDocumentJson = stableStringify(opened.document);
+  candidate = null;
+  await saveRecovery();
+  return { ...publicState(), courseHash: opened.courseHash, warnings: opened.warnings };
+}
+
 function register(name, handler) {
   ipcMain.handle(`editor:${name}`, async (event, payload) => {
     assertTrustedWindow(event);
@@ -219,18 +321,14 @@ function registerIpc() {
       properties: ['openFile'], filters: [{ name: 'LumeSync 课件', extensions: ['lume'] }]
     });
     if (selected.canceled || !selected.filePaths[0]) return { canceled: true };
-    const target = selected.filePaths[0];
-    const bytes = await fs.readFile(target);
-    const opened = await openCoursePackage(bytes);
-    for (const pack of opened.componentPacks) store.registerComponentPack(pack);
-    cancelAgentRequests();
-    store = createDocumentStore(opened.document, { componentPacks: store.componentPacks() });
-    currentFilePath = target;
-    currentFileHash = opened.courseHash;
-    savedDocumentJson = stableStringify(opened.document);
-    candidate = null;
-    await saveRecovery();
-    return { canceled: false, ...publicState(), courseHash: opened.courseHash, warnings: opened.warnings };
+    return { canceled: false, ...await loadCourseAtPath(selected.filePaths[0]) };
+  });
+  register('resolve-native-open', async ({ requestId, accepted }) => {
+    const target = nativeOpenRequests.get(requestId);
+    if (!target) throw new CourseModelError('open_request_expired', '打开请求已失效，请从文件菜单重新打开课件。');
+    nativeOpenRequests.delete(requestId);
+    if (accepted !== true) return { canceled: true };
+    return { canceled: false, ...await loadCourseAtPath(target) };
   });
   register('save-course', async ({ saveAs = false } = {}) => {
     const snapshot = store.snapshot();
@@ -370,17 +468,41 @@ function createWindow() {
   });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', event => event.preventDefault());
+  win.webContents.once('did-finish-load', flushNativeOpenPaths);
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
   mainWindow = win;
   void win.loadFile(uiIndex);
 }
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+else {
+  app.on('second-instance', (_event, argv) => {
+    const target = argv.find(isCoursePath);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    if (target) requestNativeCourseOpen(target);
+  });
+  app.on('open-file', (event, target) => {
+    event.preventDefault();
+    requestNativeCourseOpen(target);
+  });
+}
+
 app.whenReady().then(async () => {
+  if (!hasSingleInstanceLock) return;
   await fs.mkdir(app.getPath('userData'), { recursive: true });
   await readSettings();
   await loadInstalledComponentPacks();
   await restoreRecovery();
   registerIpc();
+  Menu.setApplicationMenu(buildApplicationMenu());
+  if (process.platform !== 'darwin') {
+    const requestedPath = process.argv.slice(1).find(isCoursePath);
+    if (requestedPath) pendingNativeOpenPaths.push(requestedPath);
+  }
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 }).catch(error => {

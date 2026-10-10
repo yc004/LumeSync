@@ -3,13 +3,12 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const root = path.resolve(__dirname, '../../..');
 const {
   createManifest,
   readLumePackage,
   writeLumePackage,
   computeCourseHash
-} = require(path.join(root, 'packages/course-format'));
+} = require('@lumesync/course-format');
 const {
   DOCUMENT_FORMAT,
   DOCUMENT_VERSION,
@@ -19,11 +18,11 @@ const {
   createDocumentStore,
   getComponentCatalog,
   stableStringify
-} = require(path.join(root, 'packages/course-model'));
+} = require('@lumesync/course-model');
 const {
   validateComponentPack,
   componentPackHash
-} = require(path.join(root, 'packages/component-extensions'));
+} = require('@lumesync/component-extensions');
 
 const MAX_PROMPT_CHARS = 8000;
 const MAX_CONTEXT_CHARS = 120_000;

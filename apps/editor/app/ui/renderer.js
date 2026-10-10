@@ -271,4 +271,33 @@ bridge.onAgentEvent(async message => {
   else if (message.status === 'error') { statusText = message.error?.message || 'Agent 生成失败。'; statusError = true; await refresh(); activeTab = 'agent'; render(); }
 });
 
+bridge.onMenuAction(action => {
+  const button = appRoot.querySelector(`[data-action="${action}"]`);
+  if (button && !button.disabled) button.click();
+});
+
+bridge.onNativeOpenRequest(async ({ requestId, fileName }) => {
+  try {
+    await commandQueue;
+    if (!state) await refresh();
+    if (!state) {
+      await bridge.resolveNativeOpen(requestId, false);
+      return;
+    }
+    if ((state.dirty || state.candidate)
+      && !window.confirm(`当前课件有未保存修改或待审查候选。打开“${fileName}”会放弃这些更改；继续吗？`)) {
+      await bridge.resolveNativeOpen(requestId, false);
+      return;
+    }
+    const opened = await bridge.resolveNativeOpen(requestId, true);
+    if (!opened.canceled) {
+      state = opened;
+      selectedPageId = state.document.pages[0].id;
+      statusText = `已打开 ${state.fileName}`;
+      statusError = false;
+      render();
+    }
+  } catch (error) { showError(error); }
+});
+
 void refresh();

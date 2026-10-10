@@ -8,7 +8,7 @@
 // 测试传假传输，**绝不起组播**。发现结果只用于"定位设备"，不能作为身份或授权依据——
 // 授权只由固定机屏幕上的验证码完成（Hub 侧 teacher:pair.verify）。
 //
-// 与 apps/classroom-hub/src/discovery.js 的浏览助手保持同一套判定规则（同一契约常量），
+// 与 apps/classroom-hub/server/discovery.js 的浏览助手保持同一套判定规则（同一契约常量），
 // 但教师端包不 import Hub 应用代码，避免把服务端实现拖进桌面端。
 
 const {

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LumeSync test logo">
+  <rect width="512" height="512" rx="72" fill="#0f172a"/>
+  <circle cx="256" cy="256" r="148" fill="#14b8a6" opacity="0.18"/>
+  <path d="M148 308c48 58 168 58 216 0" fill="none" stroke="#22d3ee" stroke-width="34" stroke-linecap="round"/>
+  <path d="M164 218h184c22 0 40 18 40 40s-18 40-40 40H164c-22 0-40-18-40-40s18-40 40-40Z" fill="#ffffff"/>
+  <circle cx="188" cy="258" r="22" fill="#10b981"/>
+  <circle cx="324" cy="258" r="22" fill="#0891b2"/>
+  <path d="M196 150h120" stroke="#ffffff" stroke-width="32" stroke-linecap="round"/>
+</svg>

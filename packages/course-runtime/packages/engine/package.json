@@ -1,0 +1,16 @@
+﻿{
+  "name": "@lumesync/engine",
+  "version": "1.0.0",
+  "description": "SyncClassroom rendering engine and shared components",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo \"Engine is built dynamically at runtime\""
+  },
+  "keywords": [
+    "lumesync",
+    "engine",
+    "rendering"
+  ],
+  "author": "",
+  "license": "MIT"
+}

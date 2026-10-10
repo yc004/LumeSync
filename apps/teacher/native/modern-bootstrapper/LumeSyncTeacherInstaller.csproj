@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>LumeSyncTeacherInstaller</AssemblyName>
+    <RootNamespace>LumeSyncTeacherInstaller</RootNamespace>
+    <ApplicationIcon>..\installer\icon-teacher.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(PayloadInstallerPath)')">
+    <EmbeddedResource Include="$(PayloadInstallerPath)" LogicalName="CoreInstaller.bin" />
+  </ItemGroup>
+</Project>

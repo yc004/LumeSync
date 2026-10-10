@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "zip-format-smoke-test",
+  "title": "Zip 格式课件测试",
+  "version": "1.0.0",
+  "author": {
+    "name": "LumeSync"
+  },
+  "createdAt": "2026-04-16T00:00:00.000Z",
+  "updatedAt": "2026-04-16T00:00:00.000Z",
+  "icon": "ZIP",
+  "desc": "验证 manifest 顺序、assets 路径映射和独立 TSX 页面加载",
+  "color": "from-emerald-500 to-cyan-600",
+  "runtime": {
+    "format": "lumesync-zip",
+    "react": "18",
+    "slideModule": "tsx",
+    "entryMode": "pages",
+    "preferredAspectRatio": "16:9"
+  },
+  "pages": [
+    {
+      "id": "asset-check",
+      "file": "slides/AssetCheck.tsx",
+      "title": "资源路径测试",
+      "transition": {
+        "type": "fade",
+        "duration": 260,
+        "easing": "ease-out"
+      }
+    },
+    {
+      "id": "order-check",
+      "file": "slides/OrderCheck.tsx",
+      "title": "页面顺序测试",
+      "transition": {
+        "type": "slide",
+        "direction": "left",
+        "duration": 320,
+        "easing": "ease-in-out"
+      }
+    }
+  ],
+  "assets": {
+    "assets/lumesync-test-logo.svg": {
+      "type": "image/svg+xml",
+      "size": 0,
+      "usage": ["asset-check"]
+    }
+  }
+}

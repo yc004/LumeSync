@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncClassroom Student</title>
+    <script src="/lib/tailwindcss.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                screens: { sm: '10px', md: '10px', lg: '10px', xl: '10px', '2xl': '10px' },
+                extend: { height: { screen: '100%' }, width: { screen: '100%' }, minHeight: { screen: '100%' }, minWidth: { screen: '100%' } }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/lib/fontawesome.all.min.css">
+    <script crossorigin src="/lib/react.development.js"></script>
+    <script crossorigin src="/lib/react-dom.development.js"></script>
+    <script src="/lib/babel.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/lib/marked.min.js"></script>
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #020617; }
+        #root { width: 100vw; height: 100vh; }
+        * { scrollbar-width: none; -ms-overflow-style: none; user-select: none; -webkit-user-select: none; }
+        *::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script src="/protocol-client.js"></script>
+    <script src="/render-engine.js"></script>
+    <!-- 构建脚本把这里的相对引用重写为 /classroom/<version>/classroom-app.js；
+         学生课堂页由 @lumesync/student-ui 拥有，教师服务只分发构建产物。 -->
+    <script type="text/babel" src="classroom-app.js"></script>
+</body>
+</html>

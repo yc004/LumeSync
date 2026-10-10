@@ -1,7 +1,7 @@
 // 命令与事件名映射：把教师 UI 的动作翻译成两种模式各自可用的事件。
 //
 // 设计：teacher-cross-platform-relay.md §6 的协议表 + 契约事件表（packages/classroom-protocol）。
-// 关键事实（与 apps/classroom-hub/src/socket.js 一致）：
+// 关键事实（与 apps/classroom-hub/server/socket.js 一致）：
 //   - 中继模式：控制命令必须走 `classroom:command`，每条带 leaseId + epoch + requestId；
 //   - 直接模式：Hub 的 `classroom:command` 也要租约，而直接模式不能获取租约
 //     （teacher:lease.acquire → relay_disabled），因此直接模式必须用契约里已声明的

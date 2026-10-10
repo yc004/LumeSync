@@ -1,0 +1,37 @@
+{
+  "name": "@lumesync/teacher",
+  "version": "1.0.0",
+  "description": "SyncClassroom Teacher App",
+  "scripts": {
+    "start": "node scripts/start-native.js",
+    "start:server": "node server/index.js",
+    "test:server": "node --test server/tests/*.test.js",
+    "migrate-legacy-lume": "node scripts/migrate-legacy-lume.js",
+    "migrate-legacy-lume:batch": "node scripts/migrate-legacy-lume-batch.js",
+    "build:teacher-shell": "node server/src/teacher-shell-build.js",
+    "build": "npm run build:teacher-native",
+    "build:native:configure": "node scripts/run-cmake.js -S . -B build/native-vs -G \"Visual Studio 17 2022\" -A x64",
+    "build:native": "node scripts/run-cmake.js --build build/native-vs --config Release",
+    "package:teacher-native": "pnpm --filter @lumesync/student-ui run build && pnpm --filter @lumesync/core run build && npm run build:teacher-shell && powershell -ExecutionPolicy Bypass -File native/package-native.ps1",
+    "build:teacher-native": "npm run build:native:configure && npm run build:native && npm run package:teacher-native",
+    "package:teacher-native-installer": "powershell -ExecutionPolicy Bypass -File native/build-installer.ps1",
+    "build:teacher-native-installer": "npm run build:teacher-native && npm run package:teacher-native-installer"
+  },
+  "dependencies": {
+    "@lumesync/classroom-protocol": "workspace:*",
+    "@lumesync/course-format": "workspace:*",
+    "@lumesync/native-contract": "workspace:*",
+    "@lumesync/student-ui": "workspace:*",
+    "express": "^4.18.2",
+    "socket.io-client": "^4.8.3",
+    "socket.io": "^4.7.2",
+    "archiver": "^6.0.1"
+  },
+  "keywords": [
+    "lumesync",
+    "teacher"
+  ],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0"
+}

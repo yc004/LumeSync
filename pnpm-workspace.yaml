@@ -5,7 +5,4 @@ packages:
   - "apps/teacher/*"
   - "docs-site"
   - "website"
-  - "repos/teacher"
-  - "repos/teacher/core"
-  - "repos/student"
-  - "repos/student/ui/*"
+  - "apps/student/ui/*"

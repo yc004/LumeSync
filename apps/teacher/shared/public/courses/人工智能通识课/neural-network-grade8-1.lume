@@ -1,0 +1,799 @@
+// 神经网络入门 - 八年级课件
+window.CourseData = {
+    id: 'neural-network-grade8',
+    title: '探索神经网络',
+    icon: '🧠',
+    desc: '八年级40分钟课程 - 了解人工智能的大脑如何工作',
+    color: 'from-purple-500 to-pink-600',
+    slides: [
+        {
+            title: '课程介绍',
+            component: <IntroductionPage />
+        },
+        {
+            title: '什么是神经元？',
+            component: <NeuronDemoPage />
+        },
+        {
+            title: '神经元的工作方式',
+            component: <NeuronWorksPage />
+        },
+        {
+            title: '构建神经网络',
+            component: <BuildNetworkPage />
+        },
+        {
+            title: '分类游戏',
+            component: <ClassificationGame />
+        },
+        {
+            title: '生活中的神经网络',
+            component: <RealWorldPage />
+        },
+        {
+            title: '总结与思考',
+            component: <ConclusionPage />
+        }
+    ]
+};
+
+// 页面1：课程介绍
+function IntroductionPage(): JSX.Element {
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-br from-purple-50 to-pink-50 p-8">
+            <div className="max-w-4xl text-center">
+                <div className="inline-block p-4 bg-white rounded-2xl shadow-lg mb-6 animate-bounce">
+                    <span className="text-6xl">🧠</span>
+                </div>
+                <h1 className="text-5xl font-bold text-purple-800 mb-4">
+                    探索神经网络
+                </h1>
+                <p className="text-2xl text-gray-700 mb-8">
+                    人工智能的"大脑"是如何工作的？
+                </p>
+                
+                <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
+                    <h2 className="text-2xl font-bold text-purple-700 mb-4">📚 本节课你将学到：</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                        <div className="flex items-start">
+                            <span className="text-2xl mr-3">🔬</span>
+                            <p className="text-lg">神经网络的基本组成单元</p>
+                        </div>
+                        <div className="flex items-start">
+                            <span className="text-2xl mr-3">⚙️</span>
+                            <p className="text-lg">神经元如何传递信息</p>
+                        </div>
+                        <div className="flex items-start">
+                            <span className="text-2xl mr-3">🧩</span>
+                            <p className="text-lg">如何组合神经元形成网络</p>
+                        </div>
+                        <div className="flex items-start">
+                            <span className="text-2xl mr-3">🎮</span>
+                            <p className="text-lg">体验神经网络分类功能</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="text-gray-600 text-lg">
+                    <p className="mb-2">⏰ 课程时长：40分钟</p>
+                    <p className="mb-2">🎯 适合年级：八年级</p>
+                    <p className="font-medium">准备好开始探索了吗？点击右下角箭头继续！</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// 页面2：神经元演示
+function NeuronDemoPage(): JSX.Element {
+    const [isActivated, setIsActivated] = React.useState(false);
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-br from-blue-50 to-cyan-50 p-8">
+            <h1 className="text-4xl font-bold text-blue-800 mb-2">🧠 什么是神经元？</h1>
+            <p className="text-xl text-gray-700 mb-8 text-center max-w-3xl">
+                神经元是神经网络的基本单元，就像大脑中的神经细胞
+            </p>
+            
+            <div className="flex flex-col lg:flex-row items-center justify-center gap-8 w-full max-w-6xl">
+                {/* 神经元模型 */}
+                <div className="relative bg-white rounded-2xl p-6 shadow-xl">
+                    <div className="text-center mb-6">
+                        <h2 className="text-2xl font-bold text-blue-700">生物神经元 vs 人工神经元</h2>
+                    </div>
+                    
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                        {/* 生物神经元 */}
+                        <div className="text-center">
+                            <h3 className="text-lg font-bold text-green-600 mb-2">生物神经元</h3>
+                            <div className="relative">
+                                <div className="w-40 h-40 bg-green-100 rounded-full flex items-center justify-center">
+                                    <div className="w-24 h-24 bg-green-300 rounded-full"></div>
+                                </div>
+                                <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-4 h-16 bg-green-400"></div>
+                                <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="w-1 h-8 bg-green-500"></div>
+                                    ))}
+                                </div>
+                            </div>
+                            <p className="mt-10 text-sm">接收信号 → 处理信号 → 传递信号</p>
+                        </div>
+                        
+                        <div className="text-3xl text-gray-400">⇄</div>
+                        
+                        {/* 人工神经元 */}
+                        <div className="text-center">
+                            <h3 className="text-lg font-bold text-purple-600 mb-2">人工神经元</h3>
+                            <div 
+                                className={`w-40 h-40 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${isActivated ? 'bg-purple-500 shadow-lg scale-105' : 'bg-purple-100'}`}
+                                onClick={() => setIsActivated(!isActivated)}
+                            >
+                                <div className={`text-4xl mb-2 ${isActivated ? 'text-white' : 'text-purple-400'}`}>
+                                    ∑
+                                </div>
+                                <div className={`text-2xl font-bold ${isActivated ? 'text-white' : 'text-purple-600'}`}>
+                                    {isActivated ? '激活！' : '等待输入'}
+                                </div>
+                                {isActivated && (
+                                    <div className="mt-2 text-white text-sm">信号已传递！</div>
+                                )}
+                            </div>
+                            <p className="mt-4">
+                                <button 
+                                    className={`px-4 py-2 rounded-lg font-medium ${isActivated ? 'bg-purple-600 text-white' : 'bg-purple-200 text-purple-700'}`}
+                                    onClick={() => setIsActivated(!isActivated)}
+                                >
+                                    {isActivated ? '重置神经元' : '点击激活神经元'}
+                                </button>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div className="mt-8 bg-blue-50 p-4 rounded-lg">
+                        <p className="text-blue-800">
+                            💡 <strong>相似点：</strong>两者都接收输入，进行处理，然后决定是否输出信号
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// 页面3：神经元工作原理
+function NeuronWorksPage(): JSX.Element {
+    const [input1, setInput1] = React.useState(0);
+    const [input2, setInput2] = React.useState(0);
+    const [weight1, setWeight1] = React.useState(0.7);
+    const [weight2, setWeight2] = React.useState(0.3);
+    const [threshold, setThreshold] = React.useState(0.5);
+    
+    const calculateOutput = () => {
+        const total = input1 * weight1 + input2 * weight2;
+        return total > threshold ? 1 : 0;
+    };
+    
+    const output = calculateOutput();
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-br from-green-50 to-emerald-50 p-8">
+            <h1 className="text-4xl font-bold text-green-800 mb-2">⚙️ 神经元如何工作？</h1>
+            <p className="text-xl text-gray-700 mb-8 text-center max-w-3xl">
+                输入 × 权重 + 偏置 → 激活函数 → 输出
+            </p>
+            
+            <div className="bg-white rounded-2xl p-8 shadow-xl max-w-4xl w-full">
+                {/* 神经元计算模型 */}
+                <div className="flex flex-col items-center mb-8">
+                    <div className="flex items-center justify-center space-x-8 mb-8">
+                        {/* 输入 */}
+                        <div className="text-center">
+                            <h3 className="font-bold text-lg text-blue-600 mb-2">输入信号</h3>
+                            <div className="space-y-4">
+                                <div className="flex items-center">
+                                    <span className="w-20 text-right mr-2">输入1:</span>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="1" 
+                                        step="0.1"
+                                        value={input1}
+                                        onChange={(e) => setInput1(parseFloat(e.target.value))}
+                                        className="w-32"
+                                    />
+                                    <span className="ml-2 font-mono w-8">{input1.toFixed(1)}</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <span className="w-20 text-right mr-2">输入2:</span>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="1" 
+                                        step="0.1"
+                                        value={input2}
+                                        onChange={(e) => setInput2(parseFloat(e.target.value))}
+                                        className="w-32"
+                                    />
+                                    <span className="ml-2 font-mono w-8">{input2.toFixed(1)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="text-3xl text-gray-400">→</div>
+                        
+                        {/* 权重 */}
+                        <div className="text-center">
+                            <h3 className="font-bold text-lg text-purple-600 mb-2">权重调节</h3>
+                            <div className="space-y-4">
+                                <div className="flex items-center">
+                                    <span className="w-20 text-right mr-2">权重1:</span>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="1" 
+                                        step="0.1"
+                                        value={weight1}
+                                        onChange={(e) => setWeight1(parseFloat(e.target.value))}
+                                        className="w-32"
+                                    />
+                                    <span className="ml-2 font-mono w-8">{weight1.toFixed(1)}</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <span className="w-20 text-right mr-2">权重2:</span>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="1" 
+                                        step="0.1"
+                                        value={weight2}
+                                        onChange={(e) => setWeight2(parseFloat(e.target.value))}
+                                        className="w-32"
+                                    />
+                                    <span className="ml-2 font-mono w-8">{weight2.toFixed(1)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* 计算过程 */}
+                    <div className="bg-gray-50 p-6 rounded-xl mb-6 w-full">
+                        <h4 className="font-bold text-lg text-gray-700 mb-3">计算过程：</h4>
+                        <div className="text-center font-mono text-xl">
+                            总输入 = ({input1.toFixed(1)} × {weight1.toFixed(1)}) + ({input2.toFixed(1)} × {weight2.toFixed(1)}) 
+                            = <span className="font-bold">{(input1 * weight1 + input2 * weight2).toFixed(2)}</span>
+                        </div>
+                        <div className="mt-3 text-center">
+                            <div className="inline-flex items-center">
+                                <span>阈值（偏置）: </span>
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.1"
+                                    value={threshold}
+                                    onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                                    className="w-32 mx-4"
+                                />
+                                <span className="font-mono">{threshold.toFixed(1)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* 输出结果 */}
+                    <div className={`p-6 rounded-2xl transition-all duration-300 ${output === 1 ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'}`}>
+                        <h3 className="text-2xl font-bold mb-2">输出结果</h3>
+                        <div className="text-4xl font-bold text-center">
+                            {output === 1 ? '🔥 激活！' : '💤 未激活'}
+                        </div>
+                        <p className="text-center mt-2">
+                            总输入 {((input1 * weight1 + input2 * weight2).toFixed(2))} 
+                            {output === 1 ? ' > ' : ' ≤ '}
+                            阈值 {threshold.toFixed(1)}
+                        </p>
+                    </div>
+                </div>
+                
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <p className="text-yellow-800">
+                        💡 <strong>学习要点：</strong>通过调节权重和阈值，神经元可以学习识别不同的模式。这就像调节收音机旋钮找到清晰信号！
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// 页面4：构建神经网络
+function BuildNetworkPage(): JSX.Element {
+    const [networkLayers, setNetworkLayers] = React.useState([2, 3, 1]);
+    const [connections, setConnections] = React.useState(true);
+    
+    const addLayer = () => {
+        if (networkLayers.length < 5) {
+            const newLayers = [...networkLayers];
+            newLayers.splice(newLayers.length - 1, 0, 2);
+            setNetworkLayers(newLayers);
+        }
+    };
+    
+    const removeLayer = () => {
+        if (networkLayers.length > 2) {
+            const newLayers = [...networkLayers];
+            newLayers.splice(1, 1);
+            setNetworkLayers(newLayers);
+        }
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-br from-orange-50 to-red-50 p-8">
+            <h1 className="text-4xl font-bold text-orange-800 mb-2">🧩 构建神经网络</h1>
+            <p className="text-xl text-gray-700 mb-8 text-center max-w-3xl">
+                连接多个神经元，形成强大的神经网络
+            </p>
+            
+            <div className="bg-white rounded-2xl p-8 shadow-xl max-w-6xl w-full">
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* 网络可视化 */}
+                    <div className="flex-1">
+                        <div className="bg-gray-900 rounded-xl p-6 mb-6">
+                            <h3 className="text-xl font-bold text-white mb-4">神经网络结构</h3>
+                            
+                            {/* 网络图 */}
+                            <div className="flex justify-between items-center h-64">
+                                {networkLayers.map((neuronCount, layerIndex) => (
+                                    <div key={layerIndex} className="flex flex-col items-center justify-center space-y-4">
+                                        <div className="text-center mb-2">
+                                            <div className="text-white font-bold">
+                                                {layerIndex === 0 ? '输入层' : 
+                                                 layerIndex === networkLayers.length - 1 ? '输出层' : 
+                                                 `隐藏层 ${layerIndex}`}
+                                            </div>
+                                            <div className="text-gray-400 text-sm">
+                                                {neuronCount}个神经元
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex flex-col items-center space-y-2">
+                                            {Array.from({length: neuronCount}).map((_, i) => (
+                                                <div 
+                                                    key={i}
+                                                    className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-400 to-red-400 flex items-center justify-center text-white font-bold shadow-md"
+                                                >
+                                                    {i+1}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {/* 连接线 */}
+                            {connections && (
+                                <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+                                    {/* 这里可以添加连接线动画 */}
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="flex justify-center space-x-4">
+                            <button 
+                                onClick={addLayer}
+                                disabled={networkLayers.length >= 5}
+                                className={`px-4 py-2 rounded-lg font-medium ${networkLayers.length >= 5 ? 'bg-gray-300 text-gray-500' : 'bg-orange-500 text-white hover:bg-orange-600'}`}
+                            >
+                                添加隐藏层
+                            </button>
+                            <button 
+                                onClick={removeLayer}
+                                disabled={networkLayers.length <= 2}
+                                className={`px-4 py-2 rounded-lg font-medium ${networkLayers.length <= 2 ? 'bg-gray-300 text-gray-500' : 'bg-red-500 text-white hover:bg-red-600'}`}
+                            >
+                                移除隐藏层
+                            </button>
+                            <button 
+                                onClick={() => setConnections(!connections)}
+                                className={`px-4 py-2 rounded-lg font-medium ${connections ? 'bg-blue-500 text-white' : 'bg-gray-500 text-white'}`}
+                            >
+                                {connections ? '隐藏连接' : '显示连接'}
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* 说明区域 */}
+                    <div className="flex-1">
+                        <div className="space-y-6">
+                            <div className="bg-blue-50 p-4 rounded-lg">
+                                <h4 className="font-bold text-blue-700 mb-2">🔧 网络结构说明</h4>
+                                <ul className="list-disc pl-5 text-blue-800 space-y-1">
+                                    <li><strong>输入层：</strong>接收原始数据（如图像像素）</li>
+                                    <li><strong>隐藏层：</strong>处理数据，提取特征</li>
+                                    <li><strong>输出层：</strong>给出最终结果（如分类）</li>
+                                </ul>
+                            </div>
+                            
+                            <div className="bg-green-50 p-4 rounded-lg">
+                                <h4 className="font-bold text-green-700 mb-2">🎯 深度网络的优势</h4>
+                                <ul className="list-disc pl-5 text-green-800 space-y-1">
+                                    <li>更多隐藏层可以学习更复杂的模式</li>
+                                    <li>每层提取不同层次的特征</li>
+                                    <li>适合处理图像、语音等复杂数据</li>
+                                </ul>
+                            </div>
+                            
+                            <div className="bg-purple-50 p-4 rounded-lg">
+                                <h4 className="font-bold text-purple-700 mb-2">💡 你知道吗？</h4>
+                                <p className="text-purple-800">
+                                    著名的AlphaGo使用了13层神经网络，而图像识别网络可能有上百层！
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// 页面5：分类游戏
+function ClassificationGame(): JSX.Element {
+    const [selectedShape, setSelectedShape] = React.useState<'circle' | 'square' | 'triangle' | null>(null);
+    const [networkGuess, setNetworkGuess] = React.useState<string | null>(null);
+    const [score, setScore] = React.useState(0);
+    const [attempts, setAttempts] = React.useState(0);
+    
+    const shapes = [
+        { type: 'circle', emoji: '⭕', color: 'bg-red-100', border: 'border-red-300' },
+        { type: 'square', emoji: '⬜', color: 'bg-blue-100', border: 'border-blue-300' },
+        { type: 'triangle', emoji: '🔺', color: 'bg-green-100', border: 'border-green-300' },
+    ];
+    
+    const makeGuess = () => {
+        if (!selectedShape) return;
+        
+        setAttempts(attempts + 1);
+        
+        // 模拟神经网络"学习" - 正确率随尝试次数提高
+        const accuracy = Math.min(0.3 + attempts * 0.1, 0.9);
+        const isCorrect = Math.random() < accuracy;
+        
+        if (isCorrect) {
+            setNetworkGuess(selectedShape);
+            setScore(score + 1);
+        } else {
+            // 随机选择一个错误答案
+            const wrongChoices = shapes.filter(s => s.type !== selectedShape);
+            const wrongGuess = wrongChoices[Math.floor(Math.random() * wrongChoices.length)].type;
+            setNetworkGuess(wrongGuess);
+        }
+        
+        // 2秒后重置
+        setTimeout(() => {
+            setSelectedShape(null);
+            setNetworkGuess(null);
+        }, 2000);
+    };
+    
+    const resetGame = () => {
+        setScore(0);
+        setAttempts(0);
+        setSelectedShape(null);
+        setNetworkGuess(null);
+    };
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-br from-indigo-50 to-purple-50 p-8">
+            <h1 className="text-4xl font-bold text-indigo-800 mb-2">🎮 神经网络分类游戏</h1>
+            <p className="text-xl text-gray-700 mb-8 text-center max-w-3xl">
+                训练神经网络识别不同形状
+            </p>
+            
+            <div className="bg-white rounded-2xl p-8 shadow-xl max-w-4xl w-full">
+                {/* 游戏区域 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* 左侧：形状选择 */}
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-700 mb-4">选择形状：</h3>
+                        <div className="space-y-4">
+                            {shapes.map(shape => (
+                                <button
+                                    key={shape.type}
+                                    onClick={() => setSelectedShape(shape.type as any)}
+                                    className={`w-full p-6 rounded-xl flex items-center justify-between transition-all ${selectedShape === shape.type ? `${shape.color} ${shape.border} border-2 transform scale-105` : 'bg-gray-50 hover:bg-gray-100'}`}
+                                >
+                                    <div className="flex items-center">
+                                        <span className="text-4xl mr-4">{shape.emoji}</span>
+                                        <span className="text-xl font-medium capitalize">{shape.type}</span>
+                                    </div>
+                                    {selectedShape === shape.type && (
+                                        <span className="text-green-500 text-2xl">✓</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <button
+                            onClick={makeGuess}
+                            disabled={!selectedShape || networkGuess !== null}
+                            className={`w-full mt-6 py-4 rounded-xl text-xl font-bold ${!selectedShape ? 'bg-gray-300 text-gray-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                        >
+                            {!selectedShape ? '请先选择形状' : '让神经网络识别'}
+                        </button>
+                    </div>
+                    
+                    {/* 右侧：神经网络识别 */}
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-700 mb-4">神经网络识别：</h3>
+                        
+                        <div className="bg-gray-900 rounded-xl p-6 mb-6 h-48 flex flex-col justify-center items-center">
+                            {selectedShape ? (
+                                <div className="text-center">
+                                    <div className="text-6xl mb-4">
+                                        {shapes.find(s => s.type === selectedShape)?.emoji}
+                                    </div>
+                                    <p className="text-white text-lg">已选择：{selectedShape}</p>
+                                </div>
+                            ) : (
+                                <p className="text-gray-400 text-xl">等待选择形状...</p>
+                            )}
+                        </div>
+                        
+                        {/* 识别结果 */}
+                        {networkGuess && (
+                            <div className={`p-6 rounded-xl mb-4 ${networkGuess === selectedShape ? 'bg-green-100 border-2 border-green-300' : 'bg-red-100 border-2 border-red-300'}`}>
+                                <div className="text-center">
+                                    <div className="text-3xl mb-2">
+                                        {networkGuess === selectedShape ? '✅' : '❌'}
+                                    </div>
+                                    <p className="text-xl font-bold">
+                                        神经网络猜测：{networkGuess}
+                                    </p>
+                                    <p className="mt-2">
+                                        {networkGuess === selectedShape ? '正确！网络识别成功' : '错误！网络还需要学习'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* 得分板 */}
+                        <div className="bg-gray-50 p-4 rounded-xl">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="text-gray-600">正确率</p>
+                                    <p className="text-2xl font-bold">
+                                        {attempts > 0 ? `${Math.round((score / attempts) * 100)}%` : '0%'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-600">得分</p>
+                                    <p className="text-2xl font-bold">{score} / {attempts}</p>
+                                </div>
+                                <div>
+                                    <button
+                                        onClick={resetGame}
+                                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                                    >
+                                        重新开始
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="mt-8 bg-yellow-50 p-4 rounded-lg">
+                    <p className="text-yellow-800">
+                        💡 <strong>游戏说明：</strong>这个游戏模拟了神经网络如何通过多次训练提高识别准确率。每次尝试后，网络的"学习能力"都在提升！
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// 页面6：现实应用
+function RealWorldPage(): JSX.Element {
+    const applications = [
+        {
+            title: "图像识别",
+            icon: "📸",
+            description: "手机人脸解锁、照片自动分类",
+            example: "Facebook自动识别人脸并标记好友",
+            color: "from-blue-400 to-cyan-400"
+        },
+        {
+            title: "语音助手",
+            icon: "🎤",
+            description: "Siri、小爱同学、天猫精灵",
+            example: "你说'明天天气如何'，助手理解并回答",
+            color: "from-green-400 to-emerald-400"
+        },
+        {
+            title: "推荐系统",
+            icon: "🎬",
+            description: "抖音、Netflix、淘宝推荐",
+            example: "根据你的喜好推荐视频或商品",
+            color: "from-purple-400 to-pink-400"
+        },
+        {
+            title: "自动驾驶",
+            icon: "🚗",
+            description: "特斯拉自动驾驶系统",
+            example: "识别行人、车辆和交通信号",
+            color: "from-orange-400 to-red-400"
+        }
+    ];
+    
+    const [selectedApp, setSelectedApp] = React.useState(0);
+    
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-br from-slate-50 to-gray-50 p-8">
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">🌍 生活中的神经网络</h1>
+            <p className="text-xl text-gray-700 mb-8 text-center max-w-3xl">
+                神经网络已经无处不在，改变着我们的生活
+            </p>
+            
+            <div className="bg-white rounded-2xl p-8 shadow-xl max-w-6xl w-full">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* 左侧：应用展示 */}
+                    <div>
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            {applications.map((app, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => setSelectedApp(index)}
+                                    className={`p-4 rounded-xl text-center transition-all ${selectedApp === index ? 'ring-2 ring-blue-500 transform scale-105' : 'bg-gray-50 hover:bg-gray-100'}`}
+                                >
+                                    <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r ${app.color} text-white text-2xl mb-2`}>
+                                        {app.icon}
+                                    </div>
+                                    <h3 className="font-bold text-lg">{app.title}</h3>
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-xl">
+                            <h3 className="text-2xl font-bold text-gray-800 mb-4">
+                                {applications[selectedApp].title}
+                            </h3>
+                            <p className="text-gray-700 text-lg mb-4">
+                                {applications[selectedApp].description}
+                            </p>
+                            <div className="bg-white p-4 rounded-lg">
+                                <p className="text-gray-600">
+                                    <span className="font-bold">例如：</span> 
+                                    {applications[selectedApp].example}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* 右侧：互动演示 */}
+                    <div className="bg-gray-900 rounded-xl p-6 h-full flex flex-col justify-center">
+                        <div className="text-center mb-6">
+                            <h3 className="text-xl font-bold text-white mb-2">🤖 神经网络工作流程</h3>
+                            <p className="text-gray-300">以{applications[selectedApp].title}为例</p>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            {['输入数据', '特征提取', '模式识别', '输出结果'].map((step, index) => (
+                                <div key={index} className="flex items-center">
+                                    <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold mr-4">
+                                        {index + 1}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-white font-medium">{step}</div>
+                                        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full"
+                                                style={{ 
+                                                    width: `${(selectedApp * 25 + (index + 1) * 25) % 100}%`,
+                                                    transition: 'width 1s ease-in-out'
+                                                }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="mt-8 p-4 bg-gray-800 rounded-lg">
+                            <p className="text-gray-300 text-center">
+                                💡 神经网络通过多层处理，将原始数据转化为有用信息
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="mt-8 bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl">
+                    <h4 className="text-xl font-bold text-purple-800 mb-2">🚀 未来展望</h4>
+                    <p className="text-purple-700">
+                        随着技术发展，神经网络将在医疗诊断、气候预测、艺术创作等领域发挥更大作用。
+                        也许未来的AI科学家就在你们中间！
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// 页面7：总结
+function ConclusionPage(): JSX.Element {
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-br from-gray-50 to-blue-50 p-8">
+            <div className="max-w-4xl text-center">
+                <h1 className="text-5xl font-bold text-gray-800 mb-6">
+                    课程总结 🎓
+                </h1>
+                
+                <div className="bg-white rounded-2xl p-8 shadow-xl mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-blue-50 p-6 rounded-xl">
+                            <div className="text-4xl mb-4">🧠</div>
+                            <h3 className="font-bold text-lg text-blue-700 mb-2">神经元</h3>
+                            <p className="text-blue-600">神经网络的基本单元</p>
+                        </div>
+                        <div className="bg-green-50 p-6 rounded-xl">
+                            <div className="text-4xl mb-4">🔗</div>
+                            <h3 className="font-bold text-lg text-green-700 mb-2">连接</h3>
+                            <p className="text-green-600">神经元通过权重连接</p>
+                        </div>
+                        <div className="bg-purple-50 p-6 rounded-xl">
+                            <div className="text-4xl mb-4">🌐</div>
+                            <h3 className="font-bold text-lg text-purple-700 mb-2">网络</h3>
+                            <p className="text-purple-600">多层神经元组成智能系统</p>
+                        </div>
+                    </div>
+                    
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-bold text-gray-700 mb-4">💭 思考问题</h2>
+                        <div className="space-y-3 text-left max-w-2xl mx-auto">
+                            <div className="flex items-start">
+                                <span className="text-xl mr-2">1.</span>
+                                <p>神经网络和人脑有哪些相似和不同？</p>
+                            </div>
+                            <div className="flex items-start">
+                                <span className="text-xl mr-2">2.</span>
+                                <p>为什么神经网络需要大量数据来训练？</p>
+                            </div>
+                            <div className="flex items-start">
+                                <span className="text-xl mr-2">3.</span>
+                                <p>你能想到神经网络在学校的应用场景吗？</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-gradient-to-r from-blue-100 to-cyan-100 p-6 rounded-xl">
+                        <h3 className="text-xl font-bold text-blue-800 mb-3">📚 延伸学习</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                            <div>
+                                <p className="font-medium text-blue-700">推荐资源：</p>
+                                <ul className="list-disc pl-5 text-blue-600">
+                                    <li>视频：3Blue1Brown神经网络系列</li>
+                                    <li>网站：TensorFlow Playground</li>
+                                    <li>书籍：《人工智能简史》</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <p className="font-medium text-blue-700">实践项目：</p>
+                                <ul className="list-disc pl-5 text-blue-600">
+                                    <li>使用在线工具训练简单AI</li>
+                                    <li>编写程序识别手写数字</li>
+                                    <li>设计一个智能聊天机器人</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-8 rounded-2xl">
+                    <h2 className="text-3xl font-bold mb-4">恭喜完成课程！</h2>
+                    <p className="text-xl mb-4">
+                        你已经迈出了理解人工智能的第一步
+                    </p>
+                    <div className="text-4xl animate-bounce">🎉</div>
+                </div>
+            </div>
+        </div>
+    );
+}

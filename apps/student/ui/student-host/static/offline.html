@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>无法连接</title>
+  <link rel="icon" href="./assets/tray-icon.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", sans-serif; background: #0f172a; color: #e2e8f0; display: flex; min-height: 100vh; align-items: center; justify-content: center; }
+    .card { max-width: 460px; padding: 48px 40px; text-align: center; }
+    .icon { width: 72px; height: 72px; opacity: 0.75; margin-bottom: 20px; }
+    h1 { font-size: 22px; margin-bottom: 12px; color: #f8fafc; }
+    p { line-height: 1.7; color: #94a3b8; font-size: 14px; }
+    .ip { margin-top: 8px; color: #60a5fa; font-family: Consolas, monospace; font-size: 15px; }
+    .status { margin-top: 24px; padding: 12px 20px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 10px; color: #94a3b8; font-size: 13px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; animation: pulse 1.2s ease-in-out infinite; }
+    .btn { display: inline-block; margin-top: 20px; padding: 10px 28px; border: none; border-radius: 10px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .hint { margin-top: 14px; color: #475569; font-size: 11px; }
+    a { color: #64748b; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img class="icon" src="./assets/tray-icon.png" alt="">
+    <h1>无法连接到教师端</h1>
+    <p>正在尝试连接：</p>
+    <p class="ip" id="teacher-ip">加载中...</p>
+    <p style="margin-top: 14px;">请确认教师端已开启，并且当前设备与教师机处于同一局域网。</p>
+
+    <div class="status">
+      <span class="dot"></span>
+      <span id="status-text">正在等待教师端上线，<span id="countdown">5</span> 秒后自动重试...</span>
+    </div>
+
+    <button id="manual-retry" class="btn">立即重试</button>
+    <p class="hint">如需修改教师机 IP，请从托盘菜单打开管理员设置。</p>
+    <p class="hint"><a id="toggle-devtools" href="#">打开开发者工具</a></p>
+  </div>
+
+  <script type="module" src="./offline.js"></script>
+</body>
+</html>

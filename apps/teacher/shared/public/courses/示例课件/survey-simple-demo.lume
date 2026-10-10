@@ -1,0 +1,143 @@
+// ========================================================
+// 课程内容：问卷组件 - 极简配置示例
+// ========================================================
+
+const { useState, useEffect } = React;
+
+// 标题页
+function IntroSlide() {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-full text-center p-8 space-y-8 bg-gradient-to-br from-purple-50 via-white to-pink-50">
+            <div className="w-32 h-32 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
+                <i className="fas fa-poll-h text-white text-6xl"></i>
+            </div>
+            <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 tracking-tight">
+                问卷组件 - 极简配置
+            </h1>
+            <h2 className="text-2xl font-bold text-slate-600">
+                只需提供题目，引擎自动处理所有细节
+            </h2>
+            <p className="max-w-3xl text-lg text-slate-500 leading-relaxed bg-white/80 p-6 rounded-2xl shadow-sm">
+                本课件展示问卷组件的极简配置方式。你只需要提供题目配置，引擎会自动处理 ID 生成、数据格式化、提交、草稿保存等所有细节。
+            </p>
+            <div className="grid grid-cols-3 gap-4 w-full max-w-4xl mt-8">
+                <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-purple-100 hover:border-purple-300 transition-all">
+                    <i className="fas fa-magic text-4xl text-purple-500 mb-3"></i>
+                    <h3 className="font-bold text-slate-800 mb-2">自动生成 ID</h3>
+                    <p className="text-sm text-slate-600">无需手动指定，引擎自动生成唯一标识</p>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-pink-100 hover:border-pink-300 transition-all">
+                    <i className="fas fa-check-circle text-4xl text-pink-500 mb-3"></i>
+                    <h3 className="font-bold text-slate-800 mb-2">自动验证</h3>
+                    <p className="text-sm text-slate-600">必填项验证，错误提示</p>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-indigo-100 hover:border-indigo-300 transition-all">
+                    <i className="fas fa-save text-4xl text-indigo-500 mb-3"></i>
+                    <h3 className="font-bold text-slate-800 mb-2">自动保存</h3>
+                    <p className="text-sm text-slate-600">每 30 秒自动保存草稿</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// 示例 1：最简配置
+function SimpleSurveySlide() {
+    const surveyConfig = {
+        title: '课程反馈',
+        questions: [
+            {
+                type: 'single',
+                title: '你对这门课程的满意度如何？',
+                options: [
+                    { value: 'very-satisfied', label: '非常满意' },
+                    { value: 'satisfied', label: '满意' },
+                    { value: 'neutral', label: '一般' },
+                    { value: 'dissatisfied', label: '不满意' }
+                ]
+            }
+        ]
+    };
+
+    return <SurveySlide config={surveyConfig} />;
+}
+
+// 示例 2：多种题型
+function MultipleTypesSurveySlide() {
+    const surveyConfig = {
+        title: '课程满意度调查',
+        description: '请真实填写，帮助我们改进课程质量',
+        questions: [
+            {
+                type: 'single',
+                title: '你对这门课程的满意度如何？',
+                options: [
+                    { value: 'very-satisfied', label: '非常满意' },
+                    { value: 'satisfied', label: '满意' },
+                    { value: 'neutral', label: '一般' },
+                    { value: 'dissatisfied', label: '不满意' }
+                ]
+            },
+            {
+                type: 'multiple',
+                title: '你对课程的哪些方面满意？（可多选）',
+                options: [
+                    { value: 'content', label: '课程内容' },
+                    { value: 'teaching', label: '教学方式' },
+                    { value: 'interaction', label: '互动环节' },
+                    { value: 'materials', label: '学习材料' }
+                ]
+            },
+            {
+                type: 'text',
+                title: '请写下你对课程的建议'
+            },
+            {
+                type: 'rating',
+                title: '请给教师的教学质量评分',
+                options: [
+                    { value: 1, label: '非常差', icon: '😠' },
+                    { value: 2, label: '差', icon: '😞' },
+                    { value: 3, label: '一般', icon: '😐' },
+                    { value: 4, label: '好', icon: '🙂' },
+                    { value: 5, label: '非常好', icon: '😊' }
+                ]
+            }
+        ]
+    };
+
+    return <SurveySlide config={surveyConfig} />;
+}
+
+// 示例 3：投票
+function VoteSlide() {
+    const voteConfig = {
+        title: '投票：你更喜欢哪种教学方式？',
+        description: '请选择一项',
+        questions: [
+            {
+                type: 'single',
+                title: '教学方式',
+                options: [
+                    { value: 'lecture', label: '传统讲授' },
+                    { value: 'interactive', label: '互动讨论' },
+                    { value: 'practice', label: '实践操作' }
+                ]
+            }
+        ]
+    };
+
+    return <SurveySlide config={voteConfig} />;
+}
+
+// 课程配置
+window.CourseData = {
+    id: 'survey-simple-demo',
+    title: '问卷组件 - 极简配置示例',
+    slides: [
+        { id: 'intro', component: <IntroSlide /> },
+        { id: 'simple', component: <SimpleSurveySlide />, title: '最简配置' },
+        { id: 'multiple', component: <MultipleTypesSurveySlide />, title: '多种题型' },
+        { id: 'vote', component: <VoteSlide />, title: '投票示例' }
+    ]
+};

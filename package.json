@@ -4,11 +4,13 @@
   "description": "SyncClassroom workspace",
   "private": true,
   "scripts": {
-    "repos:init": "git submodule sync --recursive && git submodule update --init --recursive",
-    "repos:update": "git submodule update --remote --merge --recursive",
     "start:teacher": "pnpm --filter @lumesync/teacher run start",
     "start:teacher:desktop": "pnpm --filter @lumesync/teacher-desktop run start",
     "start:editor": "pnpm --filter @lumesync/editor run start",
+    "dist:editor:mac": "pnpm --filter @lumesync/editor run dist:mac",
+    "dist:editor:mac:release": "pnpm --filter @lumesync/editor run dist:mac:release",
+    "dist:editor:mac:local": "pnpm --filter @lumesync/editor run dist:mac:local",
+    "dist:editor:win": "pnpm --filter @lumesync/editor run dist:win",
     "start:teacher-server": "pnpm --filter @lumesync/teacher run start:server",
     "start:hub": "pnpm --filter @lumesync/classroom-hub run start",
     "start:student": "pnpm --filter @lumesync/student run start",
@@ -20,9 +22,6 @@
     "build:student": "pnpm --filter @lumesync/student run build",
     "build:student-ui": "pnpm --filter @lumesync/student-ui run build",
     "build:student-installer": "pnpm --filter @lumesync/student run build:student-native-installer",
-    "build:verify": "pkg repos/student/shared/build/verify-password.js --target node18-win-x64 --output repos/student/shared/build/verify-password.exe",
-    "build:icons": "python repos/teacher/shared/build/convert-icons.py && python repos/student/shared/build/convert-icons.py",
-    "build:icons:js": "node repos/teacher/shared/build/convert-icons.js && node repos/student/shared/build/convert-icons.js",
     "test:core": "pnpm --filter @lumesync/core run test",
     "test:teacher-server": "pnpm --filter @lumesync/teacher run test:server",
     "test:student-ui": "pnpm --filter @lumesync/student-ui run test",
@@ -38,9 +37,6 @@
     "docs:build": "pnpm --filter @lumesync/docs-site run build",
     "docs:start": "pnpm --filter @lumesync/docs-site run start",
     "install:all": "pnpm install --no-frozen-lockfile"
-  },
-  "devDependencies": {
-    "pkg": "^5.8.1"
   },
   "packageManager": "pnpm@10.33.0"
 }

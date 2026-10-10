@@ -1,0 +1,32 @@
+{
+  "name": "@lumesync/student-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LumeSync student classroom UI: versioned static build artifact distributed by the teacher service",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.js"
+  },
+  "exports": {
+    ".": "./lib/paths.cjs",
+    "./dist": "./lib/paths.cjs",
+    "./paths": "./lib/paths.cjs",
+    "./manifest": "./dist/manifest.json",
+    "./current": "./dist/current.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "lib",
+    "dist"
+  ],
+  "keywords": [
+    "lumesync",
+    "student",
+    "classroom-ui"
+  ],
+  "author": "",
+  "license": "MIT"
+}

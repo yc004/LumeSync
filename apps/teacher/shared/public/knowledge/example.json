@@ -1,0 +1,32 @@
+[
+  {
+    "title": "萤火课件 - 快速入门",
+    "category": "快速开始",
+    "content": "萤火课件编辑器是一个基于 React 的交互式课件制作工具。要开始使用，只需创建一个 window.CourseData 对象，其中包含课件的基本信息和幻灯片数组。每个幻灯片都需要标题和 React 组件内容。",
+    "tags": ["入门", "React", "CourseData"]
+  },
+  {
+    "title": "useSyncVar - 同步变量详解",
+    "category": "系统API",
+    "content": "useSyncVar 是萤火课件的核心功能，用于实现师生同步交互。教师的操作会自动同步到所有学生端。\n\n使用格式：\nconst [value, setValue] = useSyncVar(key, initialValue, options);\n\n参数说明：\n- key: 唯一标识符，建议格式为 slide-id:variable-name\n- initialValue: 初始值\n- options: 可选配置，包含 onChange 回调\n\n适用场景：答题状态、实验参数、拖拽排序等需要学生看到的结果。",
+    "tags": ["useSyncVar", "同步", "师生交互"]
+  },
+  {
+    "title": "useLocalVar - 本地变量使用指南",
+    "category": "系统API",
+    "content": "useLocalVar 用于管理本地状态，不会同步到学生端。\n\n使用格式：\nconst [value, setValue] = useLocalVar(key, initialValue);\n\n适用场景：\n- 菜单展开/折叠状态\n- 工具提示显示状态\n- 模态框显示状态\n- 设置面板状态\n\n这些状态只在本地变化，不会产生网络开销，适合高频更新。",
+    "tags": ["useLocalVar", "本地变量", "状态管理"]
+  },
+  {
+    "title": "摄像头调用完整示例",
+    "category": "系统API",
+    "content": "萤火课件支持调用学生摄像头进行互动。以下是完整的实现代码：\n\n```javascript\nconst videoRef = useRef(null);\n\nconst onStream = (stream) => {\n    if (videoRef.current) {\n        videoRef.current.srcObject = stream;\n    }\n};\n\n// 组件挂载时获取摄像头\nuseEffect(() => {\n    window.CourseGlobalContext.getCamera(onStream);\n    \n    // 组件卸载时释放摄像头\n    return () => {\n        window.CourseGlobalContext.unregisterCamera(onStream);\n        if (videoRef.current) {\n            videoRef.current.srcObject = null;\n        }\n    };\n}, []);\n```\n\n注意：组件卸载时必须调用 unregisterCamera，避免资源泄露。",
+    "tags": ["摄像头", "getCamera", "useEffect", "video"]
+  },
+  {
+    "title": "学生端提交功能",
+    "category": "系统API",
+    "content": "学生端可以向教师端提交内容，包括答题结果、问卷、图片等。\n\n基本用法：\nawait window.CourseGlobalContext.submitContent(options);\n\n参数说明：\n- content: 要提交的内容（字符串、对象、数组）\n- fileName: 文件名（默认 submission.txt）\n- mergeFile: 是否合并到同一个 CSV 文件（默认 false）\n\n提交答题结果示例：\nawait window.CourseGlobalContext.submitContent({\n    content: {\n        type: \"quiz-answer\",\n        question: \"地球是圆的吗？\",\n        answer: selectedAnswer,\n        submittedAt: new Date().toISOString()\n    },\n    fileName: \"quiz-result.txt\"\n});\n\n注意：仅学生端可用，必须使用 await 等待提交完成。",
+    "tags": ["submitContent", "提交", "学生端"]
+  }
+]

@@ -1,0 +1,7 @@
+﻿{
+  "name": "@lumesync/render-engine",
+  "version": "1.0.0",
+  "description": "LumeSync render engine SDK wrapper",
+  "main": "index.js",
+  "license": "MIT"
+}

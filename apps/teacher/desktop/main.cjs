@@ -11,8 +11,8 @@ const { spawn } = require('node:child_process');
 const { teacherPageBase, isTeacherPageUrl, safeCoursePath } = require('./src/guards.cjs');
 
 const root = path.resolve(__dirname, '../../..');
-const serverEntry = path.join(root, 'repos/teacher/server/index.js');
-const coursesDir = path.join(root, 'repos/teacher/shared/public/courses');
+const serverEntry = path.join(root, 'apps/teacher/server/index.js');
+const coursesDir = path.join(root, 'apps/teacher/shared/public/courses');
 const hostToken = crypto.randomBytes(32).toString('hex');
 const clientId = `teacher-electron-${crypto.randomUUID()}`;
 let server;

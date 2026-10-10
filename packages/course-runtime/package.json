@@ -1,0 +1,89 @@
+{
+  "name": "@lumesync/core",
+  "private": false,
+  "version": "1.0.0",
+  "description": "LumeSync core runtime SDK (connection control + rendering)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yc004/LumeSync.git",
+    "directory": "packages/course-runtime"
+  },
+  "bugs": {
+    "url": "https://github.com/yc004/LumeSync/issues"
+  },
+  "homepage": "https://github.com/yc004/LumeSync/tree/main/packages/course-runtime#readme",
+  "main": "./dist/cjs/public-api/index.js",
+  "module": "./dist/esm/public-api/index.js",
+  "types": "./dist/types/public-api/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/public-api/index.d.ts",
+      "import": "./dist/esm/public-api/index.js",
+      "require": "./dist/cjs/public-api/index.js"
+    },
+    "./identity": {
+      "types": "./dist/types/node/identity.d.ts",
+      "import": "./dist/esm/node/identity.js",
+      "require": "./dist/cjs/node/identity.js"
+    },
+    "./runtime-control": {
+      "types": "./dist/types/node/runtime-control.d.ts",
+      "import": "./dist/esm/node/runtime-control.js",
+      "require": "./dist/cjs/node/runtime-control.js"
+    },
+    "./render-engine": {
+      "types": "./dist/types/node/render-engine.d.ts",
+      "import": "./dist/esm/node/render-engine.js",
+      "require": "./dist/cjs/node/render-engine.js"
+    },
+    "./browser-runtime": {
+      "types": "./dist/types/browser-runtime/index.d.ts",
+      "import": "./dist/esm/browser-runtime/index.js",
+      "require": "./dist/cjs/browser-runtime/index.js"
+    },
+    "./server": {
+      "types": "./dist/types/server/index.d.ts",
+      "import": "./dist/esm/server/index.js",
+      "require": "./dist/cjs/server/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "packages",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "node scripts/clean.js",
+    "build": "npm run clean && tsc -p tsconfig.cjs.json && tsc -p tsconfig.esm.json && tsc -p tsconfig.types.json && node scripts/finalize-build.js",
+    "typecheck": "tsc -p tsconfig.cjs.json --noEmit",
+    "start": "node dist/cjs/server/index.js",
+    "test": "npm run build && node tests/identity.test.js && node tests/runtime-control.test.js",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run test"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.30",
+    "socket.io-client": "^4.8.3",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "lumesync",
+    "core",
+    "sdk",
+    "runtime",
+    "rendering"
+  ],
+  "author": "",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

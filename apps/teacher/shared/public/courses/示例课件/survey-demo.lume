@@ -1,0 +1,108 @@
+// ========================================================
+// 问卷组件示例课件
+// ========================================================
+
+const { useState, useEffect } = React;
+
+// 问卷配置
+const surveyConfig = {
+    id: 'survey-demo:survey',
+    title: '课程反馈问卷',
+    description: '请真实填写，帮助我们改进课程质量。所有答案将匿名统计。',
+    required: true,
+    showProgress: true,
+    theme: {
+        primary: 'blue',
+        background: 'slate'
+    },
+    questions: [
+        // 单选题
+        {
+            id: 'q1',
+            type: 'single',
+            title: '你对这门课程的满意度如何？',
+            options: [
+                { value: 'very-satisfied', label: '非常满意', description: '课程内容丰富，教学方式有趣' },
+                { value: 'satisfied', label: '满意', description: '课程内容较好，有所收获' },
+                { value: 'neutral', label: '一般', description: '课程内容一般，有待改进' },
+                { value: 'dissatisfied', label: '不满意', description: '课程内容不符合预期' }
+            ],
+            required: true
+        },
+        
+        // 多选题
+        {
+            id: 'q2',
+            type: 'multiple',
+            title: '你对课程的哪些方面满意？（可多选）',
+            options: [
+                { value: 'content', label: '课程内容' },
+                { value: 'teaching', label: '教学方式' },
+                { value: 'interaction', label: '互动环节' },
+                { value: 'materials', label: '学习材料' },
+                { value: 'pace', label: '课程进度' },
+                { value: 'examples', label: '案例分析' }
+            ],
+            required: false
+        },
+        
+        // 评分题
+        {
+            id: 'q3',
+            type: 'rating',
+            title: '请给教师的教学质量评分',
+            description: '从 1-5 分，1 分最低，5 分最高',
+            min: 1,
+            max: 5,
+            options: [
+                { value: 1, label: '非常差', icon: '😠' },
+                { value: 2, label: '差', icon: '😞' },
+                { value: 3, label: '一般', icon: '😐' },
+                { value: 4, label: '好', icon: '🙂' },
+                { value: 5, label: '非常好', icon: '😊' }
+            ],
+            required: true
+        },
+        
+        // 简答题
+        {
+            id: 'q4',
+            type: 'text',
+            title: '请写下你对课程的建议',
+            description: '字数限制：10-500 字。你的建议对我们很重要！',
+            required: false
+        },
+        
+        // 排序题
+        {
+            id: 'q5',
+            type: 'ranking',
+            title: '请对以下学习资源进行排序',
+            description: '从最重要（1）到最不重要（4）拖拽排序',
+            options: [
+                { value: 'video', label: '视频教程' },
+                { value: 'slides', label: '幻灯片课件' },
+                { value: 'handout', label: '学习讲义' },
+                { value: 'practice', label: '练习题库' }
+            ],
+            required: true
+        }
+    ]
+};
+
+// 问卷页面组件
+function SurveyPage() {
+    return <SurveySlide config={surveyConfig} />;
+}
+
+// 导出课件数据
+window.CourseData = {
+    id: 'survey-demo',
+    title: '问卷组件示例',
+    icon: '📋',
+    desc: '展示问卷组件的各种题型和使用方法',
+    color: 'from-blue-500 to-indigo-600',
+    slides: [
+        { id: 'survey', component: <SurveyPage /> }
+    ]
+};

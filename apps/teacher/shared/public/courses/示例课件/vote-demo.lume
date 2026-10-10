@@ -1,0 +1,69 @@
+// ========================================================
+// 课程内容：VoteSlide 投票测试课件
+// ========================================================
+
+function IntroSlide() {
+    return (
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-800 text-white p-10">
+            <div className="max-w-4xl w-full bg-slate-800/70 border border-slate-700 rounded-3xl p-10">
+                <h1 className="text-5xl font-extrabold mb-6 flex items-center">
+                    <i className="fas fa-square-poll-vertical text-blue-400 mr-4"></i>
+                    VoteSlide 测试课件
+                </h1>
+                <div className="space-y-3 text-slate-200 text-lg leading-relaxed">
+                    <p>本课件用于验证投票组件全流程：</p>
+                    <p>1. 教师端发起投票（10~300秒）</p>
+                    <p>2. 学生端选择并提交</p>
+                    <p>3. 教师端实时查看统计</p>
+                    <p>4. 到时自动结束或手动结束</p>
+                </div>
+                <div className="mt-8 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200">
+                    建议先进入下一页“匿名投票测试”，再测试“实名投票测试”。
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function AnonymousVoteSlide() {
+    return (
+        <VoteSlide config={{
+            id: 'vote-demo-anonymous',
+            question: '你希望下节课的互动形式是？',
+            anonymous: true,
+            options: [
+                { id: 'quiz', label: '随堂小测' },
+                { id: 'debate', label: '小组辩论' },
+                { id: 'coding', label: '现场编程' },
+                { id: 'project', label: '项目实战' }
+            ]
+        }} />
+    );
+}
+
+function NamedVoteSlide() {
+    return (
+        <VoteSlide config={{
+            id: 'vote-demo-named',
+            question: '今天课程难度如何？',
+            anonymous: false,
+            options: [
+                { id: 'easy', label: '偏简单' },
+                { id: 'normal', label: '适中' },
+                { id: 'hard', label: '偏难' }
+            ]
+        }} />
+    );
+}
+
+window.CourseData = {
+    title: 'VoteSlide 测试课件',
+    icon: '🗳️',
+    desc: '实时投票组件联调与验收',
+    color: 'from-blue-500 to-indigo-600',
+    slides: [
+        { id: 'intro', component: <IntroSlide /> },
+        { id: 'vote-anonymous', component: <AnonymousVoteSlide /> },
+        { id: 'vote-named', component: <NamedVoteSlide /> }
+    ]
+};

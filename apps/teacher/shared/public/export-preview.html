@@ -1,0 +1,630 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Preview</title>
+    <script src="/lib/tailwindcss.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                screens: {
+                    sm: '10px',
+                    md: '10px',
+                    lg: '10px',
+                    xl: '10px',
+                    '2xl': '10px',
+                },
+            },
+        };
+    </script>
+    <link rel="stylesheet" href="/lib/fontawesome.all.min.css">
+    <script crossorigin src="/lib/react.development.js"></script>
+    <script crossorigin src="/lib/react-dom.development.js"></script>
+    <script src="/lib/babel.min.js"></script>
+    <style>
+        :root { color-scheme: dark; }
+        html, body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at top left, rgba(14, 165, 233, 0.22), transparent 28%),
+                linear-gradient(160deg, #020617 0%, #0f172a 48%, #111827 100%);
+            color: #e2e8f0;
+        }
+        #app {
+            height: 100%;
+        }
+        #capture-root {
+            position: absolute;
+            left: -20000px;
+            top: 0;
+            width: 1920px;
+            background: #fff;
+            pointer-events: none;
+        }
+        .thumb-scroll::-webkit-scrollbar,
+        .preview-scroll::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        .thumb-scroll::-webkit-scrollbar-thumb,
+        .preview-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.25);
+            border-radius: 999px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <div id="capture-root"></div>
+    <script src="/render-engine.js"></script>
+    <script>
+        (() => {
+            const appRoot = document.getElementById('app');
+            const captureRootElement = document.getElementById('capture-root');
+            const captureRoot = window.ReactDOM.createRoot(captureRootElement);
+
+            const params = new URLSearchParams(window.location.search || '');
+            const courseId = params.get('courseId') || '';
+            const downloadBaseName = params.get('title') || 'course';
+            const parentOrigin = (() => {
+                try {
+                    const referrerOrigin = new URL(document.referrer || '').origin;
+                    return referrerOrigin && referrerOrigin !== 'null' ? referrerOrigin : '*';
+                } catch (_) {
+                    return '*';
+                }
+            })();
+
+            const EXPORT_WIDTH = 1920;
+            const EXPORT_HEIGHT = 1080;
+            const THUMB_SCALE = 0.42;
+            const PREVIEW_SCALE = 1.35;
+            const PDF_SCALE = 1.8;
+            const isEmbedded = window.parent && window.parent !== window;
+
+            const state = {
+                course: null,
+                courseData: null,
+                contentScale: Math.min(Math.max(Number(params.get('scale')) || 1, 0.5), 1.5),
+                pages: [],
+                selectedIndex: 0,
+                currentPreviewUrl: '',
+                currentPreviewIndex: -1,
+                thumbsScrollTop: 0,
+                previewScrollTop: 0,
+                busy: true,
+                busyLabel: 'Preparing preview',
+                error: '',
+                ready: false,
+                captureSeq: 0,
+                previewCache: {},
+            };
+
+
+            const syncHostState = (partial = {}) => {
+                const previous = window.__lumesyncExportPreviewState || {};
+                window.__lumesyncExportPreviewState = {
+                    courseId,
+                    status: partial.status ?? previous.status ?? 'loading',
+                    progress: Math.min(Math.max(Number(partial.progress ?? previous.progress ?? 0) || 0, 0), 100),
+                    label: partial.label ?? previous.label ?? '',
+                    error: partial.error ?? previous.error ?? '',
+                    contentScale: state.contentScale,
+                    updatedAt: Date.now(),
+                };
+            };
+
+            syncHostState({
+                status: 'loading',
+                progress: 0,
+                label: 'Initializing preview',
+            });
+
+            const ensureScript = (src, globalName) => new Promise((resolve, reject) => {
+                if (globalName && window[globalName]) {
+                    resolve(window[globalName]);
+                    return;
+                }
+                const existing = document.querySelector(`script[data-export-lib="${src}"]`);
+                if (existing) {
+                    existing.addEventListener('load', () => resolve(globalName ? window[globalName] : true), { once: true });
+                    existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = false;
+                script.dataset.exportLib = src;
+                script.onload = () => resolve(globalName ? window[globalName] : true);
+                script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                document.head.appendChild(script);
+            });
+
+            const ensureLibs = async () => {
+                await ensureScript('/lib/html2canvas.min.js', 'html2canvas');
+                await ensureScript('/lib/jspdf.umd.min.js');
+                if (!window.jspdf?.jsPDF) throw new Error('jsPDF failed to initialize');
+                if (typeof window.html2canvas !== 'function') throw new Error('html2canvas failed to initialize');
+            };
+
+            const waitForFonts = async () => {
+                if (!document.fonts?.ready) return;
+                try {
+                    await document.fonts.ready;
+                } catch (_) {}
+            };
+
+            const sanitizeFileName = (value) => String(value || 'course')
+                .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+                .replace(/\s+/g, ' ')
+                .trim() || 'course';
+
+            const escapeHtml = (value) => String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+
+            const postStatus = (kind, extra = {}) => {
+                if (!window.parent || window.parent === window) return;
+                window.parent.postMessage({ kind, courseId, ...extra }, parentOrigin);
+            };
+
+            const postProgress = (status, progress, label) => {
+                syncHostState({
+                    status,
+                    progress,
+                    label,
+                    error: '',
+                });
+                postStatus('lumesync-export-preview-progress', {
+                    status,
+                    progress: Math.min(Math.max(Number(progress) || 0, 0), 100),
+                    label,
+                    contentScale: state.contentScale,
+                });
+            };
+
+            const arrayBufferToBase64 = (buffer) => {
+                const bytes = new Uint8Array(buffer);
+                const chunkSize = 0x8000;
+                let binary = '';
+                for (let index = 0; index < bytes.length; index += chunkSize) {
+                    const chunk = bytes.subarray(index, index + chunkSize);
+                    binary += String.fromCharCode(...chunk);
+                }
+                return window.btoa(binary);
+            };
+
+            const replayCurrentState = () => {
+                const current = window.__lumesyncExportPreviewState;
+                if (!current || String(current.courseId ?? '') !== String(courseId)) return;
+
+                if (current.status === 'error') {
+                    postStatus('lumesync-export-preview-error', { error: current.error || current.label || 'Preview generation failed' });
+                    return;
+                }
+                if (current.status === 'ready') {
+                    postProgress('ready', current.progress, current.label || 'Preview ready');
+                    postStatus('lumesync-export-preview-ready', { contentScale: state.contentScale });
+                    return;
+                }
+                if (current.status === 'generated') {
+                    postStatus('lumesync-export-preview-generated', { contentScale: state.contentScale });
+                    return;
+                }
+
+                postProgress(current.status || 'loading', current.progress, current.label || '');
+            };
+
+            const normalizeCatalog = (catalog) => {
+                if (Array.isArray(catalog)) return { courses: catalog, folders: [] };
+                if (catalog && Array.isArray(catalog.courses)) {
+                    return {
+                        courses: catalog.courses,
+                        folders: Array.isArray(catalog.folders) ? catalog.folders : [],
+                    };
+                }
+                return { courses: [], folders: [] };
+            };
+
+            const buildPageMeta = () => {
+                const slides = Array.isArray(state.courseData?.slides) ? state.courseData.slides : [];
+                return slides.map((slide, index) => ({
+                    key: slide?.id || `slide-${index + 1}`,
+                    title: slide?.title || `Slide ${index + 1}`,
+                    thumbUrl: '',
+                }));
+            };
+
+            const renderCaptureDocument = async () => {
+                captureRoot.render(
+                    window.React.createElement(window.LumeSyncRenderEngine.CourseExportDocument, {
+                        course: state.course,
+                        courseData: state.courseData,
+                        contentScale: state.contentScale,
+                    })
+                );
+                await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                await waitForFonts();
+            };
+
+            const getCaptureNodes = () => Array.from(captureRootElement.querySelectorAll('[data-export-page]'));
+
+            const captureNode = async (node, scale) => {
+                const effectiveScale = Math.max(scale, 1) * Math.max(window.devicePixelRatio || 1, 1);
+                const canvas = await window.html2canvas(node, {
+                    scale: effectiveScale,
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    logging: false,
+                    width: node.scrollWidth || node.offsetWidth || EXPORT_WIDTH,
+                    height: node.scrollHeight || node.offsetHeight || EXPORT_HEIGHT,
+                    windowWidth: EXPORT_WIDTH,
+                    windowHeight: EXPORT_HEIGHT,
+                    scrollX: 0,
+                    scrollY: 0,
+                });
+                return canvas.toDataURL('image/png');
+            };
+
+            const cachePreview = (index, url) => {
+                state.previewCache[index] = url;
+                const keys = Object.keys(state.previewCache).map(Number).sort((a, b) => a - b);
+                while (keys.length > 4) {
+                    const oldest = keys.shift();
+                    delete state.previewCache[oldest];
+                }
+            };
+
+            const renderApp = () => {
+                const currentPage = state.pages[state.selectedIndex] || null;
+                const currentPreviewUrl = state.currentPreviewIndex === state.selectedIndex
+                    ? state.currentPreviewUrl
+                    : (state.previewCache[state.selectedIndex] || currentPage?.thumbUrl || '');
+
+                const thumbnails = state.pages.map((page, index) => `
+                    <button
+                        type="button"
+                        data-thumb-index="${index}"
+                        class="group w-full rounded-2xl border ${index === state.selectedIndex ? 'border-sky-400/70 bg-sky-400/10' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'} p-3 text-left transition"
+                    >
+                        <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.22em] ${index === state.selectedIndex ? 'text-sky-300' : 'text-slate-400'}">
+                            <span>${`Slide ${index + 1}`}</span>
+                            <span>${index + 1}</span>
+                        </div>
+                        <div class="mt-3 overflow-hidden rounded-xl border border-white/10 bg-slate-950/70">
+                            ${page.thumbUrl
+                                ? `<img src="${page.thumbUrl}" alt="${escapeHtml(page.title)}" class="block w-full" />`
+                                : '<div class="flex aspect-[16/9] items-center justify-center text-xs text-slate-500">Generating thumbnail</div>'}
+                        </div>
+                        <div class="mt-3 truncate text-sm font-bold ${index === state.selectedIndex ? 'text-white' : 'text-slate-200'}">${escapeHtml(page.title)}</div>
+                    </button>
+                `).join('');
+
+                appRoot.innerHTML = `
+                    <div class="flex h-full flex-col">
+                        <div class="flex min-h-0 flex-1">
+                            <aside id="thumb-scroll-pane" class="thumb-scroll w-[320px] shrink-0 overflow-y-auto border-r border-white/10 bg-black/15 px-4 py-4">
+                                <div class="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Pages</div>
+                                <div class="space-y-3">
+                                    ${thumbnails || '<div class="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-slate-400">No pages available</div>'}
+                                </div>
+                            </aside>
+
+                            <main class="relative min-w-0 flex-1 overflow-hidden">
+                                <div id="preview-scroll-pane" class="preview-scroll absolute inset-0 overflow-auto p-6">
+                                    ${currentPage ? `
+                                                <div class="mx-auto max-w-[1360px]">
+                                            <div class="mb-3 flex items-center justify-between">
+                                                <div>
+                                                    <div class="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">${`Slide ${state.selectedIndex + 1}`}</div>
+                                                    <div class="mt-1 text-base font-black text-white">${escapeHtml(currentPage.title)}</div>
+                                                </div>
+                                                <div class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-300">
+                                                    ${state.selectedIndex + 1} / ${state.pages.length}
+                                                </div>
+                                            </div>
+                                            <div class="overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-[0_32px_120px_rgba(15,23,42,0.35)]">
+                                                ${currentPreviewUrl
+                                                    ? `<img src="${currentPreviewUrl}" alt="${escapeHtml(currentPage.title)}" class="block w-full" />`
+                                                    : '<div class="flex aspect-[16/9] items-center justify-center text-slate-400">Preparing current page preview</div>'}
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div class="flex h-full items-center justify-center text-slate-400">Preview image is loading</div>
+                                    `}
+                                </div>
+
+                                ${state.busy && !isEmbedded ? `
+                                    <div class="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-950/42 backdrop-blur-sm">
+                                        <div class="rounded-2xl border border-white/10 bg-slate-900/90 px-6 py-4 text-center shadow-2xl">
+                                            <div class="text-lg font-black text-white">${escapeHtml(state.busyLabel)}</div>
+                                            <div class="mt-2 text-sm text-slate-300">${escapeHtml(state.error || 'Preparing preview, please wait.')}</div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                ${!state.busy && state.error ? `
+                                    <div class="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-950/36">
+                                        <div class="rounded-2xl border border-red-400/20 bg-red-950/80 px-6 py-4 text-center shadow-2xl">
+                                            <div class="text-lg font-black text-red-100">Export failed</div>
+                                            <div class="mt-2 text-sm text-red-200">${escapeHtml(state.error)}</div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </main>
+                        </div>
+                    </div>
+                `;
+
+                const thumbPane = appRoot.querySelector('#thumb-scroll-pane');
+                if (thumbPane) {
+                    thumbPane.scrollTop = state.thumbsScrollTop || 0;
+                    thumbPane.addEventListener('scroll', () => {
+                        state.thumbsScrollTop = thumbPane.scrollTop;
+                    }, { passive: true });
+                }
+
+                const previewPane = appRoot.querySelector('#preview-scroll-pane');
+                if (previewPane) {
+                    previewPane.scrollTop = state.previewScrollTop || 0;
+                    previewPane.addEventListener('scroll', () => {
+                        state.previewScrollTop = previewPane.scrollTop;
+                    }, { passive: true });
+                }
+
+                appRoot.querySelectorAll('[data-thumb-index]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const nextIndex = Number(button.getAttribute('data-thumb-index')) || 0;
+                        if (nextIndex === state.selectedIndex) return;
+                        const activeThumbPane = appRoot.querySelector('#thumb-scroll-pane');
+                        if (activeThumbPane) {
+                            state.thumbsScrollTop = activeThumbPane.scrollTop;
+                        }
+                        state.previewScrollTop = 0;
+                        state.selectedIndex = nextIndex;
+                        renderApp();
+                        refreshCurrentPreview().catch((error) => {
+                            state.error = error?.message || 'Preview refresh failed';
+                            renderApp();
+                            postStatus('lumesync-export-preview-error', { error: state.error });
+                        });
+                    });
+                });
+            };
+
+            const setBusy = (busy, label, error = '') => {
+                state.busy = busy;
+                if (label) state.busyLabel = label;
+                state.error = error;
+                renderApp();
+            };
+
+            const refreshCurrentPreview = async () => {
+                if (!state.pages.length) return;
+                const seq = state.captureSeq;
+                const nodes = getCaptureNodes();
+                const node = nodes[state.selectedIndex];
+                if (!node) return;
+
+                if (state.previewCache[state.selectedIndex]) {
+                    state.currentPreviewIndex = state.selectedIndex;
+                    state.currentPreviewUrl = state.previewCache[state.selectedIndex];
+                    renderApp();
+                    return;
+                }
+
+                if (state.currentPreviewIndex !== state.selectedIndex) {
+                    state.currentPreviewUrl = state.pages[state.selectedIndex]?.thumbUrl || '';
+                    renderApp();
+                }
+
+                const imageUrl = await captureNode(node, PREVIEW_SCALE);
+                if (seq !== state.captureSeq) return;
+                state.currentPreviewIndex = state.selectedIndex;
+                state.currentPreviewUrl = imageUrl;
+                cachePreview(state.selectedIndex, imageUrl);
+                renderApp();
+            };
+
+            const generateThumbs = async () => {
+                const seq = state.captureSeq;
+                const nodes = getCaptureNodes();
+                for (let index = 0; index < nodes.length; index += 1) {
+                    if (seq !== state.captureSeq) return;
+                    if (state.pages[index]?.thumbUrl) continue;
+                    const imageUrl = await captureNode(nodes[index], THUMB_SCALE);
+                    if (seq !== state.captureSeq) return;
+                    state.pages[index].thumbUrl = imageUrl;
+                    if (!state.currentPreviewUrl && index === state.selectedIndex) {
+                        state.currentPreviewUrl = imageUrl;
+                    }
+                    renderApp();
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            };
+
+            const preparePreview = async () => {
+                state.captureSeq += 1;
+                const seq = state.captureSeq;
+                state.previewCache = {};
+                state.currentPreviewUrl = '';
+                state.currentPreviewIndex = -1;
+                state.pages = buildPageMeta();
+                state.selectedIndex = Math.min(state.selectedIndex, Math.max(state.pages.length - 1, 0));
+                setBusy(true, 'Preparing preview');
+                postProgress('loading', 10, 'Preparing export layout');
+                await renderCaptureDocument();
+                postProgress('loading', 45, 'Capturing current page preview');
+                await refreshCurrentPreview();
+                if (seq !== state.captureSeq) return;
+                postProgress('loading', 90, 'Finalizing preview assets');
+                state.ready = true;
+                state.busy = false;
+                renderApp();
+                syncHostState({ status: 'ready', progress: 100, label: 'Preview ready', error: '' });
+                postProgress('ready', 100, 'Preview ready');
+                postStatus('lumesync-export-preview-ready', { contentScale: state.contentScale });
+                generateThumbs().catch((error) => {
+                    if (seq !== state.captureSeq) return;
+                    state.error = error?.message || 'Thumbnail generation failed';
+                    syncHostState({ status: 'error', progress: 100, label: state.error, error: state.error });
+                    renderApp();
+                });
+            };
+            const generatePdf = async () => {
+                const nodes = getCaptureNodes();
+                if (!nodes.length) throw new Error('No export pages found');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'px',
+                    format: [EXPORT_WIDTH, EXPORT_HEIGHT],
+                    compress: true,
+                });
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const reportGenerateProgress = (completedCount, label) => {
+                    const normalized = nodes.length <= 0 ? 0 : completedCount / nodes.length;
+                    const progress = Math.min(98, Math.max(3, Math.round(3 + normalized * 92)));
+                    postProgress('generating', progress, label);
+                };
+
+                reportGenerateProgress(0, 'Preparing export, ' + nodes.length + ' pages total');
+                await new Promise(resolve => setTimeout(resolve, 0));
+
+                for (let index = 0; index < nodes.length; index += 1) {
+                    reportGenerateProgress(index, 'Rendering page ' + (index + 1) + ' / ' + nodes.length);
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                    const imageUrl = await captureNode(nodes[index], PDF_SCALE);
+                    if (index > 0) pdf.addPage([EXPORT_WIDTH, EXPORT_HEIGHT], 'landscape');
+                    pdf.addImage(imageUrl, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'SLOW');
+                    reportGenerateProgress(index + 1, 'Rendered page ' + (index + 1) + ' / ' + nodes.length);
+                }
+
+                const fileName = sanitizeFileName(state.course?.title || downloadBaseName) + '.pdf';
+                postProgress('generating', 100, 'Saving PDF file');
+                const arrayBuffer = pdf.output('arraybuffer');
+                if (window.electronAPI?.saveGeneratedPdf) {
+                    const nativeResult = await window.electronAPI.saveGeneratedPdf({
+                        title: state.course?.title || downloadBaseName,
+                        filename: fileName,
+                        dataBase64: arrayBufferToBase64(arrayBuffer),
+                    });
+                    if (nativeResult?.canceled) {
+                        syncHostState({ status: 'ready', progress: 100, label: 'Preview ready', error: '' });
+                        return { canceled: true };
+                    }
+                    if (nativeResult?.success) {
+                        syncHostState({ status: 'generated', progress: 100, label: 'PDF generated', error: '' });
+                        return { canceled: false };
+                    }
+                    if (nativeResult?.error) {
+                        throw new Error(nativeResult.error);
+                    }
+                }
+
+                syncHostState({ status: 'generated', progress: 100, label: 'PDF generated', error: '' });
+                pdf.save(fileName);
+                return { canceled: false };
+            };
+
+            const start = async () => {
+                renderApp();
+                if (!courseId) {
+                    state.busy = false;
+                    state.error = 'Missing courseId';
+                    syncHostState({ status: 'error', progress: 0, label: state.error, error: state.error });
+                    renderApp();
+                    postStatus('lumesync-export-preview-error', { error: state.error });
+                    return;
+                }
+
+                try {
+                    await ensureLibs();
+                    const response = await fetch('/api/courses', { cache: 'no-store' });
+                    if (!response.ok) throw new Error('Failed to load course catalog');
+                    const catalog = normalizeCatalog(await response.json());
+                    const course = catalog.courses.find(item => item.id === courseId);
+                    if (!course) throw new Error('Course not found');
+
+                    const engine = window.LumeSyncRenderEngine;
+                    if (!engine?.loadCourse || !engine?.CourseExportDocument) {
+                        throw new Error('Render engine is unavailable');
+                    }
+
+                    state.courseData = await engine.loadCourse(course, {
+                        createContext: () => engine.createExportCourseContext({ courseId: course.id }),
+                    });
+                    state.course = course;
+                    await preparePreview();
+                } catch (error) {
+                    state.busy = false;
+                    state.error = error?.message || 'Unknown render error';
+                    syncHostState({ status: 'error', progress: 0, label: state.error, error: state.error });
+                    renderApp();
+                    postStatus('lumesync-export-preview-error', { error: state.error });
+                }
+            };
+
+            window.addEventListener('message', (event) => {
+                if (parentOrigin !== '*' && event.origin !== parentOrigin) return;
+
+                if (event.data?.kind === 'lumesync-export-preview-parent-ready') {
+                    replayCurrentState();
+                    return;
+                }
+
+                if (event.data?.kind === 'lumesync-export-preview-print') {
+                    postStatus('lumesync-export-preview-generating', { contentScale: state.contentScale });
+                    setBusy(true, 'Generating PDF');
+                    generatePdf()
+                        .then((result) => {
+                            if (result?.canceled) {
+                                state.busy = false;
+                                state.error = '';
+                                state.ready = true;
+                                renderApp();
+                                postStatus('lumesync-export-preview-ready', { contentScale: state.contentScale });
+                                return;
+                            }
+                            postStatus('lumesync-export-preview-generated', { contentScale: state.contentScale });
+                        })
+                        .catch((error) => {
+                            state.busy = false;
+                            state.error = error?.message || 'PDF generation failed';
+                            renderApp();
+                            postStatus('lumesync-export-preview-error', { error: state.error });
+                        });
+                    return;
+                }
+
+                if (event.data?.kind === 'lumesync-export-preview-set-scale') {
+                    const nextScale = Math.min(Math.max(Number(event.data?.contentScale) || 1, 0.5), 1.5);
+                    if (Math.abs(nextScale - state.contentScale) < 0.001) return;
+                    state.contentScale = nextScale;
+                    preparePreview()
+                        .then(() => {
+                            postStatus('lumesync-export-preview-scale-applied', { contentScale: state.contentScale });
+                        })
+                        .catch((error) => {
+                            state.busy = false;
+                            state.error = error?.message || 'Preview refresh failed';
+                            renderApp();
+                            postStatus('lumesync-export-preview-error', { error: state.error });
+                        });
+                }
+            });
+
+            start();
+        })();
+    </script>
+</body>
+</html>
+
+

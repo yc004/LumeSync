@@ -1,0 +1,33 @@
+{
+  "name": "@lumesync/student",
+  "version": "1.0.0",
+  "description": "SyncClassroom Student App",
+  "scripts": {
+    "start": "node scripts/start-native.js",
+    "build": "npm run build:student-native",
+    "build:host-ui": "node ui/student-host/scripts/build.mjs",
+    "build:native:configure": "cmake -S . -B build/native-vs -G \"Visual Studio 17 2022\" -A x64",
+    "build:native": "cmake --build build/native-vs --config Release",
+    "package:student-native": "powershell -ExecutionPolicy Bypass -File desktop/package-native.ps1",
+    "build:student-native": "npm run build:host-ui && npm run build:native:configure && npm run build:native && npm run package:student-native",
+    "package:student-native-installer": "powershell -ExecutionPolicy Bypass -File desktop/build-installer.ps1",
+    "build:student-native-installer": "npm run build:student-native && npm run package:student-native-installer"
+  },
+  "dependencies": {
+    "@lumesync/classroom-protocol": "workspace:*",
+    "@lumesync/native-contract": "workspace:*",
+    "auto-launch": "^5.0.6",
+    "axios": "^1.13.6",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "keywords": [
+    "lumesync",
+    "student"
+  ],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0"
+}

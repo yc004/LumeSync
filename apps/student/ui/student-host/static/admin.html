@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员设置</title>
+  <link rel="icon" href="./assets/tray-icon.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", sans-serif; background: #f1f5f9; color: #1e293b; }
+    .screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+    .screen.active { display: flex; }
+    .card { background: #fff; border-radius: 16px; padding: 32px; width: 100%; max-width: 420px; box-shadow: 0 16px 48px rgba(15, 23, 42, 0.08); }
+    h2 { font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; }
+    h2 img { width: 42px; height: 42px; display: block; margin: 0 auto 10px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-top: 16px; margin-bottom: 6px; }
+    input { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 15px; }
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 20px; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-danger { background: #dc2626; color: #fff; margin-top: 8px; }
+    .btn-ghost { background: #e2e8f0; color: #334155; margin-top: 8px; }
+    .error { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 18px; text-align: center; }
+    .success { color: #16a34a; font-size: 13px; margin-top: 8px; min-height: 18px; text-align: center; }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .toggle { position: relative; width: 44px; height: 24px; display: inline-flex; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background 0.2s ease; }
+    .slider::before { content: ""; position: absolute; left: 3px; bottom: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.2s ease; }
+    .toggle input:checked + .slider { background: #2563eb; }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
+  </style>
+</head>
+<body>
+  <div class="screen active" id="screen-login">
+    <div class="card">
+      <h2><img src="./assets/tray-icon.png" alt="">管理员验证</h2>
+      <label for="login-pwd">管理员密码</label>
+      <input type="password" id="login-pwd" autocomplete="off" placeholder="输入管理员密码">
+      <div class="error" id="login-error"></div>
+      <button id="login-submit" class="btn btn-primary">验证</button>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-config">
+    <div class="card">
+      <h2><img src="./assets/tray-icon.png" alt="">系统配置</h2>
+
+      <label for="cfg-ip">教师机 IP 地址</label>
+      <input type="text" id="cfg-ip" placeholder="例如 192.168.1.100">
+
+      <label for="cfg-port">端口号</label>
+      <input type="number" id="cfg-port" min="1" max="65535" placeholder="默认 3000">
+
+      <hr class="divider">
+
+      <label class="toggle-row" for="cfg-autostart">
+        <span>开机自动启动</span>
+        <span class="toggle">
+          <input type="checkbox" id="cfg-autostart">
+          <span class="slider"></span>
+        </span>
+      </label>
+
+      <label for="cfg-newpwd">新管理员密码</label>
+      <input type="password" id="cfg-newpwd" autocomplete="new-password" placeholder="留空则不修改">
+
+      <label for="cfg-confirmpwd">确认新密码</label>
+      <input type="password" id="cfg-confirmpwd" autocomplete="new-password" placeholder="再次输入新密码">
+
+      <div class="error" id="cfg-error"></div>
+      <div class="success" id="cfg-success"></div>
+
+      <button id="config-save" class="btn btn-primary">保存设置</button>
+      <button id="config-quit" class="btn btn-danger">退出程序</button>
+      <button id="config-cancel" class="btn btn-ghost">取消</button>
+    </div>
+  </div>
+
+  <script type="module" src="./admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>萤火课件编辑器</title>
+
+    <!-- Tailwind CSS -->
+    <script src="/lib/tailwindcss.js" onerror="this.src='https://cdn.tailwindcss.com'"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                screens: {
+                    'sm': '10px',
+                    'md': '10px',
+                    'lg': '10px',
+                    'xl': '10px',
+                    '2xl': '10px',
+                },
+                extend: {
+                    height: { 'screen': '100%' },
+                    width: { 'screen': '100%' },
+                    minHeight: { 'screen': '100%' },
+                    minWidth: { 'screen': '100%' }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="/lib/fontawesome.all.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="/lib/react.development.js" onerror="this.src='https://unpkg.com/react@18/umd/react.development.js'"></script>
+    <script crossorigin src="/lib/react-dom.development.js" onerror="this.src='https://unpkg.com/react-dom@18/umd/react-dom.development.js'"></script>
+    
+    <!-- Babel -->
+    <script src="/lib/babel.min.js" onerror="this.src='https://unpkg.com/@babel/standalone/babel.min.js'"></script>
+    
+    <!-- marked -->
+    <script src="/lib/marked.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/marked@9/marked.min.js'"></script>
+
+    <!-- Prism.js (语法高亮) -->
+    <link rel="stylesheet" href="/lib/prism.min.css" onerror="this.href='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css'">
+    <script src="/lib/prism.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js'"></script>
+    <script src="/lib/components/prism-javascript.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js'"></script>
+    <script src="/lib/components/prism-typescript.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js'"></script>
+    <script src="/lib/components/prism-jsx.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-jsx.min.js'"></script>
+    <script src="/lib/components/prism-tsx.min.js" onerror="this.src='https://fastly.jsdelivr.net/npm/prismjs@1.29.0/components/prism-tsx.min.js'"></script>
+
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        
+        #root-wrapper {
+            width: 100vw;
+            height: 100vh;
+            transform-origin: top left;
+            overflow: hidden;
+            position: relative;
+        }
+
+        * { scrollbar-width: none; -ms-overflow-style: none; user-select: none; -webkit-user-select: none; }
+        *::-webkit-scrollbar { display: none; }
+        .markdown-body { color: #334155; line-height: 1.7; }
+        .markdown-body pre { background: #1e293b; border-radius: 8px; padding: 1em; overflow-x: auto; margin: 0.8em 0; }
+        .markdown-body code { font-family: 'Consolas', monospace; font-size: 0.85em; }
+        .code-editor { font-family: 'Consolas', monospace; user-select: text; -webkit-user-select: text; tab-size: 4; }
+        .chat-selectable { user-select: text; -webkit-user-select: text; }
+        
+        /* Prism.js 语法高亮样式调整 */
+        .syntax-highlight-wrapper { position: relative; }
+        .syntax-highlight-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.625;
+            padding: 24px 16px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            tab-size: 4;
+        }
+        .syntax-highlight-overlay code,
+        .syntax-highlight-overlay code[class*="language-"] {
+            display: block;
+            font-family: 'Consolas', monospace !important;
+            background: none !important;
+            font-size: inherit;
+            line-height: inherit;
+            white-space: pre-wrap !important;
+            word-break: break-word;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-900">
+    
+    <div id="root-wrapper">
+        <div id="root" class="w-full h-full"></div>
+    </div>
+
+    <!-- 动态调整缩放比例脚本 -->
+    <script>
+        function updateContainerScale() {
+            const minW = 1280;
+            const minH = 720;
+            const realW = window.innerWidth;
+            const realH = window.innerHeight;
+            
+            let scale = Math.min(realW / minW, realH / minH);
+            
+            const wrapper = document.getElementById('root-wrapper');
+            if (!wrapper) return;
+            
+            if (scale < 1) {
+                wrapper.style.width = (realW / scale) + 'px';
+                wrapper.style.height = (realH / scale) + 'px';
+                wrapper.style.transform = 'scale(' + scale + ')';
+            } else {
+                wrapper.style.width = '100vw';
+                wrapper.style.height = '100vh';
+                wrapper.style.transform = 'none';
+            }
+        }
+        window.addEventListener('resize', updateContainerScale);
+        window.addEventListener('DOMContentLoaded', updateContainerScale);
+    </script>
+
+    <!-- 编辑器引擎模块 -->
+    <script type="text/babel" src="/engine/editor-globals.js"></script>
+
+</body>
+</html>

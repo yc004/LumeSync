@@ -16,6 +16,7 @@ export type ComponentPack = {
 export class ComponentPackError extends Error { code: string; details: Record<string, unknown>; }
 export function validateComponentPack(pack: unknown): ComponentPack;
 export function componentPackHash(pack: ComponentPack): string;
+export function createStarterComponentPack(id: string, displayName: string, version?: string): ComponentPack;
 export function validateComponentProps(component: ComponentPack['components'][number], props: unknown): unknown;
 export function readComponentPack(input: Buffer | Uint8Array): Promise<{ pack: ComponentPack; hash: string; text: string }>;
 export function writeComponentPack(pack: ComponentPack, options?: { outputType?: 'nodebuffer' | 'uint8array' | 'blob' }): Promise<Buffer | Uint8Array | Blob>;

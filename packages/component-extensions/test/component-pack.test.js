@@ -2,10 +2,16 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { mkdtempSync, readFileSync, rmSync } = require('node:fs');
+const { tmpdir } = require('node:os');
+const { join, resolve } = require('node:path');
+const { spawnSync } = require('node:child_process');
 const {
   validateComponentPack, validateComponentProps, componentPackHash,
-  readComponentPack, writeComponentPack
+  readComponentPack, writeComponentPack, createStarterComponentPack
 } = require('..');
+
+const CLI = resolve(__dirname, '../bin/lumex.cjs');
 
 function samplePack() {
   return {
@@ -73,4 +79,34 @@ test('component pack ZIP rejects unlisted executable files', async () => {
   const withDirectory = await directoryOnly.generateAsync({ type: 'nodebuffer' });
   await assert.rejects(readComponentPack(withDirectory), /只能包含根目录 extension.json/);
   await assert.rejects(readComponentPack(Buffer.alloc(1024 * 1024 + 65 * 1024)), /压缩文件超过/);
+});
+
+test('starter component pack follows the same contract validator', () => {
+  const pack = createStarterComponentPack('org.example.cards', '示例卡片', '2.1.0');
+  assert.equal(pack.components[0].id, 'org.example.cards.fact-card');
+  assert.equal(pack.version, '2.1.0');
+  assert.equal(validateComponentPack(pack), pack);
+});
+
+test('CLI initializes, packages, and validates an offline component pack', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'lumex-component-cli-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const run = (...args) => spawnSync(process.execPath, [CLI, ...args], { cwd: directory, encoding: 'utf8' });
+
+  const initialized = run('init', 'org.example.cards', '示例卡片', '--version', '1.2.3');
+  assert.equal(initialized.status, 0, initialized.stderr);
+  const source = JSON.parse(readFileSync(join(directory, 'extension.json'), 'utf8'));
+  assert.equal(source.version, '1.2.3');
+
+  const packed = run('pack', 'extension.json', 'cards.lumex');
+  assert.equal(packed.status, 0, packed.stderr);
+  assert.match(packed.stdout, /Hash：sha256:/);
+
+  const validated = run('validate', 'cards.lumex');
+  assert.equal(validated.status, 0, validated.stderr);
+  assert.match(validated.stdout, /组件数：1/);
+
+  const overwrite = run('init', 'org.example.cards', '覆盖测试');
+  assert.equal(overwrite.status, 1);
+  assert.match(overwrite.stderr, /已存在/);
 });

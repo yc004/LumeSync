@@ -135,6 +135,36 @@ function componentPackHash(pack) {
   return digestText(`${stableStringify(pack)}\n`);
 }
 
+function createStarterComponentPack(id, displayName, version = '1.0.0') {
+  const pack = {
+    format: PACK_FORMAT,
+    formatVersion: PACK_VERSION,
+    id,
+    version,
+    displayName,
+    description: '由 LumeSync 组件开发工具创建。',
+    components: [{
+      id: `${id}.fact-card`,
+      label: '知识卡片',
+      description: '一个可编辑标题、正文和强调色的卡片。',
+      props: {
+        title: { type: 'string', label: '标题', default: '新知识', required: true, maxLength: 120 },
+        body: { type: 'string', label: '正文', default: '在这里编写内容。', maxLength: 1000 },
+        accent: { type: 'color', label: '强调色', default: '#3355AA' }
+      },
+      template: {
+        tag: 'article',
+        style: { padding: '20px', borderLeft: '6px solid #3355AA', backgroundColor: '#ffffff' },
+        children: [
+          { tag: 'h2', style: { color: { prop: 'accent' } }, children: [{ prop: 'title' }] },
+          { tag: 'p', children: [{ prop: 'body' }] }
+        ]
+      }
+    }]
+  };
+  return validateComponentPack(pack);
+}
+
 function validateComponentProps(component, value) {
   if (!isRecord(value)) fail('component_props_invalid', `${component.id} 的 props 必须是对象`);
   exactKeys(value, Object.keys(component.props), `${component.id}.props`);
@@ -183,6 +213,6 @@ async function writeComponentPack(pack, options = {}) {
 
 module.exports = {
   PACK_FORMAT, PACK_VERSION, MAX_PACK_BYTES, SAFE_TAGS, SAFE_STYLES,
-  ComponentPackError, stableStringify, validateComponentPack, componentPackHash,
+  ComponentPackError, stableStringify, validateComponentPack, componentPackHash, createStarterComponentPack,
   validateComponentProps, readComponentPack, writeComponentPack
 };

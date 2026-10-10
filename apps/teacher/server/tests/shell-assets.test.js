@@ -11,6 +11,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+const { loadCoreModule } = require('../src/core-paths');
+
 const repoRoot = path.join(__dirname, '../..');
 const publicDir = path.join(repoRoot, 'shared/public');
 const studentUiSrcDir = path.join(repoRoot, '../student/ui/classroom/src');
@@ -72,4 +74,34 @@ test('生成的协议全局在页面脚本之前加载', () => {
     assert.ok(studentProtocolIndex < renderEngineIndex, '/protocol-client.js 必须在 /render-engine.js 之前');
     // 教师仓库不再托管学生页面，源码不得引用旧路径。
     assert.equal(studentIndex.includes('/student-app.js'), false);
+});
+
+// shared/public/render-engine.js 是纳入版本控制的构建产物：原生壳与无 Node 的分发
+// 直接分发它，不会重跑构建。产物一旦落后于引擎源清单，课堂就会静默退回旧编译路径
+// （例如声明式 lumesync-course-document 课件因缺 document-renderer.js 而加载失败）。
+// 这里按引擎源清单核对每个源文件在产物中的段落标记与先后顺序，不重跑 Babel。
+test('已提交的渲染引擎产物覆盖全部引擎源文件且顺序一致', () => {
+    const sourceOrder = loadCoreModule('render-engine').getTeacherRenderEngineSourceOrder();
+    assert.ok(sourceOrder.length > 0, '引擎源清单为空，无法校验产物');
+
+    const bundle = fs.readFileSync(path.join(publicDir, 'render-engine.js'), 'utf8');
+
+    let cursor = -1;
+    for (const entry of sourceOrder) {
+        const marker = `browser/engine/${entry} ----`;
+        const index = bundle.indexOf(marker);
+        assert.notEqual(
+            index,
+            -1,
+            `render-engine.js 缺少引擎源文件 ${entry}，请重跑 pnpm --filter @lumesync/teacher run build:teacher-shell`
+        );
+        assert.ok(
+            index > cursor,
+            `render-engine.js 中 ${entry} 的顺序与引擎源清单不一致，请重跑 pnpm --filter @lumesync/teacher run build:teacher-shell`
+        );
+        cursor = index;
+    }
+
+    // app.tsx 的声明式分支要求这个全局存在，产物缺了它等于新编辑器课件不可用。
+    assert.match(bundle, /global\.LumeSyncDocumentRenderer = Object\.freeze\(/);
 });

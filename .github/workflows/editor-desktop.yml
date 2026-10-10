@@ -1,0 +1,63 @@
+name: Editor desktop builds
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/editor/**"
+      - "packages/component-extensions/**"
+      - "packages/course-format/**"
+      - "packages/course-model/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/editor-desktop.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            platform: mac
+            artifacts: |
+              apps/editor/release/*.dmg
+              apps/editor/release/*.zip
+          - runner: windows-latest
+            platform: win
+            artifacts: apps/editor/release/*.exe
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build desktop installer
+        shell: bash
+        run: |
+          if [[ "${{ matrix.platform }}" == "mac" && -n "$APPLE_API_KEY" ]]; then
+            pnpm run dist:editor:mac:release
+          else
+            pnpm run dist:editor:${{ matrix.platform }}
+          fi
+        env:
+          CSC_LINK: ${{ matrix.platform == 'mac' && secrets.MACOS_CSC_LINK || secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'mac' && secrets.MACOS_CSC_KEY_PASSWORD || secrets.WINDOWS_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumesync-editor-${{ matrix.platform }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
